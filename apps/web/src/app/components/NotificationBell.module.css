@@ -50,7 +50,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  width: 340px;
+  width: min(340px, calc(100vw - 24px));
   max-height: 420px;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 18%, var(--sy-color-border-default));
