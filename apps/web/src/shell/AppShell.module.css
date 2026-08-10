@@ -8,10 +8,11 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: var(--sy-space-6);
+  gap: var(--sy-space-5);
   padding: var(--sy-space-4);
   border-right: 1px solid var(--sy-color-border-default);
-  background: var(--sy-color-bg-surface);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--sy-color-bg-surface) 92%, var(--sy-color-action-primary)), var(--sy-color-bg-surface));
 }
 
 .brand {
@@ -27,6 +28,15 @@
   border-radius: var(--sy-radius-control);
   border: 1px solid var(--sy-color-border-strong);
   background: var(--sy-color-action-primary);
+}
+
+.markImg {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--sy-color-border-default);
+  display: block;
+  background: #111419;
 }
 
 .brandMeta {
@@ -158,7 +168,8 @@
 }
 
 .content {
-  padding: var(--sy-space-5);
+  padding: var(--sy-space-5) var(--sy-space-6);
+  max-width: 1400px;
 }
 
 .banner {

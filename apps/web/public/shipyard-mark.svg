@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Shipyard">
+  <rect width="64" height="64" rx="12" fill="#111419"/>
+  <!-- hull -->
+  <path d="M8 40h40l6 8H10l-2-8z" fill="#315EFB"/>
+  <path d="M10 40h36v-3H12l-2 3z" fill="#244CD8"/>
+  <!-- bridge -->
+  <rect x="38" y="28" width="10" height="9" rx="1.5" fill="#E7EAF0"/>
+  <rect x="40" y="30" width="3" height="3" rx="0.5" fill="#315EFB"/>
+  <rect x="44.5" y="30" width="2" height="3" rx="0.5" fill="#315EFB"/>
+  <!-- containers -->
+  <rect x="12" y="30" width="8" height="7" rx="1" fill="#B86519"/>
+  <rect x="21" y="30" width="8" height="7" rx="1" fill="#315EFB"/>
+  <rect x="30" y="30" width="7" height="7" rx="1" fill="#69A7E8"/>
+  <rect x="14" y="22" width="8" height="7" rx="1" fill="#6E97FF"/>
+  <rect x="23" y="22" width="8" height="7" rx="1" fill="#B86519"/>
+  <!-- water line -->
+  <path d="M6 50c4 2 8 2 12 0s8-2 12 0 8 2 12 0 8-2 12 0" stroke="#3A424D" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+</svg>
