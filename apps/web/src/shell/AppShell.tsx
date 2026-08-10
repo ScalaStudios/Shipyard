@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { IconMenu2 } from "@tabler/icons-react";
 import { NotificationBell } from "../app/components/NotificationBell";
@@ -17,6 +19,10 @@ export function AppShell({
   onLogout: () => void;
 }) {
   const location = useLocation();
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuTop, setMenuTop] = useState(56);
   const { user, orgs, projects, org, project, setOrgID, setProjectID, error, clearError } = useWorkspace();
   const segments = buildPathSegments({
     orgSlug: org?.slug,
@@ -24,9 +30,68 @@ export function AppShell({
     pathname: location.pathname,
   });
 
+  function syncMenuTop() {
+    const bottom = chromeRef.current?.getBoundingClientRect().bottom ?? 56;
+    setMenuTop(Math.round(bottom + 8));
+  }
+
+  useEffect(() => {
+    setMenuOpen(false);
+    if (menuRef.current) menuRef.current.open = false;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    syncMenuTop();
+    function onResize() {
+      syncMenuTop();
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [menuOpen]);
+
+  const menuPortal =
+    menuOpen && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className={styles.menuScrim}
+              aria-label="Close navigation menu"
+              onClick={() => {
+                setMenuOpen(false);
+                if (menuRef.current) menuRef.current.open = false;
+              }}
+            />
+            <div className={styles.menuPanel} role="menu" style={{ top: menuTop }}>
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.id}
+                    to={item.to}
+                    end={item.to === "/"}
+                    role="menuitem"
+                    className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (menuRef.current) menuRef.current.open = false;
+                    }}
+                  >
+                    <Icon size={16} stroke={1.5} />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </>,
+          document.body,
+        )
+      : null;
+
   return (
     <div className={styles.shell}>
-      <div className={styles.chrome}>
+      <div className={styles.chrome} ref={chromeRef}>
         <header className={styles.topbar}>
           <div className={styles.brand}>
             <img className={styles.markImg} src="/shipyard-mark.svg" width={28} height={28} alt="" />
@@ -54,29 +119,21 @@ export function AppShell({
           </div>
 
           <div className={styles.actions}>
-            <details key={location.pathname} className={styles.menu}>
+            <details
+              ref={menuRef}
+              className={styles.menu}
+              onToggle={(event) => {
+                const open = event.currentTarget.open;
+                setMenuOpen(open);
+                if (open) syncMenuTop();
+              }}
+            >
               <summary className={styles.menuSummary} aria-label="Open navigation menu">
                 <IconMenu2 size={16} stroke={1.5} />
                 <span className={styles.menuLabel}>Menu</span>
               </summary>
-              <div className={styles.menuPanel} role="menu">
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.id}
-                      to={item.to}
-                      end={item.to === "/"}
-                      role="menuitem"
-                      className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
-                    >
-                      <Icon size={16} stroke={1.5} />
-                      <span>{item.label}</span>
-                    </NavLink>
-                  );
-                })}
-              </div>
             </details>
+            {menuPortal}
             <NotificationBell />
             <div className={styles.themeToggle}>{themeToggle}</div>
             <div className={styles.account}>
