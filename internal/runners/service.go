@@ -114,11 +114,27 @@ func (s *Service) Register(ctx context.Context, registrationToken, name string, 
 
 	var r Runner
 	err = tx.QueryRow(ctx, `
-		INSERT INTO runners (name, token_hash, token_prefix, labels, capabilities, status, organization_id, last_heartbeat_at)
-		VALUES ($1,$2,$3,$4,$5,'idle',$6,now())
+		UPDATE runners
+		SET token_hash = $2, token_prefix = $3, labels = $4, capabilities = $5,
+			status = 'idle', drained = FALSE, last_heartbeat_at = now()
+		WHERE id = (
+			SELECT id FROM runners
+			WHERE name = $1 AND organization_id IS NOT DISTINCT FROM $6
+			ORDER BY created_at DESC
+			LIMIT 1
+			FOR UPDATE
+		)
 		RETURNING id, name, labels, capabilities, status, last_heartbeat_at, drained, created_at
 	`, name, auth.HashToken(runnerToken), auth.TokenPrefix(runnerToken), labels, capabilities, orgID).
 		Scan(&r.ID, &r.Name, &r.Labels, &r.Capabilities, &r.Status, &r.LastHeartbeatAt, &r.Drained, &r.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `
+			INSERT INTO runners (name, token_hash, token_prefix, labels, capabilities, status, organization_id, last_heartbeat_at)
+			VALUES ($1,$2,$3,$4,$5,'idle',$6,now())
+			RETURNING id, name, labels, capabilities, status, last_heartbeat_at, drained, created_at
+		`, name, auth.HashToken(runnerToken), auth.TokenPrefix(runnerToken), labels, capabilities, orgID).
+			Scan(&r.ID, &r.Name, &r.Labels, &r.Capabilities, &r.Status, &r.LastHeartbeatAt, &r.Drained, &r.CreatedAt)
+	}
 	if err != nil {
 		return Runner{}, "", err
 	}
