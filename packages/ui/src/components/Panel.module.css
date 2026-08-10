@@ -1,8 +1,23 @@
 .panel {
   border: 1px solid var(--sy-color-border-default);
   border-radius: var(--sy-radius-panel);
-  background: var(--sy-color-bg-surface);
+  background-image: var(--sy-gradient-panel);
+  background-color: var(--sy-color-bg-surface);
+  box-shadow: var(--sy-shadow-panel);
   overflow: hidden;
+  transition:
+    transform var(--sy-duration) var(--sy-ease-out),
+    box-shadow var(--sy-duration) var(--sy-ease-out),
+    border-color var(--sy-duration) var(--sy-ease-out);
+}
+
+.panel:hover {
+  border-color: color-mix(in srgb, var(--sy-color-action-primary) 22%, var(--sy-color-border-default));
+  box-shadow: var(--sy-shadow-float);
+}
+
+.panel:focus-within {
+  border-color: color-mix(in srgb, var(--sy-color-action-primary) 28%, var(--sy-color-border-default));
 }
 
 .head {
@@ -10,10 +25,11 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sy-space-3);
-  min-height: 40px;
+  min-height: 44px;
   padding: var(--sy-space-2) var(--sy-space-4);
   border-bottom: 1px solid var(--sy-color-border-default);
-  background: var(--sy-color-bg-subtle);
+  background: color-mix(in srgb, var(--sy-color-bg-subtle) 80%, transparent);
+  backdrop-filter: blur(8px);
 }
 
 .headMain {
@@ -28,6 +44,7 @@
   font-size: 13px;
   line-height: 20px;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .actions {

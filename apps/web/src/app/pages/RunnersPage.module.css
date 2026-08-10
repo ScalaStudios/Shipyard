@@ -39,9 +39,10 @@
 .code {
   margin: 0;
   padding: var(--sy-space-3) var(--sy-space-4);
-  border: 1px solid var(--sy-color-border-default);
+  border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 28%, var(--sy-color-border-default));
   border-radius: var(--sy-radius-control);
-  background: #0f1216;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #315efb 10%, #0f1216), #0f1216);
   color: #d7dde6;
   font-family: var(--sy-font-mono);
   font-size: 12px;
@@ -49,4 +50,5 @@
   white-space: pre-wrap;
   word-break: break-all;
   overflow: auto;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }

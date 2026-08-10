@@ -6,11 +6,12 @@
   padding: 0 var(--sy-space-2);
   border-radius: 999px;
   border: 1px solid var(--sy-color-border-default);
-  background: var(--sy-color-bg-subtle);
+  background: color-mix(in srgb, var(--sy-color-bg-subtle) 70%, transparent);
   color: var(--sy-color-text-primary);
   font-size: 12px;
   line-height: 16px;
   font-weight: 500;
+  backdrop-filter: blur(6px);
 }
 
 .dot {
@@ -18,18 +19,24 @@
   height: 6px;
   border-radius: 50%;
   background: var(--sy-color-text-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .success {
-  border-color: color-mix(in srgb, var(--sy-color-status-success) 35%, var(--sy-color-border-default));
+  border-color: color-mix(in srgb, var(--sy-color-status-success) 40%, var(--sy-color-border-default));
+  background: color-mix(in srgb, var(--sy-color-status-success) 10%, var(--sy-color-bg-surface));
+  color: var(--sy-color-status-success);
 }
 
 .success .dot {
   background: var(--sy-color-status-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sy-color-status-success) 18%, transparent);
 }
 
 .warning {
-  border-color: color-mix(in srgb, var(--sy-color-status-warning) 35%, var(--sy-color-border-default));
+  border-color: color-mix(in srgb, var(--sy-color-status-warning) 40%, var(--sy-color-border-default));
+  background: color-mix(in srgb, var(--sy-color-status-warning) 10%, var(--sy-color-bg-surface));
+  color: var(--sy-color-status-warning);
 }
 
 .warning .dot {
@@ -37,15 +44,20 @@
 }
 
 .danger {
-  border-color: color-mix(in srgb, var(--sy-color-status-danger) 35%, var(--sy-color-border-default));
+  border-color: color-mix(in srgb, var(--sy-color-status-danger) 40%, var(--sy-color-border-default));
+  background: color-mix(in srgb, var(--sy-color-status-danger) 10%, var(--sy-color-bg-surface));
+  color: var(--sy-color-status-danger);
 }
 
 .danger .dot {
   background: var(--sy-color-status-danger);
+  animation: sy-dot-pulse 1.6s ease-in-out infinite;
 }
 
 .info {
-  border-color: color-mix(in srgb, var(--sy-color-status-info) 35%, var(--sy-color-border-default));
+  border-color: color-mix(in srgb, var(--sy-color-status-info) 40%, var(--sy-color-border-default));
+  background: color-mix(in srgb, var(--sy-color-status-info) 10%, var(--sy-color-bg-surface));
+  color: var(--sy-color-status-info);
 }
 
 .info .dot {
@@ -54,4 +66,14 @@
 
 .neutral .dot {
   background: var(--sy-color-text-muted);
+}
+
+@keyframes sy-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sy-color-status-danger) 16%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--sy-color-status-danger) 8%, transparent);
+  }
 }
