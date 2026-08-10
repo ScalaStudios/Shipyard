@@ -38,11 +38,18 @@ export function WorkspaceProvider({ user, children }: { user: User; children: Re
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const org = useMemo(() => orgs.find((o) => o.id === orgID) ?? orgs[0] ?? null, [orgs, orgID]);
-  const project = useMemo(
-    () => projects.find((p) => p.id === projectID) ?? projects[0] ?? null,
-    [projects, projectID],
-  );
+  const org = useMemo(() => {
+    if (orgID) {
+      const match = orgs.find((o) => o.id === orgID);
+      if (match) return match;
+    }
+    return orgs[0] ?? null;
+  }, [orgs, orgID]);
+
+  const project = useMemo(() => {
+    if (!projectID) return null;
+    return projects.find((p) => p.id === projectID) ?? null;
+  }, [projects, projectID]);
 
   const refreshOrgs = useCallback(async () => {
     const res = await api.listOrgs();
@@ -71,8 +78,18 @@ export function WorkspaceProvider({ user, children }: { user: User; children: Re
       return;
     }
     localStorage.setItem(ORG_KEY, org.id);
+    if (orgID !== org.id) setOrgIDState(org.id);
     void refreshProjects().catch((err) => setError(err instanceof Error ? err.message : "failed to load projects"));
-  }, [org, refreshProjects]);
+  }, [org, orgID, refreshProjects]);
+
+  useEffect(() => {
+    if (!projectID) return;
+    if (projects.length === 0) return;
+    if (!projects.some((p) => p.id === projectID)) {
+      setProjectIDState("");
+      localStorage.removeItem(PROJECT_KEY);
+    }
+  }, [projects, projectID]);
 
   useEffect(() => {
     if (project) localStorage.setItem(PROJECT_KEY, project.id);
@@ -87,7 +104,8 @@ export function WorkspaceProvider({ user, children }: { user: User; children: Re
 
   const setProjectID = useCallback((id: string) => {
     setProjectIDState(id);
-    localStorage.setItem(PROJECT_KEY, id);
+    if (id) localStorage.setItem(PROJECT_KEY, id);
+    else localStorage.removeItem(PROJECT_KEY);
   }, []);
 
   const value = useMemo<WorkspaceContextValue>(

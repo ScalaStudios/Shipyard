@@ -5,6 +5,15 @@ export type PathSegment = {
   to?: string;
 };
 
+const PROJECT_PATH_SECTIONS = new Set([
+  "overview",
+  "pipelines",
+  "artifacts",
+  "registry",
+  "releases",
+  "deployments",
+]);
+
 export function sectionFromPath(pathname: string): NavItem {
   const ranked = [...NAV_ITEMS].sort((a, b) => b.to.length - a.to.length);
   for (const item of ranked) {
@@ -36,13 +45,16 @@ export function buildPathSegments({
     to: orgSlug ? "/projects" : undefined,
   });
   segments.push({
-    label: projectSlug || "project",
-    to: projectSlug ? "/" : undefined,
-  });
-  segments.push({
     label: section.id,
     to: section.to,
   });
+
+  if (projectSlug && PROJECT_PATH_SECTIONS.has(section.id)) {
+    segments.push({
+      label: projectSlug,
+      to: "/",
+    });
+  }
 
   const runMatch = pathname.match(/^\/pipelines\/runs\/([^/]+)/);
   if (runMatch) {
@@ -56,3 +68,4 @@ export function buildPathSegments({
 
   return segments;
 }
+
