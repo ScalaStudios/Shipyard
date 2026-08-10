@@ -26,11 +26,12 @@ type Runner struct {
 }
 
 type LeaseJob struct {
-	ID           string   `json:"id"`
-	RunID        string   `json:"run_id"`
-	Name         string   `json:"name"`
-	RunnerLabels []string `json:"runner_labels"`
-	LeaseID      string   `json:"lease_id"`
+	ID           string            `json:"id"`
+	RunID        string            `json:"run_id"`
+	Name         string            `json:"name"`
+	RunnerLabels []string          `json:"runner_labels"`
+	LeaseID      string            `json:"lease_id"`
+	Secrets      map[string]string `json:"secrets,omitempty"`
 }
 
 type Step struct {

@@ -47,6 +47,20 @@ func (s *Server) handleRunnerLease(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+	if s.secrets != nil {
+		var orgID, projectID string
+		err := s.pool.QueryRow(r.Context(), `
+			SELECT organization_id, project_id FROM pipeline_runs WHERE id = $1
+		`, job.RunID).Scan(&orgID, &projectID)
+		if err == nil {
+			if named, err := s.secrets.NamedValuesForScope(r.Context(), orgID, projectID); err == nil && len(named) > 0 {
+				job.Secrets = map[string]string{}
+				for name, value := range named {
+					job.Secrets[secrets.EnvName(name)] = value
+				}
+			}
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"job": job})
 }
 

@@ -78,6 +78,14 @@ export const api = {
   jobLogs: (orgID: string, projectID: string, jobID: string) =>
     request<{ logs: LogLine[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/jobs/${jobID}/logs`),
   listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
+  listArtifacts: (orgID: string, projectID: string) =>
+    request<{ artifacts: Artifact[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/artifacts`),
+  listPackages: (orgID: string, projectID: string) =>
+    request<{ repositories: PackageRepo[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/packages`),
+  listReleases: (orgID: string, projectID: string) =>
+    request<{ releases: Release[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/releases`),
+  listOCI: (orgID: string, projectID: string) =>
+    request<{ repositories: OCIRepo[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/oci`),
 };
 
 export type Pipeline = {
@@ -116,4 +124,28 @@ export type Runner = {
   name: string;
   status: string;
   labels: string[];
+};
+
+export type Artifact = {
+  id: string;
+  name: string;
+  digest: string;
+  size_bytes: number;
+};
+
+export type PackageRepo = {
+  id: string;
+  name: string;
+  format: string;
+};
+
+export type Release = {
+  id: string;
+  version: string;
+  title: string;
+};
+
+export type OCIRepo = {
+  id: string;
+  name: string;
 };
