@@ -9,6 +9,8 @@ import { NAV_ITEMS } from "./nav";
 import { buildPathSegments } from "./path";
 import styles from "./AppShell.module.css";
 
+const MENU_BREAKPOINT = 960;
+
 export function AppShell({
   children,
   themeToggle,
@@ -20,7 +22,6 @@ export function AppShell({
 }) {
   const location = useLocation();
   const chromeRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDetailsElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuTop, setMenuTop] = useState(56);
   const { user, orgs, projects, org, project, setOrgID, setProjectID, error, clearError } = useWorkspace();
@@ -35,34 +36,40 @@ export function AppShell({
     setMenuTop(Math.round(bottom + 8));
   }
 
-  useEffect(() => {
+  function closeMenu() {
     setMenuOpen(false);
-    if (menuRef.current) menuRef.current.open = false;
+  }
+
+  function openMenu() {
+    syncMenuTop();
+    setMenuOpen(true);
+  }
+
+  useEffect(() => {
+    closeMenu();
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    syncMenuTop();
     function onResize() {
-      syncMenuTop();
+      if (window.innerWidth > MENU_BREAKPOINT) closeMenu();
+      else if (menuOpen) syncMenuTop();
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") closeMenu();
     }
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [menuOpen]);
 
   const menuPortal =
     menuOpen && typeof document !== "undefined"
       ? createPortal(
           <>
-            <button
-              type="button"
-              className={styles.menuScrim}
-              aria-label="Close navigation menu"
-              onClick={() => {
-                setMenuOpen(false);
-                if (menuRef.current) menuRef.current.open = false;
-              }}
-            />
+            <button type="button" className={styles.menuScrim} aria-label="Close navigation menu" onClick={closeMenu} />
             <div className={styles.menuPanel} role="menu" style={{ top: menuTop }}>
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -73,10 +80,7 @@ export function AppShell({
                     end={item.to === "/"}
                     role="menuitem"
                     className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      if (menuRef.current) menuRef.current.open = false;
-                    }}
+                    onClick={closeMenu}
                   >
                     <Icon size={16} stroke={1.5} />
                     <span>{item.label}</span>
@@ -119,20 +123,17 @@ export function AppShell({
           </div>
 
           <div className={styles.actions}>
-            <details
-              ref={menuRef}
-              className={styles.menu}
-              onToggle={(event) => {
-                const open = event.currentTarget.open;
-                setMenuOpen(open);
-                if (open) syncMenuTop();
-              }}
+            <button
+              type="button"
+              className={styles.menuButton}
+              aria-label="Open navigation menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              onClick={() => (menuOpen ? closeMenu() : openMenu())}
             >
-              <summary className={styles.menuSummary} aria-label="Open navigation menu">
-                <IconMenu2 size={16} stroke={1.5} />
-                <span className={styles.menuLabel}>Menu</span>
-              </summary>
-            </details>
+              <IconMenu2 size={16} stroke={1.5} />
+              <span className={styles.menuLabel}>Menu</span>
+            </button>
             {menuPortal}
             <NotificationBell />
             <div className={styles.themeToggle}>{themeToggle}</div>
@@ -163,38 +164,43 @@ export function AppShell({
           </nav>
 
           <div className={styles.context}>
-            <label className={styles.contextLabel}>
-              <span className={styles.srOnly}>Organization</span>
-              <select
-                className={styles.select}
-                value={org?.id ?? ""}
-                onChange={(e) => setOrgID(e.target.value)}
-                disabled={orgs.length === 0}
-              >
-                {orgs.length === 0 ? <option value="">No organizations</option> : null}
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.contextLabel}>
-              <span className={styles.srOnly}>Project</span>
-              <select
-                className={styles.select}
-                value={project?.id ?? ""}
-                onChange={(e) => setProjectID(e.target.value)}
-                disabled={!org || projects.length === 0}
-              >
-                {!org || projects.length === 0 ? <option value="">No projects</option> : null}
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {orgs.length === 0 ? (
+              <Link className={styles.contextCta} to="/projects">
+                Create organization
+              </Link>
+            ) : (
+              <label className={styles.contextLabel}>
+                <span className={styles.srOnly}>Organization</span>
+                <select className={styles.select} value={org?.id ?? ""} onChange={(e) => setOrgID(e.target.value)}>
+                  {orgs.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {orgs.length > 0 && projects.length === 0 ? (
+              <Link className={styles.contextCta} to="/projects">
+                Create project
+              </Link>
+            ) : null}
+            {projects.length > 0 ? (
+              <label className={styles.contextLabel}>
+                <span className={styles.srOnly}>Project</span>
+                <select
+                  className={styles.select}
+                  value={project?.id ?? ""}
+                  onChange={(e) => setProjectID(e.target.value)}
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
         </div>
       </div>
