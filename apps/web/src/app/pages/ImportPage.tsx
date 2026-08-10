@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
@@ -23,11 +23,12 @@ type Step = "credential" | "org" | "repos" | "progress";
 
 export function ImportPage() {
   const navigate = useNavigate();
-  const { org, setError, refreshProjects } = useWorkspace();
+  const { org, user, setError, refreshProjects } = useWorkspace();
   const [step, setStep] = useState<Step>("credential");
   const [providers, setProviders] = useState<SCMProvider[]>([]);
   const [oauthProviders, setOauthProviders] = useState<ForgeOAuthProvider[]>([]);
   const [githubApp, setGithubApp] = useState<GitHubAppStatus | null>(null);
+  const [pendingInstall, setPendingInstall] = useState("");
   const [credentials, setCredentials] = useState<ForgeCredential[]>([]);
   const [credentialID, setCredentialID] = useState("");
   const [provider, setProvider] = useState("forgejo");
@@ -80,7 +81,9 @@ export function ImportPage() {
     const params = new URLSearchParams(window.location.search);
     const connected = params.get("credential_id");
     const failed = params.get("error");
-    if (!connected && !failed) return;
+    const pending = params.get("github_installation");
+    if (pending) setPendingInstall(pending);
+    if (!connected && !failed && !pending) return;
     window.history.replaceState({}, "", window.location.pathname);
     if (failed) {
       setError(failed);
@@ -227,8 +230,15 @@ export function ImportPage() {
 
       {!org ? (
         <EmptyState
-          title="Select an organization"
-          description="Create or select an organization under Projects, then return here to import."
+          title="No organization yet"
+          description={`Signed in as ${user?.username ?? "unknown"}. Importing needs an organization to put the projects in.`}
+          action={
+            <Link to="/projects">
+              <Button type="button" variant="primary">
+                Create an organization
+              </Button>
+            </Link>
+          }
         />
       ) : (
         <>
@@ -273,6 +283,35 @@ export function ImportPage() {
                   <Button type="button" variant="primary" loading={busy} onClick={() => void loadRemoteOrgs()}>
                     Use credential
                   </Button>
+                </div>
+              ) : null}
+
+              {pendingInstall && org ? (
+                <div className={styles.connectRow}>
+                  <span className={table.muted}>
+                    GitHub installation {pendingInstall} is ready to link to {org.slug}
+                  </span>
+                  <div className={styles.connectButtons}>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      loading={busy}
+                      onClick={() => {
+                        setBusy(true);
+                        void api
+                          .linkGitHubAppInstall(org.id, pendingInstall)
+                          .then(async (res) => {
+                            setPendingInstall("");
+                            setCredentialID(res.credential.id);
+                            await loadCredentials();
+                          })
+                          .catch((err) => setError(err instanceof Error ? err.message : "failed to link installation"))
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      Link installation
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 

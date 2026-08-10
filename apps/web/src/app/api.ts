@@ -361,6 +361,11 @@ export const api = {
   onboarding: () => request<OnboardingStatus>("/api/v1/onboarding"),
   githubAppStatus: () => request<GitHubAppStatus>("/api/v1/forge/github-app"),
   githubAppInstallURL: (orgID: string) => `/api/v1/orgs/${orgID}/forge/github-app/install`,
+  linkGitHubAppInstall: (orgID: string, installationID: string) =>
+    request<{ credential: ForgeCredential }>(`/api/v1/orgs/${orgID}/forge/github-app/link`, {
+      method: "POST",
+      body: JSON.stringify({ installation_id: installationID }),
+    }),
   listInstanceSettings: () => request<{ settings: InstanceSetting[] }>("/api/v1/settings/instance"),
   setInstanceSetting: (payload: { key: string; value: string; is_secret?: boolean }) =>
     request<{ status: string }>("/api/v1/settings/instance", { method: "PUT", body: JSON.stringify(payload) }),
