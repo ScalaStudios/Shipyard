@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.pem
 *.key
 credentials.json
