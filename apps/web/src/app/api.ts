@@ -357,6 +357,8 @@ export const api = {
     request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
 
   onboarding: () => request<OnboardingStatus>("/api/v1/onboarding"),
+  githubAppStatus: () => request<GitHubAppStatus>("/api/v1/forge/github-app"),
+  githubAppInstallURL: (orgID: string) => `/api/v1/orgs/${orgID}/forge/github-app/install`,
   listInstanceSettings: () => request<{ settings: InstanceSetting[] }>("/api/v1/settings/instance"),
   setInstanceSetting: (payload: { key: string; value: string; is_secret?: boolean }) =>
     request<{ status: string }>("/api/v1/settings/instance", { method: "PUT", body: JSON.stringify(payload) }),
@@ -496,6 +498,14 @@ export type OnboardingStatus = {
   remaining: number;
   complete: boolean;
   is_admin: boolean;
+};
+
+export type GitHubAppStatus = {
+  configured: boolean;
+  slug: string;
+  app_id: string;
+  has_key: boolean;
+  callback_url: string;
 };
 
 export type InstanceSetting = {

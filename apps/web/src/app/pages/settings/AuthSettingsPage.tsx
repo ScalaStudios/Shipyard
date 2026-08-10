@@ -4,7 +4,7 @@ import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
 import { PageHeader } from "../../components/PageHeader";
 import { useWorkspace } from "../../context/WorkspaceContext";
-import { api, AuthProvider, InstanceUser } from "../../api";
+import { api, AuthProvider, GitHubAppStatus, InstanceUser } from "../../api";
 
 const KINDS = ["github", "gitlab", "forgejo", "gitea", "entra", "discord", "oidc"];
 
@@ -187,6 +187,86 @@ function ProviderSection({ purpose }: { purpose: (typeof PURPOSES)[number] }) {
   );
 }
 
+function GitHubAppPanel() {
+  const { setError } = useWorkspace();
+  const [status, setStatus] = useState<GitHubAppStatus | null>(null);
+  const [appID, setAppID] = useState("");
+  const [slug, setSlug] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    const res = await api.githubAppStatus();
+    setStatus(res);
+    setAppID(res.app_id ?? "");
+    setSlug(res.slug ?? "");
+  }
+
+  useEffect(() => {
+    void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load github app"));
+  }, []);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api.setInstanceSetting({ key: "github_app.app_id", value: appID });
+      await api.setInstanceSetting({ key: "github_app.slug", value: slug });
+      if (privateKey.trim()) {
+        await api.setInstanceSetting({ key: "github_app.private_key", value: privateKey, is_secret: true });
+      }
+      setPrivateKey("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to save github app");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel
+      title="GitHub App"
+      meta={
+        <StatusBadge status={status?.configured ? "success" : "neutral"}>
+          {status?.configured ? "configured" : "not set up"}
+        </StatusBadge>
+      }
+    >
+      <p className={table.muted}>
+        A GitHub App gives Shipyard org-wide access without a personal token, and its installation tokens are minted on
+        demand rather than stored. Create the app on GitHub, then paste its App ID, slug and private key here.
+      </p>
+      <form className={table.formRow} onSubmit={save}>
+        <input className={table.input} placeholder="app id" value={appID} onChange={(e) => setAppID(e.target.value)} required />
+        <input
+          className={table.input}
+          placeholder="app slug (from its URL)"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+          required
+        />
+        <input
+          className={table.input}
+          type="password"
+          placeholder={status?.has_key ? "stored — paste a new PEM to replace" : "private key (PEM)"}
+          value={privateKey}
+          onChange={(e) => setPrivateKey(e.target.value)}
+          autoComplete="off"
+        />
+        <Button type="submit" variant="primary" loading={busy}>
+          Save
+        </Button>
+      </form>
+      {status?.callback_url ? (
+        <p className={table.muted}>
+          Set the app's setup URL to <code>{status.callback_url}</code> and enable “Redirect on update”.
+        </p>
+      ) : null}
+    </Panel>
+  );
+}
+
 function AdminsPanel() {
   const { setError } = useWorkspace();
   const [users, setUsers] = useState<InstanceUser[]>([]);
@@ -254,6 +334,7 @@ export function AuthSettingsPage() {
       {PURPOSES.map((purpose) => (
         <ProviderSection key={purpose.id} purpose={purpose} />
       ))}
+      <GitHubAppPanel />
       <AdminsPanel />
     </div>
   );

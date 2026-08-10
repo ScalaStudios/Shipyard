@@ -104,6 +104,7 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		mux:           http.NewServeMux(),
 	}
 	s.secrets = box
+	s.scm.SetInstallationTokenFunc(s.installationToken)
 	s.reloadAuthProviders(context.Background())
 	s.routes()
 	go s.background()
@@ -186,6 +187,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
 	s.mux.HandleFunc("GET /api/v1/forge/oauth/providers", s.requireAuth(s.handleListForgeOAuthProviders))
+	s.mux.HandleFunc("GET /api/v1/forge/github-app", s.requireAuth(s.handleGitHubAppStatus))
+	s.mux.HandleFunc("GET /api/v1/forge/github-app/installations", s.requireAdmin(s.handleGitHubAppInstallations))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/github-app/install", s.requireAuth(s.handleGitHubAppInstall))
+	s.mux.HandleFunc("GET /api/v1/forge/github-app/callback", s.requireAuth(s.handleGitHubAppCallback))
 	s.mux.HandleFunc("GET /api/v1/onboarding", s.requireAuth(s.handleOnboarding))
 	s.mux.HandleFunc("GET /api/v1/settings/instance", s.requireAdmin(s.handleListInstanceSettings))
 	s.mux.HandleFunc("GET /api/v1/settings/admins", s.requireAdmin(s.handleListInstanceAdmins))
