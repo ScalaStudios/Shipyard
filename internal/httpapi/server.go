@@ -134,6 +134,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/oci", s.requireAuth(s.handleListOCIRepos))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/manifests/{tag}", s.requireAuth(s.handlePutOCIManifest))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/tags", s.requireAuth(s.handleListOCITags))
+	s.mux.HandleFunc("POST /api/v1/webhooks/{provider}", s.handleWebhook)
 }
 
 func (s *Server) background() {
