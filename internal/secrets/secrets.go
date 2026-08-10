@@ -93,8 +93,20 @@ func (b *Box) GetValue(ctx context.Context, secretID string) (string, error) {
 }
 
 func (b *Box) ValuesForScope(ctx context.Context, orgID, projectID string) ([]string, error) {
+	named, err := b.NamedValuesForScope(ctx, orgID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(named))
+	for _, v := range named {
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+func (b *Box) NamedValuesForScope(ctx context.Context, orgID, projectID string) (map[string]string, error) {
 	rows, err := b.pool.Query(ctx, `
-		SELECT ciphertext, nonce FROM secrets
+		SELECT name, ciphertext, nonce FROM secrets
 		WHERE organization_id = $1::uuid
 		  AND (project_id IS NULL OR project_id = NULLIF($2,'')::uuid)
 	`, orgID, projectID)
@@ -102,10 +114,11 @@ func (b *Box) ValuesForScope(ctx context.Context, orgID, projectID string) ([]st
 		return nil, err
 	}
 	defer rows.Close()
-	var out []string
+	out := map[string]string{}
 	for rows.Next() {
+		var name string
 		var ct, nonce []byte
-		if err := rows.Scan(&ct, &nonce); err != nil {
+		if err := rows.Scan(&name, &ct, &nonce); err != nil {
 			return nil, err
 		}
 		pt, err := b.gcm.Open(nil, nonce, ct, nil)
@@ -113,7 +126,7 @@ func (b *Box) ValuesForScope(ctx context.Context, orgID, projectID string) ([]st
 			continue
 		}
 		if v := string(pt); v != "" {
-			out = append(out, v)
+			out[name] = v
 		}
 	}
 	return out, rows.Err()
@@ -127,6 +140,26 @@ func MaskLine(line string, secrets []string) string {
 		line = strings.ReplaceAll(line, secret, "***")
 	}
 	return line
+}
+
+func EnvName(secretName string) string {
+	up := strings.ToUpper(strings.TrimSpace(secretName))
+	var b strings.Builder
+	for _, r := range up {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	name := b.String()
+	if name == "" {
+		return "SHIPYARD_SECRET"
+	}
+	if name[0] >= '0' && name[0] <= '9' {
+		return "S_" + name
+	}
+	return name
 }
 
 func scopeOf(orgID, projectID, envID string) string {

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Button, StatusBadge } from "@shipyard/ui";
-import { api, Job, LogLine, Organization, Pipeline, PipelineRun, Project, Runner, User } from "./api";
+import { api, Artifact, Job, LogLine, OCIRepo, Organization, PackageRepo, Pipeline, PipelineRun, Project, Release, Runner, User } from "./api";
 import styles from "./Workspace.module.css";
 
 const defaultYAML = `pipeline:
@@ -32,6 +32,10 @@ export function Workspace({
   const [jobs, setJobs] = useState<Job[]>([]);
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [selectedJobID, setSelectedJobID] = useState<string | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [packages, setPackages] = useState<PackageRepo[]>([]);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [ociRepos, setOciRepos] = useState<OCIRepo[]>([]);
   const [error, setError] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [orgName, setOrgName] = useState("");
@@ -78,15 +82,27 @@ export function Workspace({
       setSelectedRun(null);
       setJobs([]);
       setLogs([]);
+      setArtifacts([]);
+      setPackages([]);
+      setReleases([]);
+      setOciRepos([]);
       return;
     }
     void Promise.all([
       api.listPipelines(selectedOrg.id, selectedProject.id),
       api.listRuns(selectedOrg.id, selectedProject.id),
+      api.listArtifacts(selectedOrg.id, selectedProject.id),
+      api.listPackages(selectedOrg.id, selectedProject.id),
+      api.listReleases(selectedOrg.id, selectedProject.id),
+      api.listOCI(selectedOrg.id, selectedProject.id),
     ])
-      .then(([p, r]) => {
+      .then(([p, r, a, pkgs, rel, oci]) => {
         setPipelines(p.pipelines);
         setRuns(r.runs);
+        setArtifacts(a.artifacts ?? []);
+        setPackages(pkgs.repositories ?? []);
+        setReleases(rel.releases ?? []);
+        setOciRepos(oci.repositories ?? []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "failed to load pipelines"));
   }, [selectedOrg?.id, selectedProject?.id]);
@@ -375,6 +391,64 @@ export function Workspace({
               </pre>
             </div>
           ) : null}
+        </div>
+
+        <div className={`${styles.panel} ${styles.wide}`}>
+          <div className={styles.panelHead}>
+            <h2>Delivery</h2>
+            <StatusBadge status="info">
+              {artifacts.length} artifacts · {packages.length} pkgs · {ociRepos.length} oci · {releases.length} releases
+            </StatusBadge>
+          </div>
+          <div className={styles.deliveryGrid}>
+            <div>
+              <h3 className={styles.subhead}>Artifacts</h3>
+              <ul className={styles.list}>
+                {artifacts.map((a) => (
+                  <li key={a.id} className={styles.metaRow}>
+                    <strong>{a.name}</strong>
+                    <span className={styles.meta}>{a.digest.slice(0, 19)}…</span>
+                  </li>
+                ))}
+                {selectedProject && artifacts.length === 0 ? <li className={styles.empty}>None yet.</li> : null}
+              </ul>
+            </div>
+            <div>
+              <h3 className={styles.subhead}>Packages</h3>
+              <ul className={styles.list}>
+                {packages.map((p) => (
+                  <li key={p.id} className={styles.metaRow}>
+                    <strong>{p.name}</strong>
+                    <span className={styles.meta}>{p.format}</span>
+                  </li>
+                ))}
+                {selectedProject && packages.length === 0 ? <li className={styles.empty}>None yet.</li> : null}
+              </ul>
+            </div>
+            <div>
+              <h3 className={styles.subhead}>OCI</h3>
+              <ul className={styles.list}>
+                {ociRepos.map((r) => (
+                  <li key={r.id} className={styles.metaRow}>
+                    <strong>{r.name}</strong>
+                  </li>
+                ))}
+                {selectedProject && ociRepos.length === 0 ? <li className={styles.empty}>None yet.</li> : null}
+              </ul>
+            </div>
+            <div>
+              <h3 className={styles.subhead}>Releases</h3>
+              <ul className={styles.list}>
+                {releases.map((r) => (
+                  <li key={r.id} className={styles.metaRow}>
+                    <strong>{r.version}</strong>
+                    <span className={styles.meta}>{r.title}</span>
+                  </li>
+                ))}
+                {selectedProject && releases.length === 0 ? <li className={styles.empty}>None yet.</li> : null}
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
     </div>

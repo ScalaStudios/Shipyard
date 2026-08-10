@@ -165,6 +165,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /repository/maven/{org}/{project}/{repo}/{path...}", s.handleMavenGet)
 
 	s.mux.HandleFunc("GET /v2/", s.handleOCIAPIVersion)
+	s.mux.HandleFunc("GET /auth/token", s.handleRegistryToken)
+	s.mux.HandleFunc("POST /auth/token", s.handleRegistryToken)
 	s.mux.HandleFunc("HEAD /v2/{name...}/blobs/{digest}", s.requireRegistryAuth(s.handleOCIBlobExists))
 	s.mux.HandleFunc("GET /v2/{name...}/blobs/{digest}", s.requireRegistryAuth(s.handleOCIBlobGet))
 	s.mux.HandleFunc("POST /v2/{name...}/blobs/uploads/", s.requireRegistryAuth(s.handleOCIBlobUploadStart))

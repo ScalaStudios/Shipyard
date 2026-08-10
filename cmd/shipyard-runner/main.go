@@ -72,9 +72,10 @@ func main() {
 }
 
 type leaseJobResp struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	LeaseID string `json:"lease_id"`
+	ID      string            `json:"id"`
+	Name    string            `json:"name"`
+	LeaseID string            `json:"lease_id"`
+	Secrets map[string]string `json:"secrets"`
 }
 
 func leaseJob(client *http.Client, serverURL, token string) (leaseJobResp, bool) {
@@ -104,7 +105,7 @@ func runJob(client *http.Client, serverURL, token string, job leaseJobResp) {
 	failed := false
 	for _, step := range steps {
 		_ = postJSON(client, serverURL+"/api/v1/runner/steps/"+step.ID+"/status", token, map[string]any{"status": "running"})
-		code, err := execStep(client, serverURL, token, job.ID, step)
+		code, err := execStep(client, serverURL, token, job.ID, job.Secrets, step)
 		status := "succeeded"
 		if err != nil || code != 0 {
 			status = "failed"
@@ -147,7 +148,7 @@ func fetchSteps(client *http.Client, serverURL, token, jobID string) []step {
 	return wrap.Steps
 }
 
-func execStep(client *http.Client, serverURL, token, jobID string, st step) (int, error) {
+func execStep(client *http.Client, serverURL, token, jobID string, secrets map[string]string, st step) (int, error) {
 	if st.Run == "" && strings.HasPrefix(st.Uses, "shipyard/build-image") {
 		return execBuildImage(client, serverURL, token, jobID, st)
 	}
@@ -156,6 +157,10 @@ func execStep(client *http.Client, serverURL, token, jobID string, st step) (int
 		script = "echo uses=" + st.Uses
 	}
 	cmd := exec.Command("bash", "-lc", script)
+	cmd.Env = os.Environ()
+	for k, v := range secrets {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 	if err := cmd.Start(); err != nil {
