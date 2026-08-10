@@ -84,7 +84,7 @@ func (s *Server) handleForgeOAuthCallback(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) redirectImport(w http.ResponseWriter, r *http.Request, credentialID, errMsg string) {
-	target := strings.TrimRight(s.opts.PublicURL, "/") + "/projects/import"
+	target := s.publicURL(r.Context()) + "/projects/import"
 	q := url.Values{}
 	if credentialID != "" {
 		q.Set("credential_id", credentialID)

@@ -19,6 +19,15 @@ const (
 	PurposeForge = "forge"
 )
 
+const (
+	KeyPublicURL     = "public_url"
+	KeyAPIURL        = "api_url"
+	KeyAllowRegister = "allow_register"
+	KeyWebhookSecret = "webhook_secret"
+)
+
+var SecretKeys = map[string]bool{KeyWebhookSecret: true}
+
 type Provider struct {
 	ID           string    `json:"id"`
 	Purpose      string    `json:"purpose"`
@@ -38,6 +47,7 @@ type Setting struct {
 	Key       string    `json:"key"`
 	Value     string    `json:"value"`
 	IsSecret  bool      `json:"is_secret"`
+	HasValue  bool      `json:"has_value"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -48,10 +58,91 @@ type Service struct {
 	mu        sync.RWMutex
 	version   time.Time
 	byPurpose map[string][]oidc.ProviderConfig
+
+	valueMu      sync.RWMutex
+	valueVersion time.Time
+	values       map[string]string
+	valuesLoaded bool
 }
 
 func New(pool *pgxpool.Pool, box *secrets.Box) *Service {
 	return &Service{pool: pool, secrets: box, byPurpose: map[string][]oidc.ProviderConfig{}}
+}
+
+func (s *Service) Values(ctx context.Context) map[string]string {
+	stamp := s.tableVersion(ctx, "instance_settings")
+	s.valueMu.RLock()
+	if s.valuesLoaded && stamp.Equal(s.valueVersion) {
+		cached := s.values
+		s.valueMu.RUnlock()
+		return cached
+	}
+	s.valueMu.RUnlock()
+
+	loaded, err := s.loadValues(ctx)
+	if err != nil {
+		s.valueMu.RLock()
+		defer s.valueMu.RUnlock()
+		return s.values
+	}
+	s.valueMu.Lock()
+	s.values = loaded
+	s.valueVersion = stamp
+	s.valuesLoaded = true
+	s.valueMu.Unlock()
+	return loaded
+}
+
+func (s *Service) GetOr(ctx context.Context, key, fallback string) string {
+	if v, ok := s.Values(ctx)[key]; ok && v != "" {
+		return v
+	}
+	return fallback
+}
+
+func (s *Service) BoolOr(ctx context.Context, key string, fallback bool) bool {
+	v, ok := s.Values(ctx)[key]
+	if !ok || v == "" {
+		return fallback
+	}
+	return v == "true" || v == "1" || v == "yes"
+}
+
+func (s *Service) loadValues(ctx context.Context) (map[string]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT key, value, is_secret FROM instance_settings`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var key, value string
+		var isSecret bool
+		if err := rows.Scan(&key, &value, &isSecret); err != nil {
+			return nil, err
+		}
+		if isSecret {
+			plain, err := s.secrets.OpenString(value)
+			if err != nil {
+				return nil, fmt.Errorf("decrypt setting %s: %w", key, err)
+			}
+			value = plain
+		}
+		out[key] = value
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) tableVersion(ctx context.Context, table string) time.Time {
+	var stamp *time.Time
+	query := "SELECT max(updated_at) FROM instance_settings"
+	if table == "auth_providers" {
+		query = "SELECT max(updated_at) FROM auth_providers"
+	}
+	if err := s.pool.QueryRow(ctx, query).Scan(&stamp); err != nil || stamp == nil {
+		return time.Time{}
+	}
+	return *stamp
 }
 
 func (s *Service) Get(ctx context.Context, key string) (string, error) {
@@ -68,7 +159,7 @@ func (s *Service) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (s *Service) List(ctx context.Context) ([]Setting, error) {
-	rows, err := s.pool.Query(ctx, `SELECT key, value, is_secret, updated_at FROM instance_settings ORDER BY key`)
+	rows, err := s.pool.Query(ctx, `SELECT key, value, is_secret, value <> '', updated_at FROM instance_settings ORDER BY key`)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +167,7 @@ func (s *Service) List(ctx context.Context) ([]Setting, error) {
 	out := []Setting{}
 	for rows.Next() {
 		var item Setting
-		if err := rows.Scan(&item.Key, &item.Value, &item.IsSecret, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.Key, &item.Value, &item.IsSecret, &item.HasValue, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if item.IsSecret {
@@ -107,6 +198,11 @@ func (s *Service) Set(ctx context.Context, key, value string, isSecret bool, act
 		SET value = EXCLUDED.value, is_secret = EXCLUDED.is_secret,
 		    updated_by = EXCLUDED.updated_by, updated_at = now()
 	`, key, stored, isSecret, actorID)
+	if err == nil {
+		s.valueMu.Lock()
+		s.valuesLoaded = false
+		s.valueMu.Unlock()
+	}
 	return err
 }
 
@@ -253,11 +349,7 @@ func (s *Service) loadConfigs(ctx context.Context, purpose string) ([]oidc.Provi
 }
 
 func (s *Service) remoteVersion(ctx context.Context) time.Time {
-	var stamp *time.Time
-	if err := s.pool.QueryRow(ctx, `SELECT max(updated_at) FROM auth_providers`).Scan(&stamp); err != nil || stamp == nil {
-		return time.Time{}
-	}
-	return *stamp
+	return s.tableVersion(ctx, "auth_providers")
 }
 
 func (s *Service) invalidate() {

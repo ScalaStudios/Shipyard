@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -35,6 +36,7 @@ type Integration struct {
 }
 
 type Service struct {
+	mu        sync.RWMutex
 	pool      *pgxpool.Pool
 	publicURL string
 	client    *http.Client
@@ -48,6 +50,21 @@ func New(pool *pgxpool.Pool, publicURL string, box *secrets.Box) *Service {
 		client:    &http.Client{Timeout: 12 * time.Second},
 		secrets:   box,
 	}
+}
+
+func (s *Service) PublicURL() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.publicURL
+}
+
+func (s *Service) SetPublicURL(url string) {
+	if url == "" {
+		return
+	}
+	s.mu.Lock()
+	s.publicURL = strings.TrimRight(url, "/")
+	s.mu.Unlock()
 }
 
 type CreateInput struct {
@@ -200,9 +217,9 @@ func (s *Service) Notify(ctx context.Context, orgID, projectID string, ev Event)
 
 func (s *Service) send(ctx context.Context, integ Integration, ev Event) error {
 	payload := map[string]any{
-		"username": "Shipyard",
+		"username":   "Shipyard",
 		"avatar_url": "",
-		"embeds": []map[string]any{s.embed(ev)},
+		"embeds":     []map[string]any{s.embed(ev)},
 	}
 	raw, _ := json.Marshal(payload)
 	switch integ.Mode {
@@ -261,7 +278,7 @@ func (s *Service) embed(ev Event) map[string]any {
 	}
 	url := ev.Href
 	if url != "" && strings.HasPrefix(url, "/") {
-		url = s.publicURL + url
+		url = s.PublicURL() + url
 	}
 	fields := []map[string]any{}
 	if ev.Number > 0 {

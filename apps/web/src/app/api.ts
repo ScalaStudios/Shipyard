@@ -356,6 +356,10 @@ export const api = {
   listWebhookDeliveries: (orgID: string, projectID: string) =>
     request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
 
+  onboarding: () => request<OnboardingStatus>("/api/v1/onboarding"),
+  listInstanceSettings: () => request<{ settings: InstanceSetting[] }>("/api/v1/settings/instance"),
+  setInstanceSetting: (payload: { key: string; value: string; is_secret?: boolean }) =>
+    request<{ status: string }>("/api/v1/settings/instance", { method: "PUT", body: JSON.stringify(payload) }),
   listAuthProviders: (purpose: "login" | "forge") =>
     request<{ providers: AuthProvider[]; callback_base: string }>(
       `/api/v1/settings/auth-providers?purpose=${purpose}`,
@@ -475,6 +479,31 @@ export type SCMConnection = {
   has_token: boolean;
   has_webhook_secret: boolean;
   created_at: string;
+};
+
+export type OnboardingStep = {
+  id: string;
+  title: string;
+  detail: string;
+  done: boolean;
+  optional: boolean;
+  href: string;
+  action: string;
+};
+
+export type OnboardingStatus = {
+  steps: OnboardingStep[];
+  remaining: number;
+  complete: boolean;
+  is_admin: boolean;
+};
+
+export type InstanceSetting = {
+  key: string;
+  value: string;
+  is_secret: boolean;
+  has_value: boolean;
+  updated_at: string;
 };
 
 export type AuthProvider = {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/artifacts"
@@ -185,6 +186,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
 	s.mux.HandleFunc("GET /api/v1/forge/oauth/providers", s.requireAuth(s.handleListForgeOAuthProviders))
+	s.mux.HandleFunc("GET /api/v1/onboarding", s.requireAuth(s.handleOnboarding))
 	s.mux.HandleFunc("GET /api/v1/settings/instance", s.requireAdmin(s.handleListInstanceSettings))
 	s.mux.HandleFunc("GET /api/v1/settings/admins", s.requireAdmin(s.handleListInstanceAdmins))
 	s.mux.HandleFunc("PUT /api/v1/settings/admins/{userID}", s.requireAdmin(s.handleSetInstanceAdmin))
@@ -297,4 +299,21 @@ func queryInt64(r *http.Request, key string, fallback int64) int64 {
 func (s *Server) reloadAuthProviders(ctx context.Context) {
 	s.oidc.SetProviders(s.settings.OIDCConfigs(ctx, settings.PurposeLogin))
 	s.forgeOAuth.SetProviders(s.settings.OIDCConfigs(ctx, settings.PurposeForge))
+	s.discord.SetPublicURL(s.publicURL(ctx))
+}
+
+func (s *Server) publicURL(ctx context.Context) string {
+	return strings.TrimRight(s.settings.GetOr(ctx, settings.KeyPublicURL, s.opts.PublicURL), "/")
+}
+
+func (s *Server) apiURL(ctx context.Context) string {
+	return strings.TrimRight(s.settings.GetOr(ctx, settings.KeyAPIURL, s.opts.APIURL), "/")
+}
+
+func (s *Server) allowRegister(ctx context.Context) bool {
+	return s.settings.BoolOr(ctx, settings.KeyAllowRegister, s.opts.AllowRegister)
+}
+
+func (s *Server) webhookSecret(ctx context.Context) string {
+	return s.settings.GetOr(ctx, settings.KeyWebhookSecret, s.opts.WebhookSecret)
 }

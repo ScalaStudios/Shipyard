@@ -18,11 +18,11 @@ type runnerInstallRequest struct {
 }
 
 func (s *Server) apiBaseURL(r *http.Request) string {
-	if u := strings.TrimRight(s.opts.APIURL, "/"); u != "" {
+	if u := s.apiURL(r.Context()); u != "" {
 		return u
 	}
 	// Prefer reverse-proxied public origin when it is not a Vite-only URL.
-	pub := strings.TrimRight(s.opts.PublicURL, "/")
+	pub := s.publicURL(r.Context())
 	if pub != "" && !strings.Contains(pub, ":5173") && !strings.Contains(pub, ":5174") {
 		return pub
 	}
@@ -79,16 +79,16 @@ func (s *Server) handleCreateRunnerInstall(w http.ResponseWriter, r *http.Reques
 	scriptURL := apiURL + "/api/v1/runners/install.sh?" + q.Encode()
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"token":            token,
-		"expires_at":       expires,
-		"api_url":          apiURL,
-		"name":             name,
-		"labels":           labels,
-		"script_url":       scriptURL,
-		"curl_command":     fmt.Sprintf("curl -fsSL %q | bash", scriptURL),
-		"docker_command":   runnerDockerCommand(apiURL, token, name, labels),
-		"manual_env":       runnerManualEnv(apiURL, token, name, labels),
-		"systemd_hint":     "After auto-install, a user systemd unit shipyard-runner.service is enabled when systemctl --user is available.",
+		"token":          token,
+		"expires_at":     expires,
+		"api_url":        apiURL,
+		"name":           name,
+		"labels":         labels,
+		"script_url":     scriptURL,
+		"curl_command":   fmt.Sprintf("curl -fsSL %q | bash", scriptURL),
+		"docker_command": runnerDockerCommand(apiURL, token, name, labels),
+		"manual_env":     runnerManualEnv(apiURL, token, name, labels),
+		"systemd_hint":   "After auto-install, a user systemd unit shipyard-runner.service is enabled when systemctl --user is available.",
 	})
 }
 
