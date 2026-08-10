@@ -1,0 +1,104 @@
+.wrap {
+  position: relative;
+}
+
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  background: var(--sy-color-bg-surface);
+  color: var(--sy-color-text-primary);
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--sy-color-bg-subtle);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--sy-color-status-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 320px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-panel);
+  background: var(--sy-color-bg-surface);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 12%, transparent);
+  z-index: 40;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-2);
+  padding: var(--sy-space-3) var(--sy-space-4);
+  border-bottom: 1px solid var(--sy-color-border-default);
+  font-size: 13px;
+}
+
+.head a {
+  color: var(--sy-color-action-primary);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.empty {
+  padding: var(--sy-space-5);
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sy-space-3) var(--sy-space-4);
+  border-bottom: 1px solid var(--sy-color-border-default);
+  color: inherit;
+  text-decoration: none;
+}
+
+.item:hover {
+  background: var(--sy-color-bg-subtle);
+}
+
+.item strong {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.item span {
+  color: var(--sy-color-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}

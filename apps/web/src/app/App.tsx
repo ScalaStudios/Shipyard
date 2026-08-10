@@ -17,7 +17,13 @@ import { ReleasesPage } from "./pages/ReleasesPage";
 import { DeploymentsPage } from "./pages/DeploymentsPage";
 import { RunnersPage } from "./pages/RunnersPage";
 import { ClusterPage } from "./pages/ClusterPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsLayout } from "./pages/settings/SettingsLayout";
+import { AccountSettingsPage } from "./pages/settings/AccountSettingsPage";
+import { MembersSettingsPage } from "./pages/settings/MembersSettingsPage";
+import { SecretsSettingsPage } from "./pages/settings/SecretsSettingsPage";
+import { IntegrationsSettingsPage } from "./pages/settings/IntegrationsSettingsPage";
+import { WebhooksSettingsPage } from "./pages/settings/WebhooksSettingsPage";
+import { NotificationsSettingsPage } from "./pages/settings/NotificationsSettingsPage";
 
 type Theme = "light" | "dark" | "system";
 type BootState = "loading" | "anon" | "authed" | "offline";
@@ -71,7 +77,14 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Route path="/deployments" element={<DeploymentsPage />} />
           <Route path="/runners" element={<RunnersPage />} />
           <Route path="/cluster" element={<ClusterPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings" element={<SettingsLayout />}>
+            <Route index element={<AccountSettingsPage />} />
+            <Route path="members" element={<MembersSettingsPage />} />
+            <Route path="secrets" element={<SecretsSettingsPage />} />
+            <Route path="integrations" element={<IntegrationsSettingsPage />} />
+            <Route path="webhooks" element={<WebhooksSettingsPage />} />
+            <Route path="notifications" element={<NotificationsSettingsPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>

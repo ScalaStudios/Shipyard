@@ -16,10 +16,12 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/scm"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,6 +33,7 @@ type Options struct {
 	NodeID         string
 	SecretsKey     string
 	WebhookSecret  string
+	PublicURL      string
 	OIDC           []oidc.ProviderConfig
 }
 
@@ -50,6 +53,8 @@ type Server struct {
 	oci            *oci.Distribution
 	secrets        *secrets.Box
 	oidc           *oidc.Service
+	scm            *scm.Service
+	notifications  *notifications.Service
 	opts           Options
 	started        time.Time
 	mux            *http.ServeMux
@@ -73,9 +78,11 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		packages:  packages.New(pool, store),
 		registry:  reg,
 		cluster:   cluster.New(pool, opts.NodeID),
-		oci:       oci.NewDistribution(pool, store, reg),
-		oidc:      oidc.New(opts.OIDC),
-		opts:      opts,
+		oci:           oci.NewDistribution(pool, store, reg),
+		oidc:          oidc.New(opts.OIDC),
+		scm:           scm.New(pool),
+		notifications: notifications.New(pool),
+		opts:          opts,
 		started:   time.Now().UTC(),
 		mux:       http.NewServeMux(),
 	}
@@ -156,6 +163,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/manifests/{tag}", s.requireAuth(s.handlePutOCIManifest))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/tags", s.requireAuth(s.handleListOCITags))
 	s.mux.HandleFunc("POST /api/v1/webhooks/{provider}", s.handleWebhook)
+
+	s.mux.HandleFunc("GET /api/v1/scm/providers", s.requireAuth(s.handleListSCMProviders))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections", s.requireAuth(s.handleListSCMConnections))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections", s.requireAuth(s.handleCreateSCMConnection))
+	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
+	s.mux.HandleFunc("GET /api/v1/notifications", s.requireAuth(s.handleListNotifications))
+	s.mux.HandleFunc("POST /api/v1/notifications/read-all", s.requireAuth(s.handleMarkAllNotificationsRead))
+	s.mux.HandleFunc("POST /api/v1/notifications/{notificationID}/read", s.requireAuth(s.handleMarkNotificationRead))
 
 	s.mux.HandleFunc("GET /api/v1/secrets", s.requireAuth(s.handleListSecrets))
 	s.mux.HandleFunc("POST /api/v1/secrets", s.requireAuth(s.handleCreateSecret))

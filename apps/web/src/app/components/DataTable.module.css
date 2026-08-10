@@ -217,6 +217,9 @@
   color: var(--sy-color-text-muted);
   font-size: 12px;
   line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 500;
 }
 
 .statValue {

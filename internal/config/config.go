@@ -29,6 +29,7 @@ type Config struct {
 	NodeID               string
 	SecretsKey           string
 	WebhookSecret        string
+	PublicURL            string
 	OIDCIssuer           string
 	OIDCClientID         string
 	OIDCClientSecret     string
@@ -57,6 +58,7 @@ func Load() (Config, error) {
 		NodeID:               envOr("SHIPYARD_NODE_ID", ""),
 		SecretsKey:           os.Getenv("SHIPYARD_SECRETS_KEY"),
 		WebhookSecret:        os.Getenv("SHIPYARD_WEBHOOK_SECRET"),
+		PublicURL:            envOr("SHIPYARD_PUBLIC_URL", "http://127.0.0.1:5173"),
 		OIDCIssuer:           os.Getenv("SHIPYARD_OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("SHIPYARD_OIDC_CLIENT_ID"),
 		OIDCClientSecret:     os.Getenv("SHIPYARD_OIDC_CLIENT_SECRET"),

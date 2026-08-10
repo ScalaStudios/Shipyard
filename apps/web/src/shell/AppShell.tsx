@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { NotificationBell } from "../app/components/NotificationBell";
 import { useWorkspace } from "../app/context/WorkspaceContext";
 import { NAV_ITEMS } from "./nav";
 import styles from "./AppShell.module.css";
@@ -40,7 +41,7 @@ export function AppShell({
                 end={item.to === "/"}
                 className={({ isActive }) => (isActive ? styles.navActive : styles.navItem)}
               >
-                <Icon size={16} stroke={1.6} />
+                <Icon size={18} stroke={1.5} />
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -94,6 +95,7 @@ export function AppShell({
             </div>
           </div>
           <div className={styles.actions}>
+            <NotificationBell />
             {themeToggle}
             <div className={styles.account}>
               <span className={styles.accountName}>{user.display_name || user.username}</span>

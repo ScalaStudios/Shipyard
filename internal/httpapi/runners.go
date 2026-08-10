@@ -99,6 +99,7 @@ func (s *Server) handleRunnerCompleteJob(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	_ = s.pipelines.AdvanceRunGraph(r.Context(), runID)
+	go s.maybeNotifyRunFinished(runID)
 	writeJSON(w, http.StatusOK, map[string]any{"status": req.Status})
 }
 
