@@ -3,6 +3,8 @@ import type { Status } from "@shipyard/ui";
 export function runStatus(status: string): Status {
   switch (status) {
     case "succeeded":
+    case "completed":
+    case "created":
     case "online":
     case "ready":
       return "success";
@@ -17,6 +19,7 @@ export function runStatus(status: string): Status {
       return "info";
     case "warning":
     case "drained":
+    case "skipped_exists":
       return "warning";
     default:
       return "neutral";

@@ -186,9 +186,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   });
-  const body = await res.json().catch(() => ({}));
+  const body = await res.json().catch(() => ({} as Record<string, unknown>));
   if (!res.ok) {
-    throw new Error(typeof body.error === "string" ? body.error : `request failed (${res.status})`);
+    const detail =
+      typeof body.error === "string"
+        ? body.error
+        : typeof body.message === "string"
+          ? body.message
+          : `${init?.method ?? "GET"} ${path}`;
+    throw new Error(`${detail} (${res.status})`);
   }
   return body as T;
 }
@@ -349,6 +355,47 @@ export const api = {
     }),
   listWebhookDeliveries: (orgID: string, projectID: string) =>
     request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
+
+  listForgeCredentials: (orgID: string) =>
+    request<{ credentials: ForgeCredential[] }>(`/api/v1/orgs/${orgID}/forge/credentials`),
+  createForgeCredential: (
+    orgID: string,
+    payload: { provider: string; kind?: string; name: string; base_url?: string; access_token: string },
+  ) =>
+    request<{ credential: ForgeCredential }>(`/api/v1/orgs/${orgID}/forge/credentials`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteForgeCredential: (orgID: string, credentialID: string) =>
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/forge/credentials/${credentialID}`, { method: "DELETE" }),
+  listRemoteOrgs: (orgID: string, credentialID: string) =>
+    request<{ orgs: RemoteOrg[] }>(`/api/v1/orgs/${orgID}/forge/credentials/${credentialID}/remote-orgs`),
+  listRemoteRepos: (
+    orgID: string,
+    credentialID: string,
+    params: { org: string; q?: string; page?: number; limit?: number; include_archived?: boolean },
+  ) => {
+    const q = new URLSearchParams();
+    q.set("org", params.org);
+    if (params.q) q.set("q", params.q);
+    if (params.page) q.set("page", String(params.page));
+    if (params.limit) q.set("limit", String(params.limit));
+    if (params.include_archived) q.set("include_archived", "1");
+    return request<{ repos: RemoteRepo[] }>(
+      `/api/v1/orgs/${orgID}/forge/credentials/${credentialID}/remote-repos?${q.toString()}`,
+    );
+  },
+  startForgeImport: (
+    orgID: string,
+    payload: { credential_id: string; remote_org: string; repos: RemoteRepo[] },
+  ) =>
+    request<{ job: ForgeImportJob }>(`/api/v1/orgs/${orgID}/forge/imports`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getForgeImport: (orgID: string, jobID: string) =>
+    request<{ job: ForgeImportJob; items: ForgeImportJobItem[] }>(`/api/v1/orgs/${orgID}/forge/imports/${jobID}`),
+
   listNotifications: (unreadOnly?: boolean) =>
     request<{ notifications: AppNotification[]; unread_count: number }>(
       `/api/v1/notifications${unreadOnly ? "?unread=1" : ""}`,
@@ -407,6 +454,64 @@ export type SCMConnection = {
   has_token: boolean;
   has_webhook_secret: boolean;
   created_at: string;
+};
+
+export type ForgeCredential = {
+  id: string;
+  organization_id: string;
+  provider: string;
+  kind: string;
+  name: string;
+  base_url: string;
+  has_token: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RemoteOrg = {
+  login: string;
+  name: string;
+  description?: string;
+  avatar_url?: string;
+};
+
+export type RemoteRepo = {
+  owner: string;
+  name: string;
+  full_name: string;
+  description?: string;
+  private: boolean;
+  archived: boolean;
+  html_url?: string;
+  default_branch?: string;
+};
+
+export type ForgeImportJob = {
+  id: string;
+  organization_id: string;
+  credential_id: string;
+  remote_org: string;
+  status: string;
+  total_count: number;
+  completed_count: number;
+  created_count: number;
+  skipped_count: number;
+  failed_count: number;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ForgeImportJobItem = {
+  id: string;
+  job_id: string;
+  repo_owner: string;
+  repo_name: string;
+  status: string;
+  project_id?: string;
+  connection_id?: string;
+  error_message?: string;
 };
 
 export type WebhookDelivery = {

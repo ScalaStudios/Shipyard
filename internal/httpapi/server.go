@@ -175,6 +175,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections", s.requireAuth(s.handleCreateSCMConnection))
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/credentials", s.requireAuth(s.handleListForgeCredentials))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/forge/credentials", s.requireAuth(s.handleCreateForgeCredential))
+	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/forge/credentials/{credentialID}", s.requireAuth(s.handleDeleteForgeCredential))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/credentials/{credentialID}/remote-orgs", s.requireAuth(s.handleListRemoteOrgs))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/credentials/{credentialID}/remote-repos", s.requireAuth(s.handleListRemoteRepos))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/forge/imports", s.requireAuth(s.handleStartForgeImport))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/imports/{jobID}", s.requireAuth(s.handleGetForgeImport))
 	s.mux.HandleFunc("GET /api/v1/notifications", s.requireAuth(s.handleListNotifications))
 	s.mux.HandleFunc("POST /api/v1/notifications/read-all", s.requireAuth(s.handleMarkAllNotificationsRead))
 	s.mux.HandleFunc("POST /api/v1/notifications/{notificationID}/read", s.requireAuth(s.handleMarkNotificationRead))
@@ -238,6 +245,16 @@ func (s *Server) projectAccess(w http.ResponseWriter, r *http.Request, perm rbac
 		return orgs.Organization{}, orgs.Project{}, false
 	}
 	return org, project, true
+}
+
+func (s *Server) orgAccess(w http.ResponseWriter, r *http.Request, perm rbac.Permission) (orgs.Organization, bool) {
+	orgID := r.PathValue("orgID")
+	org, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, perm)
+	if err != nil {
+		mapIdentityError(w, err)
+		return orgs.Organization{}, false
+	}
+	return org, true
 }
 
 func readBodyLimited(r *http.Request, max int64) ([]byte, error) {

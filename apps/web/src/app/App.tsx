@@ -10,6 +10,7 @@ import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { LoginPage } from "./LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { ImportPage } from "./pages/ImportPage";
 import { PipelinesPage } from "./pages/PipelinesPage";
 import { RunDetailPage } from "./pages/RunDetailPage";
 import { ArtifactsPage } from "./pages/ArtifactsPage";
@@ -70,6 +71,7 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/import" element={<ImportPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/runs/:runId" element={<RunDetailPage />} />
           <Route path="/artifacts" element={<ArtifactsPage />} />
