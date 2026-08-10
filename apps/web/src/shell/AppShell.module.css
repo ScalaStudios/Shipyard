@@ -2,21 +2,25 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-width: 0;
   background: transparent;
+  overflow-x: clip;
 }
 
-.topbar {
+.chrome {
   position: sticky;
   top: 0;
   z-index: 30;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+}
+
+.topbar {
+  display: flex;
   align-items: center;
-  gap: var(--sy-space-4);
+  gap: var(--sy-space-3);
   min-height: 52px;
   padding: 0 var(--sy-space-5);
   border-bottom: 1px solid color-mix(in srgb, var(--sy-color-border-default) 80%, transparent);
-  background: color-mix(in srgb, var(--sy-color-bg-surface) 78%, transparent);
+  background: color-mix(in srgb, var(--sy-color-bg-surface) 82%, transparent);
   backdrop-filter: blur(18px) saturate(1.2);
 }
 
@@ -24,6 +28,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sy-space-2);
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -37,7 +42,7 @@
   box-shadow: var(--sy-glow-primary);
 }
 
-.brand strong {
+.brandName {
   font-size: 14px;
   letter-spacing: -0.02em;
 }
@@ -45,6 +50,7 @@
 .navCluster {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -53,6 +59,7 @@
   align-items: center;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -130,13 +137,13 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 220px;
+  min-width: min(260px, calc(100vw - 24px));
   max-height: min(70vh, 480px);
   overflow: auto;
   padding: var(--sy-space-2);
   border: 1px solid var(--sy-color-border-default);
   border-radius: var(--sy-radius-panel);
-  background: color-mix(in srgb, var(--sy-color-bg-surface) 94%, transparent);
+  background: color-mix(in srgb, var(--sy-color-bg-surface) 96%, transparent);
   box-shadow: var(--sy-shadow-float);
   backdrop-filter: blur(16px);
   z-index: 40;
@@ -150,7 +157,7 @@
   display: flex;
   align-items: center;
   gap: var(--sy-space-2);
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: var(--sy-radius-control);
   color: var(--sy-color-text-primary);
   text-decoration: none;
@@ -172,6 +179,11 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--sy-space-2);
+  flex: 0 0 auto;
+}
+
+.themeToggle :global(button) {
+  min-width: 0;
 }
 
 .account {
@@ -186,6 +198,10 @@
   font-size: 13px;
   color: var(--sy-color-text-primary);
   font-weight: 500;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .signOut {
@@ -208,23 +224,21 @@
 }
 
 .pathbar {
-  position: sticky;
-  top: 52px;
-  z-index: 25;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sy-space-4);
+  gap: var(--sy-space-3);
   min-height: 40px;
   padding: 0 var(--sy-space-5);
   border-bottom: 1px solid color-mix(in srgb, var(--sy-color-border-default) 80%, transparent);
-  background: color-mix(in srgb, var(--sy-color-bg-subtle) 72%, transparent);
+  background: color-mix(in srgb, var(--sy-color-bg-subtle) 78%, transparent);
   backdrop-filter: blur(14px);
 }
 
 .path {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   font-family: var(--sy-font-mono);
@@ -236,6 +250,7 @@
 .pathRoot,
 .pathSep {
   color: var(--sy-color-text-faint);
+  flex: 0 0 auto;
 }
 
 .pathChunk {
@@ -247,7 +262,7 @@
 .pathLink {
   color: var(--sy-color-action-primary);
   text-decoration: none;
-  max-width: 18ch;
+  max-width: 16ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -260,7 +275,7 @@
 .pathCurrent {
   color: var(--sy-color-text-primary);
   font-weight: 500;
-  max-width: 28ch;
+  max-width: 22ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -271,14 +286,17 @@
   align-items: center;
   gap: var(--sy-space-2);
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 .contextLabel {
   display: block;
+  min-width: 0;
 }
 
 .select {
   height: 28px;
+  width: min(160px, 28vw);
   max-width: 160px;
   padding: 0 var(--sy-space-2);
   border: 1px solid var(--sy-color-border-default);
@@ -305,9 +323,11 @@
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .route {
+  min-width: 0;
   animation: sy-rise var(--sy-duration-slow) var(--sy-ease-out);
 }
 
@@ -349,7 +369,39 @@
   }
 }
 
-@media (max-width: 1100px) {
+/* Mid widths: icons only — still horizontal, no squash */
+@media (max-width: 1280px) {
+  .navItem,
+  .navActive {
+    padding: 7px 8px;
+    gap: 0;
+  }
+
+  .navLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .navActive::after {
+    left: 6px;
+    right: 6px;
+  }
+}
+
+/* Compact: hamburger replaces the strip */
+@media (max-width: 960px) {
+  .topbar {
+    padding: 0 var(--sy-space-3);
+    gap: var(--sy-space-2);
+  }
+
   .navList {
     display: none;
   }
@@ -357,21 +409,80 @@
   .menu {
     display: block;
   }
-}
 
-@media (max-width: 720px) {
+  .menuPanel {
+    left: auto;
+    right: 0;
+  }
+
   .pathbar {
-    top: auto;
     flex-wrap: wrap;
-    padding-top: var(--sy-space-2);
-    padding-bottom: var(--sy-space-2);
+    padding: var(--sy-space-2) var(--sy-space-3);
+    gap: var(--sy-space-2);
+  }
+
+  .path {
+    width: 100%;
+    order: 1;
+  }
+
+  .context {
+    width: 100%;
+    order: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .themeToggle :global(button) {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+  }
+
+  .themeToggle :global(button > span:last-child) {
+    display: none;
   }
 
   .accountName {
     display: none;
   }
 
+  .account {
+    padding-left: var(--sy-space-2);
+  }
+
   .content {
     padding: var(--sy-space-4);
+  }
+}
+
+@media (max-width: 640px) {
+  .brandName,
+  .menuLabel {
+    display: none;
+  }
+
+  .menuSummary {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .signOut {
+    padding: 4px 6px;
+  }
+
+  .pathCurrent,
+  .pathLink {
+    max-width: 12ch;
+  }
+
+  .content {
+    padding: var(--sy-space-3);
   }
 }
