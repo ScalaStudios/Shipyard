@@ -92,6 +92,43 @@ func (b *Box) GetValue(ctx context.Context, secretID string) (string, error) {
 	return string(pt), nil
 }
 
+func (b *Box) ValuesForScope(ctx context.Context, orgID, projectID string) ([]string, error) {
+	rows, err := b.pool.Query(ctx, `
+		SELECT ciphertext, nonce FROM secrets
+		WHERE organization_id = $1::uuid
+		  AND (project_id IS NULL OR project_id = NULLIF($2,'')::uuid)
+	`, orgID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var ct, nonce []byte
+		if err := rows.Scan(&ct, &nonce); err != nil {
+			return nil, err
+		}
+		pt, err := b.gcm.Open(nil, nonce, ct, nil)
+		if err != nil {
+			continue
+		}
+		if v := string(pt); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out, rows.Err()
+}
+
+func MaskLine(line string, secrets []string) string {
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+		line = strings.ReplaceAll(line, secret, "***")
+	}
+	return line
+}
+
 func scopeOf(orgID, projectID, envID string) string {
 	switch {
 	case envID != "":

@@ -141,9 +141,37 @@
   background: color-mix(in srgb, var(--sy-color-status-danger) 10%, transparent);
 }
 
+.wide {
+  grid-column: 1 / -1;
+  min-height: 280px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: var(--sy-space-3);
+  min-height: 200px;
+}
+
+.logs {
+  margin: 0;
+  padding: var(--sy-space-3);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  background: var(--sy-color-bg-canvas);
+  color: var(--sy-color-text-primary);
+  font-family: var(--sy-font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  overflow: auto;
+  white-space: pre-wrap;
+  min-height: 200px;
+}
+
 @media (max-width: 900px) {
   .grid,
-  .form {
+  .form,
+  .detailGrid {
     grid-template-columns: 1fr;
   }
 }

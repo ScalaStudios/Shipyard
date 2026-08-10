@@ -158,13 +158,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/secrets", s.requireAuth(s.handleListSecrets))
 	s.mux.HandleFunc("POST /api/v1/secrets", s.requireAuth(s.handleCreateSecret))
 
+	s.mux.HandleFunc("GET /repository/npm/{org}/{project}/{repo}/{name}/-/{filename}", s.handleNPMTarball)
+	s.mux.HandleFunc("PUT /repository/npm/{org}/{project}/{repo}/{name...}", s.handleNPMPublish)
+	s.mux.HandleFunc("GET /repository/npm/{org}/{project}/{repo}/{name...}", s.handleNPMPackument)
+	s.mux.HandleFunc("PUT /repository/maven/{org}/{project}/{repo}/{path...}", s.handleMavenPut)
+	s.mux.HandleFunc("GET /repository/maven/{org}/{project}/{repo}/{path...}", s.handleMavenGet)
+
 	s.mux.HandleFunc("GET /v2/", s.handleOCIAPIVersion)
-	s.mux.HandleFunc("HEAD /v2/{name...}/blobs/{digest}", s.handleOCIBlobExists)
-	s.mux.HandleFunc("GET /v2/{name...}/blobs/{digest}", s.handleOCIBlobGet)
-	s.mux.HandleFunc("POST /v2/{name...}/blobs/uploads/", s.handleOCIBlobUploadStart)
-	s.mux.HandleFunc("PUT /v2/{name...}/blobs/uploads/{uuid}", s.handleOCIBlobUploadComplete)
-	s.mux.HandleFunc("PUT /v2/{name...}/manifests/{reference}", s.handleOCIManifestPutDist)
-	s.mux.HandleFunc("GET /v2/{name...}/manifests/{reference}", s.handleOCIManifestGetDist)
+	s.mux.HandleFunc("HEAD /v2/{name...}/blobs/{digest}", s.requireRegistryAuth(s.handleOCIBlobExists))
+	s.mux.HandleFunc("GET /v2/{name...}/blobs/{digest}", s.requireRegistryAuth(s.handleOCIBlobGet))
+	s.mux.HandleFunc("POST /v2/{name...}/blobs/uploads/", s.requireRegistryAuth(s.handleOCIBlobUploadStart))
+	s.mux.HandleFunc("PUT /v2/{name...}/blobs/uploads/{uuid}", s.requireRegistryAuth(s.handleOCIBlobUploadComplete))
+	s.mux.HandleFunc("PUT /v2/{name...}/manifests/{reference}", s.requireRegistryAuth(s.handleOCIManifestPutDist))
+	s.mux.HandleFunc("GET /v2/{name...}/manifests/{reference}", s.requireRegistryAuth(s.handleOCIManifestGetDist))
 }
 
 func (s *Server) background() {

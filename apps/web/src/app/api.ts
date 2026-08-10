@@ -73,6 +73,10 @@ export const api = {
       method: "POST",
       body: "{}",
     }),
+  getRun: (orgID: string, projectID: string, runID: string) =>
+    request<{ run: PipelineRun; jobs: Job[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs/${runID}`),
+  jobLogs: (orgID: string, projectID: string, jobID: string) =>
+    request<{ logs: LogLine[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/jobs/${jobID}/logs`),
   listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
 };
 
@@ -91,6 +95,20 @@ export type PipelineRun = {
   number: number;
   status: string;
   created_at: string;
+};
+
+export type Job = {
+  id: string;
+  run_id: string;
+  name: string;
+  status: string;
+};
+
+export type LogLine = {
+  seq?: number;
+  stream?: string;
+  line?: string;
+  created_at?: string;
 };
 
 export type Runner = {

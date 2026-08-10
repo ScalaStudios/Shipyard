@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net"
@@ -27,6 +28,18 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, err := s.authenticate(r)
 		if err != nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		next(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
+	}
+}
+
+func (s *Server) requireRegistryAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, err := s.authenticate(r)
+		if err != nil {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="shipyard-registry",service="shipyard"`)
 			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
@@ -62,6 +75,18 @@ func (s *Server) authenticate(r *http.Request) (identity.User, error) {
 			return user, nil
 		}
 	}
+	if user, pass, ok := basicAuth(r); ok {
+		if pass != "" {
+			if u, err := s.identity.UserFromAPIToken(r.Context(), pass); err == nil {
+				return u, nil
+			}
+		}
+		if user != "" && pass != "" {
+			if u, err := s.identity.Authenticate(r.Context(), user, pass); err == nil {
+				return u, nil
+			}
+		}
+	}
 	c, err := r.Cookie(sessionCookie)
 	if err != nil || c.Value == "" {
 		return identity.User{}, identity.ErrUnauthorized
@@ -75,6 +100,22 @@ func bearerToken(r *http.Request) string {
 		return strings.TrimSpace(authz[7:])
 	}
 	return ""
+}
+
+func basicAuth(r *http.Request) (username, password string, ok bool) {
+	authz := r.Header.Get("Authorization")
+	if !strings.HasPrefix(strings.ToLower(authz), "basic ") {
+		return "", "", false
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(authz[6:]))
+	if err != nil {
+		return "", "", false
+	}
+	parts := strings.SplitN(string(raw), ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {

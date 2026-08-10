@@ -12,15 +12,17 @@ Phases 0–9 foundation verticals are implemented locally on `master` (not pushe
 
 | Phase | Capability |
 |---|---|
-| 0 | Server, Postgres migrations, storage, UI shell, Compose |
-| 1 | Users/auth/sessions/tokens, orgs, projects, RBAC, audit |
-| 2 | `shipyard.yml` parse/DAG, pipeline runs/jobs/steps |
-| 3 | Runner registration, leasing, shell executor, logs |
+| 0 | Server, Postgres migrations, storage (filesystem + S3), UI shell, Compose |
+| 1 | Users/auth/sessions/tokens, OIDC start/callback, orgs, projects, RBAC, audit |
+| 2 | `shipyard.yml` parse/DAG, pipeline runs/jobs/steps, run detail UI |
+| 3 | Runner registration, leasing, shell executor, logs (secret masking) |
 | 4 | Artifact upload/download with digests + provenance links |
-| 5 | OCI repo/manifest/tag APIs (BuildKit orchestration next depth) |
+| 5 | OCI Distribution `/v2` + Bearer/Basic token auth, BuildKit helper |
 | 6 | Environments, releases, deployments |
 | 7–8 | Multi-runner labels + DB lease fencing / cluster node heartbeat |
-| 9 | Generic/Maven/npm package repositories (generic publish working) |
+| 9 | Generic + npm/Maven repository protocols |
+
+CLI: `go run ./cmd/shipyard` (`login`, `whoami`, `status`, `run`).
 
 ## Quick start
 
