@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { IconMenu2 } from "@tabler/icons-react";
 import { NotificationBell } from "../app/components/NotificationBell";
 import { useWorkspace } from "../app/context/WorkspaceContext";
 import { NAV_ITEMS } from "./nav";
+import { buildPathSegments } from "./path";
 import styles from "./AppShell.module.css";
 
 export function AppShell({
@@ -16,110 +18,140 @@ export function AppShell({
 }) {
   const location = useLocation();
   const { user, orgs, projects, org, project, setOrgID, setProjectID, error, clearError } = useWorkspace();
-  const active = NAV_ITEMS.find((item) =>
-    item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to),
-  );
-  const title = active?.label ?? "Shipyard";
+  const segments = buildPathSegments({
+    orgSlug: org?.slug,
+    projectSlug: project?.slug,
+    pathname: location.pathname,
+  });
 
   return (
     <div className={styles.shell}>
-      <aside className={styles.nav} aria-label="Primary">
+      <header className={styles.topbar}>
         <div className={styles.brand}>
           <img className={styles.markImg} src="/shipyard-mark.svg" width={28} height={28} alt="" />
-          <div>
-            <strong>Shipyard</strong>
-            <div className={styles.brandMeta}>Delivery control plane</div>
+          <strong>Shipyard</strong>
+        </div>
+
+        <div className={styles.navCluster}>
+          <nav className={styles.navList} aria-label="Primary">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.to}
+                  end={item.to === "/"}
+                  className={({ isActive }) => (isActive ? styles.navActive : styles.navItem)}
+                >
+                  <Icon size={16} stroke={1.5} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          <details className={styles.menu}>
+            <summary className={styles.menuSummary} aria-label="Open navigation menu">
+              <IconMenu2 size={16} stroke={1.5} />
+              <span>Menu</span>
+            </summary>
+            <div className={styles.menuPanel}>
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.id}
+                    to={item.to}
+                    end={item.to === "/"}
+                    className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
+                  >
+                    <Icon size={16} stroke={1.5} />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </details>
+        </div>
+
+        <div className={styles.actions}>
+          <NotificationBell />
+          {themeToggle}
+          <div className={styles.account}>
+            <span className={styles.accountName}>{user.display_name || user.username}</span>
+            <button type="button" className={styles.signOut} onClick={onLogout}>
+              Sign out
+            </button>
           </div>
         </div>
-        <nav className={styles.navList}>
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.id}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) => (isActive ? styles.navActive : styles.navItem)}
-              >
-                <Icon size={18} stroke={1.5} />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
+      </header>
+
+      <div className={styles.pathbar}>
+        <nav className={styles.path} aria-label="Location">
+          <span className={styles.pathRoot}>/</span>
+          {segments.map((segment, index) => (
+            <span key={`${segment.label}-${index}`} className={styles.pathChunk}>
+              {segment.to && index < segments.length - 1 ? (
+                <Link to={segment.to} className={styles.pathLink}>
+                  {segment.label}
+                </Link>
+              ) : (
+                <span className={styles.pathCurrent}>{segment.label}</span>
+              )}
+              {index < segments.length - 1 ? <span className={styles.pathSep}>/</span> : null}
+            </span>
+          ))}
         </nav>
-      </aside>
 
-      <div className={styles.main}>
-        <header className={styles.topbar}>
-          <div className={styles.topbarLeft}>
-            <div>
-              <div className={styles.eyebrow}>
-                {org ? org.slug : "no org"}
-                {project ? ` / ${project.slug}` : ""}
-              </div>
-              <div className={styles.title}>{title}</div>
-            </div>
-            <div className={styles.context}>
-              <label className={styles.contextLabel}>
-                <span className={styles.srOnly}>Organization</span>
-                <select
-                  className={styles.select}
-                  value={org?.id ?? ""}
-                  onChange={(e) => setOrgID(e.target.value)}
-                  disabled={orgs.length === 0}
-                >
-                  {orgs.length === 0 ? <option value="">No organizations</option> : null}
-                  {orgs.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.contextLabel}>
-                <span className={styles.srOnly}>Project</span>
-                <select
-                  className={styles.select}
-                  value={project?.id ?? ""}
-                  onChange={(e) => setProjectID(e.target.value)}
-                  disabled={!org || projects.length === 0}
-                >
-                  {!org || projects.length === 0 ? <option value="">No projects</option> : null}
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
-          <div className={styles.actions}>
-            <NotificationBell />
-            {themeToggle}
-            <div className={styles.account}>
-              <span className={styles.accountName}>{user.display_name || user.username}</span>
-              <button type="button" className={styles.signOut} onClick={onLogout}>
-                Sign out
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className={styles.content}>
-          {error ? (
-            <div className={styles.banner} role="alert">
-              <span>{error}</span>
-              <button type="button" className={styles.signOut} onClick={clearError}>
-                Dismiss
-              </button>
-            </div>
-          ) : null}
-          <div key={location.pathname} className={styles.route}>
-            {children}
-          </div>
-        </main>
+        <div className={styles.context}>
+          <label className={styles.contextLabel}>
+            <span className={styles.srOnly}>Organization</span>
+            <select
+              className={styles.select}
+              value={org?.id ?? ""}
+              onChange={(e) => setOrgID(e.target.value)}
+              disabled={orgs.length === 0}
+            >
+              {orgs.length === 0 ? <option value="">No organizations</option> : null}
+              {orgs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.contextLabel}>
+            <span className={styles.srOnly}>Project</span>
+            <select
+              className={styles.select}
+              value={project?.id ?? ""}
+              onChange={(e) => setProjectID(e.target.value)}
+              disabled={!org || projects.length === 0}
+            >
+              {!org || projects.length === 0 ? <option value="">No projects</option> : null}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
+
+      <main className={styles.content}>
+        {error ? (
+          <div className={styles.banner} role="alert">
+            <span>{error}</span>
+            <button type="button" className={styles.signOut} onClick={clearError}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+        <div key={location.pathname} className={styles.route}>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
