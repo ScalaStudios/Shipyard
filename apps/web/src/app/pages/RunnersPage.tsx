@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
@@ -8,6 +9,59 @@ import { api, Runner, RunnerInstall } from "../api";
 import { formatTime, runStatus } from "../lib/format";
 import styles from "./RunnersPage.module.css";
 
+const ALIVE_MS = 15_000;
+
+function heartbeatAgeMs(iso?: string, now = Date.now()): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.max(0, now - t);
+}
+
+function formatAge(ms: number | null): string {
+  if (ms == null) return "never";
+  if (ms < 1_500) return "just now";
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s ago`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m ago`;
+  return `${Math.round(ms / 3_600_000)}h ago`;
+}
+
+function isRunnerAlive(runner: Runner, now = Date.now()): boolean {
+  if (runner.status === "offline") return false;
+  const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
+  if (age == null) return false;
+  return age <= ALIVE_MS;
+}
+
+function pingClass(ms: number | null): string {
+  if (ms == null) return styles.ping;
+  if (ms < 120) return styles.pingGood;
+  if (ms < 400) return styles.pingWarn;
+  return styles.pingBad;
+}
+
+function RunnerHeartbeat({ runner, now }: { runner: Runner; now: number }) {
+  const alive = isRunnerAlive(runner, now);
+  const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
+  const Heart = alive ? IconHeartFilled : IconHeart;
+
+  return (
+    <div className={styles.heartbeat} title={runner.last_heartbeat_at ? formatTime(runner.last_heartbeat_at) : "No heartbeat yet"}>
+      <span className={styles.heartWrap} aria-hidden="true">
+        {alive ? <span className={styles.pulseRing} /> : null}
+        <Heart size={18} stroke={1.75} className={alive ? styles.heartAlive : styles.heartDead} />
+      </span>
+      <span className={styles.heartbeatCopy}>
+        <span className={alive ? styles.heartbeatStateAlive : styles.heartbeatStateDead}>{alive ? "Alive" : "Dead"}</span>
+        <span className={styles.heartbeatMeta}>
+          Last beat {formatAge(age)}
+          {runner.last_heartbeat_at ? ` · ${formatTime(runner.last_heartbeat_at)}` : ""}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function RunnersPage() {
   const { org, setError } = useWorkspace();
   const [runners, setRunners] = useState<Runner[]>([]);
@@ -16,16 +70,25 @@ export function RunnersPage() {
   const [labels, setLabels] = useState("linux");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [now, setNow] = useState(() => Date.now());
+  const [apiPingMs, setApiPingMs] = useState<number | null>(null);
 
   async function refresh() {
+    const started = performance.now();
     const res = await api.listRunners();
+    setApiPingMs(Math.round(performance.now() - started));
     setRunners(res.runners ?? []);
+    setNow(Date.now());
   }
 
   useEffect(() => {
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load runners"));
-    const id = window.setInterval(() => void refresh().catch(() => undefined), 8000);
-    return () => window.clearInterval(id);
+    const poll = window.setInterval(() => void refresh().catch(() => undefined), 4000);
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      window.clearInterval(poll);
+      window.clearInterval(tick);
+    };
   }, [setError]);
 
   async function createInstall(event?: FormEvent) {
@@ -57,6 +120,8 @@ export function RunnersPage() {
       setError("clipboard unavailable — select the command and copy manually");
     }
   }
+
+  const aliveCount = runners.filter((r) => isRunnerAlive(r, now)).length;
 
   return (
     <div className={table.stack}>
@@ -137,32 +202,64 @@ export function RunnersPage() {
         )}
       </Panel>
 
-      <Panel title="Fleet" meta={<StatusBadge status={runners.length ? "success" : "neutral"}>{runners.length}</StatusBadge>}>
+      <Panel
+        title="Fleet"
+        meta={
+          <div className={styles.meta}>
+            <StatusBadge status={aliveCount ? "success" : runners.length ? "danger" : "neutral"}>
+              {aliveCount}/{runners.length} alive
+            </StatusBadge>
+            <span className={pingClass(apiPingMs)} title="API round-trip for runner list">
+              ping {apiPingMs == null ? "—" : `${apiPingMs} ms`}
+            </span>
+          </div>
+        }
+      >
         {runners.length === 0 ? (
-          <EmptyState title="No runners online" description="After install, this table shows name, status, and last heartbeat." />
+          <EmptyState title="No runners online" description="After install, this table shows heartbeat and alive/dead state." />
         ) : (
           <DataTable>
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Runner</th>
+                <th>Heartbeat</th>
                 <th>Status</th>
                 <th>Labels</th>
                 <th>Drained</th>
-                <th>Heartbeat</th>
               </tr>
             </thead>
             <tbody>
-              {runners.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.name}</td>
-                  <td>
-                    <StatusBadge status={runStatus(r.status)}>{r.status}</StatusBadge>
-                  </td>
-                  <td className="mono">{(r.labels ?? []).join(", ") || "—"}</td>
-                  <td>{r.drained ? "yes" : "no"}</td>
-                  <td className={table.muted}>{formatTime(r.last_heartbeat_at)}</td>
-                </tr>
-              ))}
+              {runners.map((r) => {
+                const alive = isRunnerAlive(r, now);
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      <div className={styles.nameCell}>
+                        <span className={styles.heartWrap} aria-hidden="true">
+                          {alive ? <span className={styles.pulseRing} /> : null}
+                          {alive ? (
+                            <IconHeartFilled size={16} stroke={1.75} className={styles.heartAlive} />
+                          ) : (
+                            <IconHeart size={16} stroke={1.75} className={styles.heartDead} />
+                          )}
+                        </span>
+                        <span className={styles.nameText}>
+                          <span className={styles.nameTitle}>{r.name}</span>
+                          <span className={table.muted}>{alive ? "Connected" : "No recent heartbeat"}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <RunnerHeartbeat runner={r} now={now} />
+                    </td>
+                    <td>
+                      <StatusBadge status={runStatus(alive ? r.status : "offline")}>{alive ? r.status : "offline"}</StatusBadge>
+                    </td>
+                    <td className="mono">{(r.labels ?? []).join(", ") || "—"}</td>
+                    <td>{r.drained ? "yes" : "no"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </DataTable>
         )}

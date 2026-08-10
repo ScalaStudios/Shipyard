@@ -52,3 +52,165 @@
   overflow: auto;
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }
+
+.heartbeat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  min-width: 0;
+}
+
+.heartWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.heartAlive {
+  color: var(--sy-color-status-success);
+  animation: heart-beat 1.1s var(--sy-ease-out) infinite;
+}
+
+.heartDead {
+  color: var(--sy-color-status-danger);
+  opacity: 0.92;
+}
+
+.pulseRing {
+  position: absolute;
+  inset: 2px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--sy-color-status-success) 55%, transparent);
+  animation: heart-ring 1.1s var(--sy-ease-out) infinite;
+  pointer-events: none;
+}
+
+.heartbeatCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.heartbeatStateAlive {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sy-color-status-success);
+}
+
+.heartbeatStateDead {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sy-color-status-danger);
+}
+
+.heartbeatMeta {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sy-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ping,
+.pingGood,
+.pingWarn,
+.pingBad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sy-color-text-muted);
+  background: var(--sy-color-bg-subtle);
+}
+
+.pingGood {
+  border-color: color-mix(in srgb, var(--sy-color-status-success) 35%, var(--sy-color-border-default));
+  color: var(--sy-color-status-success);
+}
+
+.pingWarn {
+  border-color: color-mix(in srgb, var(--sy-color-status-warning) 40%, var(--sy-color-border-default));
+  color: var(--sy-color-status-warning);
+}
+
+.pingBad {
+  border-color: color-mix(in srgb, var(--sy-color-status-danger) 40%, var(--sy-color-border-default));
+  color: var(--sy-color-status-danger);
+}
+
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  min-width: 0;
+}
+
+.nameText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nameTitle {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+@keyframes heart-beat {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  14% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sy-color-status-success) 55%, transparent));
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--sy-color-status-success) 40%, transparent));
+  }
+  56% {
+    transform: scale(1);
+  }
+}
+
+@keyframes heart-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartAlive,
+  .pulseRing {
+    animation: none;
+  }
+}
