@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -91,6 +92,51 @@ func (s *Server) handleGitHubAppInstall(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, target, http.StatusFound)
 }
 
+type linkInstallRequest struct {
+	InstallationID string `json:"installation_id"`
+}
+
+func (s *Server) handleGitHubAppLink(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermOrgUpdate)
+	if !ok {
+		return
+	}
+	var req linkInstallRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	installationID := strings.TrimSpace(req.InstallationID)
+	if _, err := strconv.ParseInt(installationID, 10, 64); err != nil {
+		writeError(w, http.StatusBadRequest, "installation_id must be numeric")
+		return
+	}
+	cfg := s.githubAppConfig(r.Context())
+	if _, _, err := githubapp.InstallationToken(r.Context(), cfg, installationID); err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	cred, err := s.scm.UpsertCredential(r.Context(), scm.CreateCredentialInput{
+		OrganizationID: org.ID,
+		Provider:       "github",
+		Kind:           scm.KindGitHubApp,
+		Name:           "github-app-" + installationID,
+		BaseURL:        "https://github.com",
+		InstallationID: installationID,
+		ActorID:        currentUser(r).ID,
+	})
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"credential": cred})
+}
+
+func (s *Server) redirectPendingInstall(w http.ResponseWriter, r *http.Request, installationID string) {
+	target := s.publicURL(r.Context()) + "/projects/import?github_installation=" + url.QueryEscape(installationID)
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
 func (s *Server) handleGitHubAppCallback(w http.ResponseWriter, r *http.Request) {
 	installationID := strings.TrimSpace(r.URL.Query().Get("installation_id"))
 	state := r.URL.Query().Get("state")
@@ -104,7 +150,7 @@ func (s *Server) handleGitHubAppCallback(w http.ResponseWriter, r *http.Request)
 	}
 	data, ok := s.forgeOAuth.ConsumeState(state)
 	if !ok {
-		s.redirectImport(w, r, "", "install state expired; start the installation from Shipyard again")
+		s.redirectPendingInstall(w, r, installationID)
 		return
 	}
 	orgID, userID, _ := strings.Cut(data, "|")

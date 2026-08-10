@@ -191,6 +191,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/forge/github-app", s.requireAuth(s.handleGitHubAppStatus))
 	s.mux.HandleFunc("GET /api/v1/forge/github-app/installations", s.requireAdmin(s.handleGitHubAppInstallations))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/github-app/install", s.requireAuth(s.handleGitHubAppInstall))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/forge/github-app/link", s.requireAuth(s.handleGitHubAppLink))
 	s.mux.HandleFunc("GET /api/v1/forge/github-app/callback", s.requireAuth(s.handleGitHubAppCallback))
 	s.mux.HandleFunc("GET /api/v1/onboarding", s.requireAuth(s.handleOnboarding))
 	s.mux.HandleFunc("GET /api/v1/settings/instance", s.requireAdmin(s.handleListInstanceSettings))
