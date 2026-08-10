@@ -75,7 +75,6 @@ func (s *Service) PeekRegistrationToken(ctx context.Context, plain string) (bool
 	return ok, err
 }
 
-
 func (s *Service) Register(ctx context.Context, registrationToken, name string, labels, capabilities []string) (Runner, string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -168,6 +167,31 @@ func (s *Service) Heartbeat(ctx context.Context, runnerID string) error {
 		WHERE id = $1
 	`, runnerID)
 	return err
+}
+
+func (s *Service) Delete(ctx context.Context, id string) error {
+	var status string
+	err := s.pool.QueryRow(ctx, `SELECT status FROM runners WHERE id = $1`, id).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return identity.ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if status == "busy" {
+		return fmt.Errorf("%w: runner is running a job; drain it first", identity.ErrInvalidInput)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE jobs SET runner_id = NULL WHERE runner_id = $1`, id); err != nil {
+		return err
+	}
+	tag, err := s.pool.Exec(ctx, `DELETE FROM runners WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return identity.ErrNotFound
+	}
+	return nil
 }
 
 func (s *Service) List(ctx context.Context) ([]Runner, error) {

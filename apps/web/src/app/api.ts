@@ -253,6 +253,8 @@ export const api = {
     request<{ logs: LogLine[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/jobs/${jobID}/logs`),
 
   listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
+  deleteRunner: (runnerID: string) =>
+    request<{ status: string }>(`/api/v1/runners/${runnerID}`, { method: "DELETE" }),
   createRunnerRegToken: (payload?: { organization_id?: string; ttl?: string }) =>
     request<{ token: string; expires_at: string; curl_command?: string; api_url?: string }>(
       "/api/v1/runners/registration-tokens",

@@ -65,6 +65,16 @@ export function RunnersPage() {
     setNow(Date.now());
   }
 
+  async function removeRunner(runner: Runner) {
+    if (!window.confirm(`Remove runner "${runner.name}"? It can register again with a new token.`)) return;
+    try {
+      await api.deleteRunner(runner.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to remove runner");
+    }
+  }
+
   useEffect(() => {
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load runners"));
     const poll = window.setInterval(() => void refresh().catch(() => undefined), 4000);
@@ -210,6 +220,7 @@ export function RunnersPage() {
                 <th>Status</th>
                 <th>Labels</th>
                 <th>Drained</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -241,6 +252,13 @@ export function RunnersPage() {
                     </td>
                     <td className="mono">{(r.labels ?? []).join(", ") || "—"}</td>
                     <td>{r.drained ? "yes" : "no"}</td>
+                    <td>
+                      {alive ? null : (
+                        <Button type="button" variant="secondary" onClick={() => void removeRunner(r)}>
+                          Remove
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
