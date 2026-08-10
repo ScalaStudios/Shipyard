@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
@@ -187,5 +189,13 @@ func (s *Server) handleCreateRunnerRegToken(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"token": token, "expires_at": expires})
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"token":      token,
+		"expires_at": expires,
+		"api_url":    s.apiBaseURL(r),
+		"curl_command": fmt.Sprintf(
+			"curl -fsSL %q | bash",
+			s.apiBaseURL(r)+"/api/v1/runners/install.sh?token="+url.QueryEscape(token)+"&name=runner-1&labels=linux&url="+url.QueryEscape(s.apiBaseURL(r)),
+		),
+	})
 }

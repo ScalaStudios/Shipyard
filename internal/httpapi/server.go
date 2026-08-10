@@ -35,6 +35,7 @@ type Options struct {
 	SecretsKey     string
 	WebhookSecret  string
 	PublicURL      string
+	APIURL         string
 	OIDC           []oidc.ProviderConfig
 }
 
@@ -137,6 +138,8 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /api/v1/runners", s.requireAuth(s.handleListRunners))
 	s.mux.HandleFunc("POST /api/v1/runners/registration-tokens", s.requireAuth(s.handleCreateRunnerRegToken))
+	s.mux.HandleFunc("POST /api/v1/runners/install-token", s.requireAuth(s.handleCreateRunnerInstall))
+	s.mux.HandleFunc("GET /api/v1/runners/install.sh", s.handleRunnerInstallScript)
 	s.mux.HandleFunc("POST /api/v1/runner/register", s.handleRunnerRegister)
 	s.mux.HandleFunc("POST /api/v1/runner/heartbeat", s.requireRunner(s.handleRunnerHeartbeat))
 	s.mux.HandleFunc("POST /api/v1/runner/jobs/lease", s.requireRunner(s.handleRunnerLease))

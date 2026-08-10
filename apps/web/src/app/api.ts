@@ -103,6 +103,19 @@ export type Runner = {
   created_at?: string;
 };
 
+export type RunnerInstall = {
+  token: string;
+  expires_at: string;
+  api_url: string;
+  name: string;
+  labels: string;
+  script_url: string;
+  curl_command: string;
+  docker_command: string;
+  manual_env: string;
+  systemd_hint?: string;
+};
+
 export type Artifact = {
   id: string;
   name: string;
@@ -235,7 +248,20 @@ export const api = {
 
   listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
   createRunnerRegToken: (payload?: { organization_id?: string; ttl?: string }) =>
-    request<{ token: string; expires_at: string }>("/api/v1/runners/registration-tokens", {
+    request<{ token: string; expires_at: string; curl_command?: string; api_url?: string }>(
+      "/api/v1/runners/registration-tokens",
+      {
+        method: "POST",
+        body: JSON.stringify(payload ?? {}),
+      },
+    ),
+  createRunnerInstall: (payload?: {
+    organization_id?: string;
+    ttl?: string;
+    name?: string;
+    labels?: string;
+  }) =>
+    request<RunnerInstall>("/api/v1/runners/install-token", {
       method: "POST",
       body: JSON.stringify(payload ?? {}),
     }),

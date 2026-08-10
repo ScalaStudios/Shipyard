@@ -52,6 +52,7 @@ func main() {
 		SecretsKey:    cfg.SecretsKey,
 		WebhookSecret: cfg.WebhookSecret,
 		PublicURL:     cfg.PublicURL,
+		APIURL:        cfg.APIURL,
 		OIDC:          cfg.OIDCProviders,
 	}
 	api := httpapi.New(pool, store, opts)
