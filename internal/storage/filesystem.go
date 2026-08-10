@@ -22,6 +22,12 @@ func NewFilesystemStore(root string) (*FilesystemStore, error) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return nil, fmt.Errorf("create storage root: %w", err)
 	}
+	probe, err := os.CreateTemp(root, "writable-*.tmp")
+	if err != nil {
+		return nil, fmt.Errorf("storage root %s is not writable: %w", root, err)
+	}
+	probe.Close()
+	os.Remove(probe.Name())
 	return &FilesystemStore{root: root}, nil
 }
 
