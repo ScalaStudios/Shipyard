@@ -4,7 +4,6 @@
   min-height: 100vh;
   min-width: 0;
   background: transparent;
-  overflow-x: clip;
 }
 
 .chrome {
@@ -133,21 +132,35 @@
   display: none;
 }
 
+.menu[open] .menuSummary {
+  border-color: color-mix(in srgb, var(--sy-color-action-primary) 40%, var(--sy-color-border-default));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sy-color-action-primary) 12%, transparent);
+}
+
+.menuScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: color-mix(in srgb, #000 35%, transparent);
+  cursor: default;
+}
+
 .menuPanel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  z-index: 80;
   left: auto;
-  width: min(260px, calc(100vw - 24px));
-  max-height: min(70vh, 480px);
+  right: max(12px, env(safe-area-inset-right, 0px));
+  width: min(280px, calc(100vw - 24px));
+  max-height: min(70vh, calc(100vh - 24px));
   overflow: auto;
   padding: var(--sy-space-2);
   border: 1px solid var(--sy-color-border-default);
   border-radius: var(--sy-radius-panel);
-  background: color-mix(in srgb, var(--sy-color-bg-surface) 96%, transparent);
+  background: var(--sy-color-bg-surface);
   box-shadow: var(--sy-shadow-float);
-  backdrop-filter: blur(16px);
-  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -325,6 +338,7 @@
   margin: 0 auto;
   box-sizing: border-box;
   min-width: 0;
+  overflow-x: clip;
 }
 
 .route {
