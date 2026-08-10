@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/scm"
@@ -18,8 +17,8 @@ type forgeCredentialRequest struct {
 }
 
 type forgeImportRequest struct {
-	CredentialID string          `json:"credential_id"`
-	RemoteOrg    string          `json:"remote_org"`
+	CredentialID string           `json:"credential_id"`
+	RemoteOrg    string           `json:"remote_org"`
 	Repos        []scm.RemoteRepo `json:"repos"`
 }
 
@@ -133,9 +132,9 @@ func (s *Server) handleStartForgeImport(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	public := strings.TrimSpace(s.opts.APIURL)
+	public := s.apiURL(r.Context())
 	if public == "" {
-		public = strings.TrimSpace(s.opts.PublicURL)
+		public = s.publicURL(r.Context())
 	}
 	job, err := s.scm.StartImport(r.Context(), scm.StartImportInput{
 		OrganizationID: org.ID,

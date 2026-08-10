@@ -1,0 +1,98 @@
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step,
+.stepDone {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sy-space-3);
+  padding: var(--sy-space-3);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+}
+
+.stepDone {
+  border-color: color-mix(in srgb, var(--sy-color-status-success) 35%, var(--sy-color-border-default));
+  background: color-mix(in srgb, var(--sy-color-status-success) 6%, transparent);
+}
+
+.mark,
+.markDone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.markDone {
+  border-color: transparent;
+  background: var(--sy-color-status-success);
+  color: var(--sy-color-text-inverse, #fff);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-2);
+  color: var(--sy-color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.optional {
+  padding: 0 var(--sy-space-2);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  color: var(--sy-color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.detail {
+  margin: var(--sy-space-1) 0 0;
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.action {
+  flex: 0 0 auto;
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-3);
+  padding: var(--sy-space-3) var(--sy-space-4);
+  border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 35%, var(--sy-color-border-default));
+  border-radius: var(--sy-radius-control);
+  background: color-mix(in srgb, var(--sy-color-action-primary) 6%, transparent);
+}
+
+.bannerCopy {
+  color: var(--sy-color-text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}

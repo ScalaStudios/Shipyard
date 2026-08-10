@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
@@ -76,8 +75,8 @@ func (s *Server) handleCreateSCMConnection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"connection":   conn,
-		"webhook_url":  fmt.Sprintf("/api/v1/webhooks/%s?connection_id=%s", conn.Provider, conn.ID),
+		"connection":  conn,
+		"webhook_url": fmt.Sprintf("/api/v1/webhooks/%s?connection_id=%s", conn.Provider, conn.ID),
 	})
 }
 
@@ -157,7 +156,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		projectID = conn.ProjectID
 	}
 	if secret == "" {
-		secret = s.opts.WebhookSecret
+		secret = s.webhookSecret(r.Context())
 	}
 	if secret == "" {
 		secret = os.Getenv("SHIPYARD_WEBHOOK_SECRET")
@@ -226,7 +225,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					status = "processed"
 					runID = run.ID
 					_ = s.pipelines.AdvanceRunGraph(r.Context(), run.ID)
-					public := strings.TrimRight(s.opts.PublicURL, "/")
+					public := s.publicURL(r.Context())
 					runURL := fmt.Sprintf("%s/pipelines/runs/%s", public, run.ID)
 					_ = s.scm.AttachRunSCM(r.Context(), run.ID, conn.ID, parsed.PRNumber, "", runURL)
 					if parsed.PRNumber > 0 {
@@ -290,7 +289,7 @@ func (s *Server) maybeNotifyRunFinished(runID string) {
 	if info.Status != "succeeded" && info.Status != "failed" && info.Status != "canceled" {
 		return
 	}
-	public := strings.TrimRight(s.opts.PublicURL, "/")
+	public := s.publicURL(ctx)
 	runURL := info.TargetURL
 	if runURL == "" {
 		runURL = fmt.Sprintf("%s/pipelines/runs/%s", public, info.RunID)

@@ -23,7 +23,7 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	count, err := s.identity.UserCount(r.Context())
-	allowRegister := s.opts.AllowRegister
+	allowRegister := s.allowRegister(r.Context())
 	if err == nil && count == 0 {
 		allowRegister = true
 	}
@@ -57,7 +57,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if count > 0 && !s.opts.AllowRegister {
+	if count > 0 && !s.allowRegister(r.Context()) {
 		writeError(w, http.StatusForbidden, "registration disabled")
 		return
 	}

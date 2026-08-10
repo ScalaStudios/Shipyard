@@ -108,7 +108,7 @@ func (s *Server) handleListAuthProviders(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"providers": list, "callback_base": s.opts.APIURL})
+	writeJSON(w, http.StatusOK, map[string]any{"providers": list, "callback_base": s.apiURL(r.Context())})
 }
 
 type authProviderRequest struct {

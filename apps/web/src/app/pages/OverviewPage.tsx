@@ -5,8 +5,9 @@ import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { api, PipelineRun, Runner, SystemInfo } from "../api";
+import { api, OnboardingStatus, PipelineRun, Runner, SystemInfo } from "../api";
 import { formatTime, isRunnerAlive, runStatus } from "../lib/format";
+import onboarding from "./OnboardingPage.module.css";
 
 export function OverviewPage() {
   const { org, project } = useWorkspace();
@@ -14,6 +15,14 @@ export function OverviewPage() {
   const [runners, setRunners] = useState<Runner[]>([]);
   const [runs, setRuns] = useState<PipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [setup, setSetup] = useState<OnboardingStatus | null>(null);
+
+  useEffect(() => {
+    void api
+      .onboarding()
+      .then(setSetup)
+      .catch(() => setSetup(null));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +60,18 @@ export function OverviewPage() {
 
   return (
     <div className={table.stack}>
+      {setup && !setup.complete ? (
+        <div className={onboarding.banner}>
+          <span className={onboarding.bannerCopy}>
+            {setup.remaining} setup {setup.remaining === 1 ? "step" : "steps"} left before this instance can ship anything.
+          </span>
+          <Link to="/get-started">
+            <Button type="button" variant="primary">
+              Finish setup
+            </Button>
+          </Link>
+        </div>
+      ) : null}
       <PageHeader
         title={project ? `${project.name} - Overview` : "Overview"}
         description={
