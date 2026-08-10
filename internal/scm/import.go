@@ -33,14 +33,14 @@ type ImportJob struct {
 }
 
 type ImportJobItem struct {
-	ID            string `json:"id"`
-	JobID         string `json:"job_id"`
-	RepoOwner     string `json:"repo_owner"`
-	RepoName      string `json:"repo_name"`
-	Status        string `json:"status"`
-	ProjectID     string `json:"project_id,omitempty"`
-	ConnectionID  string `json:"connection_id,omitempty"`
-	ErrorMessage  string `json:"error_message,omitempty"`
+	ID           string `json:"id"`
+	JobID        string `json:"job_id"`
+	RepoOwner    string `json:"repo_owner"`
+	RepoName     string `json:"repo_name"`
+	Status       string `json:"status"`
+	ProjectID    string `json:"project_id,omitempty"`
+	ConnectionID string `json:"connection_id,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
 }
 
 type StartImportInput struct {
@@ -259,6 +259,10 @@ func (s *Service) importOneRepo(ctx context.Context, cred ForgeCredential, in St
 	}
 
 	secret, _ := randomSecret(24)
+	connToken := cred.AccessToken
+	if cred.InstallationID != "" {
+		connToken = ""
+	}
 	connName := ProjectSlugFromRepo(repo.Owner + "-" + repo.Name)
 	conn, err := s.Create(ctx, CreateInput{
 		OrganizationID: in.OrganizationID,
@@ -268,7 +272,8 @@ func (s *Service) importOneRepo(ctx context.Context, cred ForgeCredential, in St
 		BaseURL:        cred.BaseURL,
 		RepoOwner:      repo.Owner,
 		RepoName:       repo.Name,
-		AccessToken:    cred.AccessToken,
+		AccessToken:    connToken,
+		InstallationID: cred.InstallationID,
 		WebhookSecret:  secret,
 		ActorID:        in.ActorID,
 	})
@@ -279,7 +284,7 @@ func (s *Service) importOneRepo(ctx context.Context, cred ForgeCredential, in St
 	if in.PublicBaseURL != "" {
 		hookURL := strings.TrimRight(in.PublicBaseURL, "/") + fmt.Sprintf("/api/v1/webhooks/%s?connection_id=%s", conn.Provider, conn.ID)
 		if err := RegisterWebhook(ctx, cred, repo.Owner, repo.Name, hookURL, secret); err != nil {
-			return "created", project.ID, conn.ID, "webhook: " + err.Error()
+			return "created", project.ID, conn.ID, explainHookError(err, hookURL)
 		}
 	}
 	return "created", project.ID, conn.ID, ""
@@ -291,4 +296,18 @@ func randomSecret(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func explainHookError(err error, hookURL string) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "isn't reachable over the public Internet"), strings.Contains(msg, "not supported because"):
+		return "webhook skipped: the forge cannot reach " + hookURL + ". Set a public URL in Settings, then re-register the hook."
+	case strings.Contains(msg, "404"), strings.Contains(msg, "Not Found"):
+		return "webhook skipped: no permission to create hooks on this repo. Grant the app read & write access to repository webhooks."
+	case strings.Contains(msg, "403"):
+		return "webhook skipped: the forge refused hook creation (403). Check the token or app permissions for webhooks."
+	default:
+		return "webhook skipped: " + msg
+	}
 }
