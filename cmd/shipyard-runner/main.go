@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/buildkit"
 )
 
 func main() {
@@ -146,13 +148,12 @@ func fetchSteps(client *http.Client, serverURL, token, jobID string) []step {
 }
 
 func execStep(client *http.Client, serverURL, token, jobID string, st step) (int, error) {
+	if st.Run == "" && strings.HasPrefix(st.Uses, "shipyard/build-image") {
+		return execBuildImage(client, serverURL, token, jobID, st)
+	}
 	script := st.Run
 	if script == "" {
-		if strings.HasPrefix(st.Uses, "shipyard/build-image") {
-			script = "echo buildkit step placeholder: install buildctl and configure SHIPYARD_BUILDKIT_ADDR for image builds"
-		} else {
-			script = "echo uses=" + st.Uses
-		}
+		script = "echo uses=" + st.Uses
 	}
 	cmd := exec.Command("bash", "-lc", script)
 	stdout, _ := cmd.StdoutPipe()
@@ -171,6 +172,31 @@ func execStep(client *http.Client, serverURL, token, jobID string, st step) (int
 		return ee.ExitCode(), err
 	}
 	return 1, err
+}
+
+func execBuildImage(client *http.Client, serverURL, token, jobID string, st step) (int, error) {
+	bk := buildkit.New(os.Getenv("SHIPYARD_BUILDKIT_ADDR"))
+	if !bk.Available(context.Background()) {
+		msg := "buildctl not available; install BuildKit or set SHIPYARD_BUILDKIT_ADDR"
+		_ = appendLog(client, serverURL, token, jobID, st.ID, "system", msg)
+		return 1, fmt.Errorf("%s", msg)
+	}
+	tag := envOr("SHIPYARD_IMAGE_TAG", "shipyard.local/app:latest")
+	out, err := bk.Build(context.Background(), buildkit.BuildRequest{
+		ContextDir: envOr("SHIPYARD_BUILD_CONTEXT", "."),
+		Dockerfile: envOr("SHIPYARD_DOCKERFILE", "Dockerfile"),
+		Tags:       []string{tag},
+		Push:       os.Getenv("SHIPYARD_BUILD_PUSH") == "true",
+	})
+	if out != "" {
+		_ = appendLog(client, serverURL, token, jobID, st.ID, "stdout", out)
+	}
+	if err != nil {
+		_ = appendLog(client, serverURL, token, jobID, st.ID, "stderr", err.Error())
+		return 1, err
+	}
+	_ = appendLog(client, serverURL, token, jobID, st.ID, "system", "image build completed: "+tag)
+	return 0, nil
 }
 
 func streamLogs(client *http.Client, serverURL, token, jobID, stepID, stream string, r io.Reader) {

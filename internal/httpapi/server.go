@@ -11,6 +11,8 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/audit"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/cluster"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/oci"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
@@ -18,6 +20,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -26,30 +29,36 @@ type Options struct {
 	AllowRegister bool
 	SessionTTL    time.Duration
 	NodeID        string
+	SecretsKey    string
+	OIDC          []oidc.ProviderConfig
 }
 
 type Server struct {
-	pool       *pgxpool.Pool
-	store      storage.Store
-	identity   *identity.Service
-	orgs       *orgs.Service
-	audit      *audit.Logger
-	pipelines  *pipeline.Service
-	runners    *runners.Service
-	artifacts  *artifacts.Service
-	releases   *releases.Service
-	packages   *packages.Service
-	registry   *registry.Service
-	cluster    *cluster.Service
-	opts       Options
-	started    time.Time
-	mux        *http.ServeMux
+	pool      *pgxpool.Pool
+	store     storage.Store
+	identity  *identity.Service
+	orgs      *orgs.Service
+	audit     *audit.Logger
+	pipelines *pipeline.Service
+	runners   *runners.Service
+	artifacts *artifacts.Service
+	releases  *releases.Service
+	packages  *packages.Service
+	registry  *registry.Service
+	cluster   *cluster.Service
+	oci       *oci.Distribution
+	secrets   *secrets.Box
+	oidc      *oidc.Service
+	opts      Options
+	started   time.Time
+	mux       *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 	if opts.SessionTTL <= 0 {
 		opts.SessionTTL = 7 * 24 * time.Hour
 	}
+	reg := registry.New(pool, store)
 	s := &Server{
 		pool:      pool,
 		store:     store,
@@ -61,11 +70,18 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		artifacts: artifacts.New(pool, store),
 		releases:  releases.New(pool),
 		packages:  packages.New(pool, store),
-		registry:  registry.New(pool, store),
+		registry:  reg,
 		cluster:   cluster.New(pool, opts.NodeID),
+		oci:       oci.NewDistribution(pool, store, reg),
+		oidc:      oidc.New(opts.OIDC),
 		opts:      opts,
 		started:   time.Now().UTC(),
 		mux:       http.NewServeMux(),
+	}
+	if opts.SecretsKey != "" {
+		if box, err := secrets.New(pool, opts.SecretsKey); err == nil {
+			s.secrets = box
+		}
 	}
 	s.routes()
 	go s.background()
@@ -86,6 +102,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
 	s.mux.HandleFunc("GET /api/v1/me", s.requireAuth(s.handleMe))
 	s.mux.HandleFunc("POST /api/v1/me/tokens", s.requireAuth(s.handleCreateToken))
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/providers", s.handleListOIDCProviders)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/{provider}/start", s.handleOIDCStart)
+	s.mux.HandleFunc("GET /api/v1/auth/oidc/{provider}/callback", s.handleOIDCCallback)
 
 	s.mux.HandleFunc("GET /api/v1/orgs", s.requireAuth(s.handleListOrgs))
 	s.mux.HandleFunc("POST /api/v1/orgs", s.requireAuth(s.handleCreateOrg))
@@ -135,6 +154,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/manifests/{tag}", s.requireAuth(s.handlePutOCIManifest))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/oci/{name}/tags", s.requireAuth(s.handleListOCITags))
 	s.mux.HandleFunc("POST /api/v1/webhooks/{provider}", s.handleWebhook)
+
+	s.mux.HandleFunc("GET /api/v1/secrets", s.requireAuth(s.handleListSecrets))
+	s.mux.HandleFunc("POST /api/v1/secrets", s.requireAuth(s.handleCreateSecret))
+
+	s.mux.HandleFunc("GET /v2/", s.handleOCIAPIVersion)
+	s.mux.HandleFunc("HEAD /v2/{name...}/blobs/{digest}", s.handleOCIBlobExists)
+	s.mux.HandleFunc("GET /v2/{name...}/blobs/{digest}", s.handleOCIBlobGet)
+	s.mux.HandleFunc("POST /v2/{name...}/blobs/uploads/", s.handleOCIBlobUploadStart)
+	s.mux.HandleFunc("PUT /v2/{name...}/blobs/uploads/{uuid}", s.handleOCIBlobUploadComplete)
+	s.mux.HandleFunc("PUT /v2/{name...}/manifests/{reference}", s.handleOCIManifestPutDist)
+	s.mux.HandleFunc("GET /v2/{name...}/manifests/{reference}", s.handleOCIManifestGetDist)
 }
 
 func (s *Server) background() {

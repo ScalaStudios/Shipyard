@@ -104,16 +104,30 @@ func (s *Service) Authenticate(ctx context.Context, login, password string) (Use
 	return u, nil
 }
 
-func (s *Service) GetUser(ctx context.Context, id string) (User, error) {
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
 	var u User
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, username, email, display_name, is_active, created_at
-		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+		FROM users WHERE lower(email) = $1
+	`, email).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
 	return u, err
+}
+
+func (s *Service) EnsureOIDCUser(ctx context.Context, username, email, displayName string) (User, error) {
+	if existing, err := s.GetUserByEmail(ctx, email); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return User{}, err
+	}
+	password, err := auth.NewToken(24)
+	if err != nil {
+		return User{}, err
+	}
+	return s.CreateUser(ctx, username, email, displayName, password)
 }
 
 func (s *Service) CreateSession(ctx context.Context, userID string, ttl time.Duration) (token string, expiresAt time.Time, err error) {
