@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -20,9 +21,16 @@ import (
 func main() {
 	serverURL := envOr("SHIPYARD_URL", "http://127.0.0.1:8080")
 	token := os.Getenv("SHIPYARD_RUNNER_TOKEN")
+	tokenFile := envOr("SHIPYARD_RUNNER_TOKEN_FILE", "")
 	regToken := os.Getenv("SHIPYARD_REGISTRATION_TOKEN")
 	name := envOr("SHIPYARD_RUNNER_NAME", hostname())
 	labels := strings.Split(envOr("SHIPYARD_RUNNER_LABELS", "linux"), ",")
+
+	if token == "" && tokenFile != "" {
+		if b, err := os.ReadFile(tokenFile); err == nil {
+			token = strings.TrimSpace(string(b))
+		}
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -51,6 +59,14 @@ func main() {
 			fatal("registration failed")
 		}
 		token = out.RunnerToken
+		if tokenFile != "" {
+			_ = os.MkdirAll(filepath.Dir(tokenFile), 0o700)
+			if err := os.WriteFile(tokenFile, []byte(token+"\n"), 0o600); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not persist runner token: %v\n", err)
+			} else {
+				fmt.Println("persisted runner token to", tokenFile)
+			}
+		}
 		fmt.Println("registered runner")
 	}
 

@@ -63,6 +63,19 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, orgID, actorID st
 	return plain, expires, err
 }
 
+// PeekRegistrationToken reports whether a registration token is still valid (does not consume it).
+func (s *Service) PeekRegistrationToken(ctx context.Context, plain string) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM runner_registration_tokens
+			WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()
+		)
+	`, auth.HashToken(plain)).Scan(&ok)
+	return ok, err
+}
+
+
 func (s *Service) Register(ctx context.Context, registrationToken, name string, labels, capabilities []string) (Runner, string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {

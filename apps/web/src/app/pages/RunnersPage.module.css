@@ -1,0 +1,52 @@
+.install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-4);
+  padding: var(--sy-space-4);
+  border-top: 1px solid var(--sy-color-border-default);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sy-space-3);
+  align-items: center;
+  color: var(--sy-color-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-2);
+}
+
+.blockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-2);
+}
+
+.hint {
+  margin: 0;
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.code {
+  margin: 0;
+  padding: var(--sy-space-3) var(--sy-space-4);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  background: #0f1216;
+  color: #d7dde6;
+  font-family: var(--sy-font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: auto;
+}

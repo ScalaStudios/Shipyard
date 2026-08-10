@@ -92,7 +92,7 @@ Use Certbot or your own certificates. Prefer Caddy when you can.
 1. Open the UI → **Create first account** (allowed when no users exist, or `SHIPYARD_ALLOW_REGISTER=true`)
 2. **Projects** → create org + project
 3. **Pipelines** → save a pipeline → **Run**
-4. **Runners** → create registration token → start `shipyard-runner`
+4. **Runners** → **Generate install command** → copy the `curl | bash` one-liner onto a host (Docker or Go). Same idea as Pterodactyl Wings.
 5. **Settings → Integrations** → connect GitHub / Forgejo / GitLab / …
 6. Point forge webhooks at  
    `https://YOUR_DOMAIN/api/v1/webhooks/{provider}?connection_id=…`
@@ -104,6 +104,7 @@ Use Certbot or your own certificates. Prefer Caddy when you can.
 |---|---|
 | `SHIPYARD_DATABASE_URL` | Postgres DSN |
 | `SHIPYARD_PUBLIC_URL` | Links in bot comments + Discord embeds |
+| `SHIPYARD_API_URL` | API origin embedded in runner `curl \| bash` install scripts |
 | `SHIPYARD_WEBHOOK_SECRET` | Global webhook HMAC / shared secret fallback |
 | `SHIPYARD_SECRETS_KEY` | Base64 32-byte key for encrypted secrets |
 | `SHIPYARD_ALLOW_REGISTER` | Open registration (otherwise first-user only) |

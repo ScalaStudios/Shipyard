@@ -30,6 +30,7 @@ type Config struct {
 	SecretsKey           string
 	WebhookSecret        string
 	PublicURL            string
+	APIURL               string
 	OIDCIssuer           string
 	OIDCClientID         string
 	OIDCClientSecret     string
@@ -59,6 +60,7 @@ func Load() (Config, error) {
 		SecretsKey:           os.Getenv("SHIPYARD_SECRETS_KEY"),
 		WebhookSecret:        os.Getenv("SHIPYARD_WEBHOOK_SECRET"),
 		PublicURL:            envOr("SHIPYARD_PUBLIC_URL", "http://127.0.0.1:5173"),
+		APIURL:               envOr("SHIPYARD_API_URL", "http://127.0.0.1:8080"),
 		OIDCIssuer:           os.Getenv("SHIPYARD_OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("SHIPYARD_OIDC_CLIENT_ID"),
 		OIDCClientSecret:     os.Getenv("SHIPYARD_OIDC_CLIENT_SECRET"),
