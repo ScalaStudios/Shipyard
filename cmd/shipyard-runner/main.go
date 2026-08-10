@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,7 +12,9 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,7 +27,7 @@ func main() {
 	tokenFile := envOr("SHIPYARD_RUNNER_TOKEN_FILE", "")
 	regToken := os.Getenv("SHIPYARD_REGISTRATION_TOKEN")
 	name := envOr("SHIPYARD_RUNNER_NAME", hostname())
-	labels := strings.Split(envOr("SHIPYARD_RUNNER_LABELS", "linux"), ",")
+	labels := runnerLabels(envOr("SHIPYARD_RUNNER_LABELS", runtime.GOOS))
 
 	if token == "" && tokenFile != "" {
 		if b, err := os.ReadFile(tokenFile); err == nil {
@@ -184,8 +187,17 @@ func execStep(client *http.Client, serverURL, token, jobID string, secrets map[s
 		_ = appendLog(client, serverURL, token, jobID, st.ID, "system", err.Error())
 		return 1, err
 	}
-	go streamLogs(client, serverURL, token, jobID, st.ID, "stdout", stdout)
-	go streamLogs(client, serverURL, token, jobID, st.ID, "stderr", stderr)
+	var streams sync.WaitGroup
+	streams.Add(2)
+	go func() {
+		defer streams.Done()
+		streamLogs(client, serverURL, token, jobID, st.ID, "stdout", stdout)
+	}()
+	go func() {
+		defer streams.Done()
+		streamLogs(client, serverURL, token, jobID, st.ID, "stderr", stderr)
+	}()
+	streams.Wait()
 	err := cmd.Wait()
 	if err == nil {
 		return 0, nil
@@ -222,20 +234,14 @@ func execBuildImage(client *http.Client, serverURL, token, jobID string, st step
 }
 
 func streamLogs(client *http.Client, serverURL, token, jobID, stepID, stream string, r io.Reader) {
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			for _, line := range strings.Split(string(buf[:n]), "\n") {
-				if line == "" {
-					continue
-				}
-				_ = appendLog(client, serverURL, token, jobID, stepID, stream, line)
-			}
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, 4096), 1<<20)
+	for sc.Scan() {
+		line := sc.Text()
+		if line == "" {
+			continue
 		}
-		if err != nil {
-			return
-		}
+		_ = appendLog(client, serverURL, token, jobID, stepID, stream, line)
 	}
 }
 
@@ -266,6 +272,23 @@ func envOr(k, v string) string {
 		return x
 	}
 	return v
+}
+
+func runnerLabels(raw string) []string {
+	out := []string{}
+	seen := map[string]struct{}{}
+	for _, l := range append(strings.Split(raw, ","), "os:"+runtime.GOOS) {
+		l = strings.ToLower(strings.TrimSpace(l))
+		if l == "" {
+			continue
+		}
+		if _, dup := seen[l]; dup {
+			continue
+		}
+		seen[l] = struct{}{}
+		out = append(out, l)
+	}
+	return out
 }
 
 func hostname() string {
