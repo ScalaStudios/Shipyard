@@ -6,73 +6,51 @@ Open-source software delivery platform: CI/CD pipelines, distributed runners, ar
 source → pipeline → job → artifact/package/image → release → deployment
 ```
 
-## Status
+<p align="center">
+  <img src="docs/brand/shipyard-mark.svg" alt="Shipyard mark" width="96" height="96" />
+</p>
 
-Phases 0–9 foundation verticals are implemented locally on `master` (not pushed).
+## Install & deploy
 
-| Phase | Capability |
-|---|---|
-| 0 | Server, Postgres migrations, storage (filesystem + S3), UI shell, Compose |
-| 1 | Users/auth/sessions/tokens, OIDC start/callback, orgs, projects, RBAC, audit |
-| 2 | `shipyard.yml` parse/DAG, pipeline runs/jobs/steps, run detail UI |
-| 3 | Runner registration, leasing, shell executor, logs (secret masking) |
-| 4 | Artifact upload/download with digests + provenance links |
-| 5 | OCI Distribution `/v2` + Bearer/Basic token auth, BuildKit helper |
-| 6 | Environments, releases, deployments |
-| 7–8 | Multi-runner labels + DB lease fencing / cluster node heartbeat |
-| 9 | Generic + npm/Maven repository protocols |
-
-CLI: `go run ./cmd/shipyard` (`login`, `whoami`, `status`, `run`).
-
-API smoke (server must already be running):
+**Preferred path** (Compose + Bun + Caddy config):
 
 ```bash
-./scripts/smoke.sh
+./scripts/install.sh
+# or
+DOMAIN=shipyard.example.com PROXY=caddy ./scripts/install.sh --yes
 ```
 
-## Docker (rootless on Arch)
+Full guide: **[docs/DEPLOY.md](docs/DEPLOY.md)** (Caddy preferred, nginx included, forge webhooks, Discord, runners).
 
-If you do not have root/sudo for system Docker, rootless works:
+## Quick start (dev)
 
 ```bash
-# already installed under ~/bin for this machine
+# API (Compose Postgres + server)
 export PATH="$HOME/bin:$PATH"
-export DOCKER_HOST=unix:///run/user/$UID/docker.sock
-systemctl --user start docker
+export DOCKER_HOST=unix:///run/user/$UID/docker.sock   # rootless Docker
 docker compose -f deploy/compose/compose.yml up --build -d
-./scripts/smoke.sh
-```
-
-System Docker (preferred when you have sudo):
-
-```bash
-sudo pacman -S docker docker-compose docker-buildx
-sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"
-```
-
-## Quick start
-
-```bash
-# API (requires Postgres)
-export SHIPYARD_DATABASE_URL=postgres://shipyard:shipyard@localhost:5432/shipyard?sslmode=disable
-go run ./cmd/shipyard-server
 
 # UI
 bun install
 bun run dev
-
-# Runner (after creating a registration token)
-SHIPYARD_URL=http://127.0.0.1:8080 \
-SHIPYARD_REGISTRATION_TOKEN=... \
-go run ./cmd/shipyard-runner
 ```
 
-Compose:
+Open http://127.0.0.1:5173 — create the first account when prompted.
 
 ```bash
-docker compose -f deploy/compose/compose.yml up --build
+./scripts/smoke.sh   # API smoke (server must be up)
 ```
+
+## What ships
+
+| Area | Capability |
+|---|---|
+| Auth | Local users, sessions, PATs, OIDC (GitHub / GitLab / Forgejo / Gitea) |
+| CI | Pipelines, runs, jobs, logs, runners |
+| Delivery | Artifacts, packages (npm/Maven), OCI `/v2`, releases, deployments |
+| Forges | Webhooks + PR/MR bot comments |
+| Alerts | In-app notifications + Discord embeds |
+| Ops | Cluster heartbeat, secrets vault, install script + reverse proxies |
 
 ## Repository layout
 
@@ -80,15 +58,19 @@ docker compose -f deploy/compose/compose.yml up --build
 |---|---|
 | `cmd/shipyard-server` | Control plane |
 | `cmd/shipyard-runner` | Job executor |
-| `internal/` | Domain packages |
-| `migrations/` | PostgreSQL migrations |
+| `cmd/shipyard` | CLI |
 | `apps/web` | Operator UI |
 | `packages/ui` | `@shipyard/ui` |
 | `deploy/compose` | Standalone stack |
+| `deploy/caddy` | Caddy reverse proxy (preferred) |
+| `deploy/nginx` | nginx reverse proxy |
+| `scripts/install.sh` | One-shot installer |
 | `DESIGN.md` | Normative UI contract |
+| `docs/DEPLOY.md` | Deploy / setup guide |
 
 ## Normative docs
 
 1. `DESIGN.md`
-2. `docs/architecture/`
-3. `docs/handoff/`
+2. `docs/DEPLOY.md`
+3. `docs/architecture/`
+4. `AGENTS.md`

@@ -25,7 +25,7 @@ export function AppShell({
     <div className={styles.shell}>
       <aside className={styles.nav} aria-label="Primary">
         <div className={styles.brand}>
-          <span className={styles.mark} aria-hidden="true" />
+          <img className={styles.markImg} src="/shipyard-mark.svg" width={28} height={28} alt="" />
           <div>
             <strong>Shipyard</strong>
             <div className={styles.brandMeta}>Delivery control plane</div>

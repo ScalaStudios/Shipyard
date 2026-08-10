@@ -1,0 +1,37 @@
+# Shipyard — Caddy reverse proxy (preferred)
+#
+# Usage:
+#   export SHIPYARD_DOMAIN=shipyard.example.com
+#   caddy run --config deploy/caddy/Caddyfile
+# or install system-wide and reload caddy.
+#
+# Lab / no DNS: use http://localhost { ... } and skip automatic HTTPS.
+
+{$SHIPYARD_DOMAIN:localhost} {
+	encode gzip zstd
+
+	# Control plane API + registry protocols
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /v2* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /auth/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /repository/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /readyz {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Operator UI — Vite dev by default; switch to file_server for production build
+	handle {
+		reverse_proxy 127.0.0.1:5173
+	}
+}
