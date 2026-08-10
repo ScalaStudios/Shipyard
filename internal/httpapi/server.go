@@ -239,7 +239,7 @@ func (s *Server) projectAccess(w http.ResponseWriter, r *http.Request, perm rbac
 		mapIdentityError(w, err)
 		return orgs.Organization{}, orgs.Project{}, false
 	}
-	project, err := s.orgs.GetProject(r.Context(), orgID, projectID)
+	project, err := s.orgs.GetProject(r.Context(), org.ID, projectID)
 	if err != nil {
 		mapIdentityError(w, err)
 		return orgs.Organization{}, orgs.Project{}, false

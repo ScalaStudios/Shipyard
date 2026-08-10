@@ -114,13 +114,14 @@ func (s *Service) ListOrganizations(ctx context.Context, userID string) ([]Organ
 }
 
 func (s *Service) GetOrganization(ctx context.Context, userID, orgID string) (Organization, rbac.Role, error) {
+	orgID = strings.ToLower(strings.TrimSpace(orgID))
 	var org Organization
 	var role string
 	err := s.pool.QueryRow(ctx, `
 		SELECT o.id, o.slug, o.name, o.description, o.created_at, m.role
 		FROM organizations o
 		JOIN organization_members m ON m.organization_id = o.id
-		WHERE o.id = $1 AND m.user_id = $2
+		WHERE (o.id::text = $1 OR o.slug = $1) AND m.user_id = $2
 	`, orgID, userID).Scan(&org.ID, &org.Slug, &org.Name, &org.Description, &org.CreatedAt, &role)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Organization{}, "", identity.ErrNotFound
@@ -226,11 +227,12 @@ func (s *Service) ListProjects(ctx context.Context, orgID string) ([]Project, er
 }
 
 func (s *Service) GetProject(ctx context.Context, orgID, projectID string) (Project, error) {
+	projectID = strings.ToLower(strings.TrimSpace(projectID))
 	var p Project
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, organization_id, slug, name, description, created_at
 		FROM projects
-		WHERE id = $1 AND organization_id = $2
+		WHERE (id::text = $1 OR slug = $1) AND organization_id = $2
 	`, projectID, orgID).Scan(&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Project{}, identity.ErrNotFound

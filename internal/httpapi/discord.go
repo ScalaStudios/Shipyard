@@ -21,13 +21,12 @@ type discordRequest struct {
 }
 
 func (s *Server) handleListDiscord(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgRead); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgRead)
+	if !ok {
 		return
 	}
 	projectID := r.URL.Query().Get("project_id")
-	list, err := s.discord.List(r.Context(), orgID, projectID)
+	list, err := s.discord.List(r.Context(), org.ID, projectID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -39,9 +38,8 @@ func (s *Server) handleListDiscord(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateDiscord(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgUpdate); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgUpdate)
+	if !ok {
 		return
 	}
 	var req discordRequest
@@ -50,7 +48,7 @@ func (s *Server) handleCreateDiscord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row, err := s.discord.Create(r.Context(), discord.CreateInput{
-		OrganizationID: orgID,
+		OrganizationID: org.ID,
 		ProjectID:      req.ProjectID,
 		Name:           req.Name,
 		Mode:           req.Mode,
@@ -68,12 +66,11 @@ func (s *Server) handleCreateDiscord(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteDiscord(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgUpdate); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgUpdate)
+	if !ok {
 		return
 	}
-	if err := s.discord.Delete(r.Context(), orgID, r.PathValue("integrationID")); err != nil {
+	if err := s.discord.Delete(r.Context(), org.ID, r.PathValue("integrationID")); err != nil {
 		mapIdentityError(w, err)
 		return
 	}
@@ -81,12 +78,11 @@ func (s *Server) handleDeleteDiscord(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTestDiscord(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgUpdate); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgUpdate)
+	if !ok {
 		return
 	}
-	if err := s.discord.TestPing(r.Context(), orgID, r.PathValue("integrationID")); err != nil {
+	if err := s.discord.TestPing(r.Context(), org.ID, r.PathValue("integrationID")); err != nil {
 		if errors.Is(err, identity.ErrNotFound) || errors.Is(err, identity.ErrInvalidInput) {
 			mapIdentityError(w, err)
 			return
