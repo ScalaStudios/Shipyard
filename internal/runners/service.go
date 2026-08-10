@@ -84,6 +84,9 @@ func (s *Service) Register(ctx context.Context, registrationToken, name string, 
 	if len(labels) == 0 {
 		labels = []string{"linux"}
 	}
+	if capabilities == nil {
+		capabilities = []string{}
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

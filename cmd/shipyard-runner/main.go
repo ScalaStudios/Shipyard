@@ -42,9 +42,10 @@ func main() {
 			fatal("SHIPYARD_RUNNER_TOKEN or SHIPYARD_REGISTRATION_TOKEN required")
 		}
 		body, _ := json.Marshal(map[string]any{
-			"token":  regToken,
-			"name":   name,
-			"labels": labels,
+			"token":        regToken,
+			"name":         name,
+			"labels":       labels,
+			"capabilities": []string{},
 		})
 		resp, err := client.Post(serverURL+"/api/v1/runner/register", "application/json", bytes.NewReader(body))
 		if err != nil {
