@@ -1,0 +1,72 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--sy-space-6);
+  background: var(--sy-color-bg-canvas);
+}
+
+.panel {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-3);
+  padding: var(--sy-space-6);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-panel);
+  background: var(--sy-color-bg-surface);
+}
+
+.brand {
+  color: var(--sy-color-action-primary);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.panel h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.copy {
+  margin: 0 0 var(--sy-space-2);
+  color: var(--sy-color-text-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-1);
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+}
+
+.field input {
+  height: var(--sy-control-height-default);
+  padding: 0 var(--sy-space-3);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  background: var(--sy-color-bg-canvas);
+  color: var(--sy-color-text-primary);
+}
+
+.error {
+  padding: var(--sy-space-2) var(--sy-space-3);
+  border: 1px solid color-mix(in srgb, var(--sy-color-status-danger) 40%, var(--sy-color-border-default));
+  border-radius: var(--sy-radius-control);
+  background: color-mix(in srgb, var(--sy-color-status-danger) 10%, transparent);
+  color: var(--sy-color-text-primary);
+  font-size: 13px;
+}
+
+.switch {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--sy-color-action-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+}
