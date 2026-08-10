@@ -56,6 +56,7 @@ export function RunnersPage() {
   const [copied, setCopied] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [apiPingMs, setApiPingMs] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState("");
 
   async function refresh() {
     const started = performance.now();
@@ -66,9 +67,13 @@ export function RunnersPage() {
   }
 
   async function removeRunner(runner: Runner) {
-    if (!window.confirm(`Remove runner "${runner.name}"? It can register again with a new token.`)) return;
+    if (confirmRemove !== runner.id) {
+      setConfirmRemove(runner.id);
+      return;
+    }
     try {
       await api.deleteRunner(runner.id);
+      setConfirmRemove("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to remove runner");
@@ -255,7 +260,7 @@ export function RunnersPage() {
                     <td>
                       {alive ? null : (
                         <Button type="button" variant="secondary" onClick={() => void removeRunner(r)}>
-                          Remove
+                          {confirmRemove === r.id ? "Confirm remove" : "Remove"}
                         </Button>
                       )}
                     </td>
