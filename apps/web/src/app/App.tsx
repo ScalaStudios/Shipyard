@@ -21,6 +21,7 @@ import { RunnersPage } from "./pages/RunnersPage";
 import { ClusterPage } from "./pages/ClusterPage";
 import { SettingsLayout } from "./pages/settings/SettingsLayout";
 import { AccountSettingsPage } from "./pages/settings/AccountSettingsPage";
+import { AuthSettingsPage } from "./pages/settings/AuthSettingsPage";
 import { MembersSettingsPage } from "./pages/settings/MembersSettingsPage";
 import { SecretsSettingsPage } from "./pages/settings/SecretsSettingsPage";
 import { IntegrationsSettingsPage } from "./pages/settings/IntegrationsSettingsPage";
@@ -82,6 +83,7 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Route path="/cluster" element={<ClusterPage />} />
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<AccountSettingsPage />} />
+            <Route path="authentication" element={<AuthSettingsPage />} />
             <Route path="members" element={<MembersSettingsPage />} />
             <Route path="secrets" element={<SecretsSettingsPage />} />
             <Route path="integrations" element={<IntegrationsSettingsPage />} />

@@ -356,6 +356,23 @@ export const api = {
   listWebhookDeliveries: (orgID: string, projectID: string) =>
     request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
 
+  listAuthProviders: (purpose: "login" | "forge") =>
+    request<{ providers: AuthProvider[]; callback_base: string }>(
+      `/api/v1/settings/auth-providers?purpose=${purpose}`,
+    ),
+  upsertAuthProvider: (payload: AuthProviderInput) =>
+    request<{ provider: AuthProvider }>("/api/v1/settings/auth-providers", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteAuthProvider: (purpose: "login" | "forge", id: string) =>
+    request<{ status: string }>(`/api/v1/settings/auth-providers/${id}?purpose=${purpose}`, { method: "DELETE" }),
+  listInstanceAdmins: () => request<{ users: InstanceUser[] }>("/api/v1/settings/admins"),
+  setInstanceAdmin: (userID: string, isAdmin: boolean) =>
+    request<{ status: string }>(`/api/v1/settings/admins/${userID}`, {
+      method: "PUT",
+      body: JSON.stringify({ is_admin: isAdmin }),
+    }),
   listForgeOAuthProviders: () =>
     request<{ providers: ForgeOAuthProvider[] }>("/api/v1/forge/oauth/providers"),
   forgeOAuthStartURL: (orgID: string, provider: string) =>
@@ -458,6 +475,39 @@ export type SCMConnection = {
   has_token: boolean;
   has_webhook_secret: boolean;
   created_at: string;
+};
+
+export type AuthProvider = {
+  id: string;
+  purpose: "login" | "forge";
+  name: string;
+  kind: string;
+  issuer: string;
+  client_id: string;
+  redirect_url: string;
+  scopes: string[];
+  enabled: boolean;
+  has_client_secret: boolean;
+  updated_at: string;
+};
+
+export type AuthProviderInput = {
+  purpose: "login" | "forge";
+  name: string;
+  kind?: string;
+  issuer?: string;
+  client_id: string;
+  client_secret?: string;
+  redirect_url?: string;
+  scopes?: string[];
+  enabled: boolean;
+};
+
+export type InstanceUser = {
+  id: string;
+  username: string;
+  email: string;
+  is_admin: boolean;
 };
 
 export type ForgeOAuthProvider = {

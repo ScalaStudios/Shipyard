@@ -3,6 +3,7 @@ import styles from "./SettingsLayout.module.css";
 
 const links = [
   { to: "/settings", end: true, label: "Account" },
+  { to: "/settings/authentication", label: "Authentication" },
   { to: "/settings/members", label: "Members" },
   { to: "/settings/secrets", label: "Secrets" },
   { to: "/settings/integrations", label: "Integrations" },
