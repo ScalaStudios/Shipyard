@@ -10,6 +10,7 @@ import {
   ForgeCredential,
   ForgeImportJob,
   ForgeImportJobItem,
+  ForgeOAuthProvider,
   RemoteOrg,
   RemoteRepo,
   SCMProvider,
@@ -24,6 +25,7 @@ export function ImportPage() {
   const { org, setError, refreshProjects } = useWorkspace();
   const [step, setStep] = useState<Step>("credential");
   const [providers, setProviders] = useState<SCMProvider[]>([]);
+  const [oauthProviders, setOauthProviders] = useState<ForgeOAuthProvider[]>([]);
   const [credentials, setCredentials] = useState<ForgeCredential[]>([]);
   const [credentialID, setCredentialID] = useState("");
   const [provider, setProvider] = useState("forgejo");
@@ -62,6 +64,23 @@ export function ImportPage() {
       .listSCMProviders()
       .then((res) => setProviders(res.providers ?? []))
       .catch(() => setProviders([]));
+    void api
+      .listForgeOAuthProviders()
+      .then((res) => setOauthProviders(res.providers ?? []))
+      .catch(() => setOauthProviders([]));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("credential_id");
+    const failed = params.get("error");
+    if (!connected && !failed) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    if (failed) {
+      setError(failed);
+      return;
+    }
+    if (connected) setCredentialID(connected);
   }, []);
 
   useEffect(() => {
@@ -197,7 +216,7 @@ export function ImportPage() {
     <div className={table.stack}>
       <PageHeader
         title="Import from forge"
-        description="Connect a PAT, pick a remote organization, and import each repository as a Shipyard project with webhook wiring."
+        description="Connect your forge account or paste a PAT, pick a remote organization, and import each repository as a Shipyard project with webhook wiring."
       />
 
       {!org ? (
@@ -248,6 +267,26 @@ export function ImportPage() {
                   <Button type="button" variant="primary" loading={busy} onClick={() => void loadRemoteOrgs()}>
                     Use credential
                   </Button>
+                </div>
+              ) : null}
+
+              {oauthProviders.length > 0 && org ? (
+                <div className={styles.connectRow}>
+                  <span className={table.muted}>Connect your forge account</span>
+                  <div className={styles.connectButtons}>
+                    {oauthProviders.map((p) => (
+                      <Button
+                        key={p.name}
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          window.location.href = api.forgeOAuthStartURL(org.id, p.name);
+                        }}
+                      >
+                        Connect {p.name}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 

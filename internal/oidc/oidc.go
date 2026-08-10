@@ -45,6 +45,7 @@ type Service struct {
 
 type stateRecord struct {
 	Provider  string
+	Data      string
 	CreatedAt time.Time
 }
 
@@ -139,6 +140,10 @@ func detectKind(p ProviderConfig) ProviderKind {
 
 func (s *Service) Enabled() bool { return len(s.providers) > 0 }
 
+func (s *Service) Issuer(provider string) string {
+	return s.providers[provider].Issuer
+}
+
 func (s *Service) List() []ProviderInfo {
 	out := make([]ProviderInfo, 0, len(s.providers))
 	for _, p := range s.providers {
@@ -148,6 +153,10 @@ func (s *Service) List() []ProviderInfo {
 }
 
 func (s *Service) AuthURL(provider string) (string, string, error) {
+	return s.AuthURLFor(provider, "")
+}
+
+func (s *Service) AuthURLFor(provider, data string) (string, string, error) {
 	p, ok := s.providers[provider]
 	if !ok {
 		return "", "", fmt.Errorf("unknown oidc provider")
@@ -157,7 +166,7 @@ func (s *Service) AuthURL(provider string) (string, string, error) {
 		return "", "", err
 	}
 	s.mu.Lock()
-	s.states[state] = stateRecord{Provider: provider, CreatedAt: time.Now().UTC()}
+	s.states[state] = stateRecord{Provider: provider, Data: data, CreatedAt: time.Now().UTC()}
 	s.mu.Unlock()
 
 	q := url.Values{}
@@ -179,6 +188,7 @@ type TokenResult struct {
 	Subject     string
 	Name        string
 	Username    string
+	StateData   string
 }
 
 func (s *Service) Exchange(ctx context.Context, provider, code, state string) (TokenResult, error) {
@@ -225,7 +235,7 @@ func (s *Service) Exchange(ctx context.Context, provider, code, state string) (T
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return TokenResult{}, err
 	}
-	result := TokenResult{AccessToken: payload.AccessToken, IDToken: payload.IDToken}
+	result := TokenResult{AccessToken: payload.AccessToken, IDToken: payload.IDToken, StateData: rec.Data}
 	if payload.IDToken != "" {
 		if claims, err := decodeJWTClaims(payload.IDToken); err == nil {
 			result.Email, _ = claims["email"].(string)

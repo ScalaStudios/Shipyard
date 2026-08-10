@@ -37,6 +37,7 @@ type Config struct {
 	OIDCRedirectURL      string
 	OIDCProviderName     string
 	OIDCProviders        []oidc.ProviderConfig
+	ForgeOAuthProviders  []oidc.ProviderConfig
 }
 
 func Load() (Config, error) {
@@ -85,6 +86,7 @@ func Load() (Config, error) {
 	}
 
 	cfg.OIDCProviders = loadOIDCProviders(cfg)
+	cfg.ForgeOAuthProviders = loadForgeOAuthProviders(cfg)
 	return cfg, nil
 }
 
@@ -166,6 +168,52 @@ func loadOIDCProviders(cfg Config) []oidc.ProviderConfig {
 		})
 	}
 	return out
+}
+
+func loadForgeOAuthProviders(cfg Config) []oidc.ProviderConfig {
+	base := strings.TrimRight(cfg.APIURL, "/") + "/api/v1/forge/oauth"
+	var out []oidc.ProviderConfig
+	if id := os.Getenv("SHIPYARD_FORGE_OAUTH_GITHUB_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "github",
+			Kind:         oidc.KindGitHub,
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_FORGE_OAUTH_GITHUB_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_FORGE_OAUTH_GITHUB_REDIRECT_URL", base+"/github/callback"),
+			Scopes:       forgeScopes("SHIPYARD_FORGE_OAUTH_GITHUB_SCOPES", []string{"repo", "read:org", "admin:repo_hook"}),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_FORGE_OAUTH_FORGEJO_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "forgejo",
+			Kind:         oidc.KindForgejo,
+			Issuer:       envOr("SHIPYARD_FORGE_OAUTH_FORGEJO_ISSUER", "https://git.lunarlabs.dev"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_FORGE_OAUTH_FORGEJO_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_FORGE_OAUTH_FORGEJO_REDIRECT_URL", base+"/forgejo/callback"),
+			Scopes:       forgeScopes("SHIPYARD_FORGE_OAUTH_FORGEJO_SCOPES", []string{"read:user", "read:organization", "write:repository"}),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_FORGE_OAUTH_GITEA_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "gitea",
+			Kind:         oidc.KindGitea,
+			Issuer:       os.Getenv("SHIPYARD_FORGE_OAUTH_GITEA_ISSUER"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_FORGE_OAUTH_GITEA_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_FORGE_OAUTH_GITEA_REDIRECT_URL", base+"/gitea/callback"),
+			Scopes:       forgeScopes("SHIPYARD_FORGE_OAUTH_GITEA_SCOPES", []string{"read:user", "read:organization", "write:repository"}),
+		})
+	}
+	return out
+}
+
+func forgeScopes(key string, fallback []string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	return strings.Fields(strings.ReplaceAll(raw, ",", " "))
 }
 
 func envOr(key, fallback string) string {
