@@ -1,0 +1,23 @@
+pipeline:
+  name: build and test
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runner:
+      os: linux
+    steps:
+      - name: unit tests
+        run: go test ./...
+
+  build:
+    needs: [test]
+    runner:
+      os: linux
+      labels: [linux]
+    steps:
+      - name: build
+        run: go build ./cmd/shipyard-server
