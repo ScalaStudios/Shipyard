@@ -294,4 +294,89 @@ export const api = {
     project_id?: string;
     environment_id?: string;
   }) => request<{ secret: SecretMeta }>("/api/v1/secrets", { method: "POST", body: JSON.stringify(payload) }),
+
+  listSCMProviders: () => request<{ providers: SCMProvider[] }>("/api/v1/scm/providers"),
+  listSCMConnections: (orgID: string, projectID: string) =>
+    request<{ connections: SCMConnection[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/scm/connections`),
+  createSCMConnection: (
+    orgID: string,
+    projectID: string,
+    payload: {
+      provider: string;
+      name: string;
+      base_url?: string;
+      repo_owner: string;
+      repo_name: string;
+      access_token?: string;
+      bot_username?: string;
+      webhook_secret?: string;
+      pipeline_slug?: string;
+    },
+  ) =>
+    request<{ connection: SCMConnection; webhook_url: string }>(
+      `/api/v1/orgs/${orgID}/projects/${projectID}/scm/connections`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  deleteSCMConnection: (orgID: string, projectID: string, connectionID: string) =>
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/projects/${projectID}/scm/connections/${connectionID}`, {
+      method: "DELETE",
+    }),
+  listWebhookDeliveries: (orgID: string, projectID: string) =>
+    request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
+  listNotifications: (unreadOnly?: boolean) =>
+    request<{ notifications: AppNotification[]; unread_count: number }>(
+      `/api/v1/notifications${unreadOnly ? "?unread=1" : ""}`,
+    ),
+  markNotificationRead: (id: string) =>
+    request<{ status: string }>(`/api/v1/notifications/${id}/read`, { method: "POST", body: "{}" }),
+  markAllNotificationsRead: () =>
+    request<{ status: string }>("/api/v1/notifications/read-all", { method: "POST", body: "{}" }),
+};
+
+export type SCMProvider = {
+  id: string;
+  label: string;
+  default_url: string;
+  family: string;
+  description: string;
+};
+
+export type SCMConnection = {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  provider: string;
+  name: string;
+  base_url: string;
+  repo_owner: string;
+  repo_name: string;
+  bot_username: string;
+  pipeline_slug: string;
+  enabled: boolean;
+  has_token: boolean;
+  has_webhook_secret: boolean;
+  created_at: string;
+};
+
+export type WebhookDelivery = {
+  id: string;
+  connection_id?: string;
+  provider: string;
+  event_type: string;
+  delivery_id: string;
+  status: string;
+  run_id?: string;
+  error_message?: string;
+  summary: string;
+  created_at: string;
+};
+
+export type AppNotification = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  href: string;
+  read_at?: string;
+  created_at: string;
 };
