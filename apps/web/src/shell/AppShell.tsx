@@ -51,13 +51,15 @@ export function AppShell({
                 );
               })}
             </nav>
+          </div>
 
+          <div className={styles.actions}>
             <details key={location.pathname} className={styles.menu}>
               <summary className={styles.menuSummary} aria-label="Open navigation menu">
                 <IconMenu2 size={16} stroke={1.5} />
                 <span className={styles.menuLabel}>Menu</span>
               </summary>
-              <div className={styles.menuPanel}>
+              <div className={styles.menuPanel} role="menu">
                 {NAV_ITEMS.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -65,6 +67,7 @@ export function AppShell({
                       key={item.id}
                       to={item.to}
                       end={item.to === "/"}
+                      role="menuitem"
                       className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
                     >
                       <Icon size={16} stroke={1.5} />
@@ -74,9 +77,6 @@ export function AppShell({
                 })}
               </div>
             </details>
-          </div>
-
-          <div className={styles.actions}>
             <NotificationBell />
             <div className={styles.themeToggle}>{themeToggle}</div>
             <div className={styles.account}>

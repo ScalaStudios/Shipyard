@@ -136,8 +136,9 @@
 .menuPanel {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
-  min-width: min(260px, calc(100vw - 24px));
+  right: 0;
+  left: auto;
+  width: min(260px, calc(100vw - 24px));
   max-height: min(70vh, 480px);
   overflow: auto;
   padding: var(--sy-space-2);
@@ -408,11 +409,6 @@
 
   .menu {
     display: block;
-  }
-
-  .menuPanel {
-    left: auto;
-    right: 0;
   }
 
   .pathbar {
