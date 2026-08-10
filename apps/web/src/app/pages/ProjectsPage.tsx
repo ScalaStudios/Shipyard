@@ -1,19 +1,35 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { api } from "../api";
+import { api, type Project } from "../api";
 import { formatTime } from "../lib/format";
 
 export function ProjectsPage() {
-  const { orgs, projects, org, setOrgID, setProjectID, refreshOrgs, refreshProjects, setError } = useWorkspace();
+  const navigate = useNavigate();
+  const { orgs, projects, org, project, setOrgID, setProjectID, refreshOrgs, refreshProjects, setError } =
+    useWorkspace();
   const [orgSlug, setOrgSlug] = useState("");
   const [orgName, setOrgName] = useState("");
   const [projectSlug, setProjectSlug] = useState("");
   const [projectName, setProjectName] = useState("");
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = [...projects].sort((a, b) => a.name.localeCompare(b.name));
+    if (!q) return list;
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q),
+    );
+  }, [projects, query]);
 
   async function createOrg(event: FormEvent) {
     event.preventDefault();
@@ -40,7 +56,7 @@ export function ProjectsPage() {
       setProjectSlug("");
       setProjectName("");
       await refreshProjects();
-      setProjectID(res.project.id);
+      openProject(res.project);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to create project");
     } finally {
@@ -48,11 +64,25 @@ export function ProjectsPage() {
     }
   }
 
+  function openProject(p: Project, dest: "/" | "/pipelines" = "/") {
+    setProjectID(p.id);
+    navigate(dest);
+  }
+
   return (
     <div className={table.stack}>
       <PageHeader
         title="Projects"
-        description="Organizations own projects. Select a project in the topbar to scope pipelines, artifacts, and releases."
+        description="Browse organization projects. Open one to work pipelines, artifacts, and releases."
+        actions={
+          org ? (
+            <Link to="/projects/import">
+              <Button type="button" variant="secondary">
+                Import from forge
+              </Button>
+            </Link>
+          ) : null
+        }
       />
 
       <Panel
@@ -60,7 +90,14 @@ export function ProjectsPage() {
         meta={<StatusBadge status="info">{orgs.length}</StatusBadge>}
         actions={
           <form className={table.formRow} onSubmit={createOrg}>
-            <input className={table.input} placeholder="slug" value={orgSlug} onChange={(e) => setOrgSlug(e.target.value)} required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" />
+            <input
+              className={table.input}
+              placeholder="slug"
+              value={orgSlug}
+              onChange={(e) => setOrgSlug(e.target.value)}
+              required
+              pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+            />
             <input className={table.input} placeholder="name" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
             <Button type="submit" variant="primary" loading={busy}>
               Create org
@@ -69,7 +106,7 @@ export function ProjectsPage() {
         }
       >
         {orgs.length === 0 ? (
-          <EmptyState title="No organizations" description="Create an organization to begin." />
+          <EmptyState title="No organizations" description="Create an organization to begin, then import repos from Forgejo or GitHub." />
         ) : (
           <DataTable>
             <thead>
@@ -113,7 +150,13 @@ export function ProjectsPage() {
               disabled={!org}
               pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
             />
-            <input className={table.input} placeholder="name" value={projectName} onChange={(e) => setProjectName(e.target.value)} disabled={!org} />
+            <input
+              className={table.input}
+              placeholder="name"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              disabled={!org}
+            />
             <Button type="submit" variant="primary" loading={busy} disabled={!org}>
               Create project
             </Button>
@@ -123,30 +166,77 @@ export function ProjectsPage() {
         {!org ? (
           <EmptyState title="Select an organization" />
         ) : projects.length === 0 ? (
-          <EmptyState title="No projects" description="Create a project in this organization." />
+          <EmptyState
+            title="No projects"
+            description="Create one manually, or import an existing forge organization."
+            action={
+              <Link to="/projects/import">
+                <Button type="button" variant="primary">
+                  Import from forge
+                </Button>
+              </Link>
+            }
+          />
         ) : (
-          <DataTable>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Slug</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <button type="button" className={table.rowButton} onClick={() => setProjectID(p.id)}>
-                      {p.name}
-                    </button>
-                  </td>
-                  <td className="mono">{p.slug}</td>
-                  <td className={table.muted}>{formatTime(p.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
+          <>
+            <div className={table.toolbar}>
+              <input
+                className={table.input}
+                placeholder="Search projects…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search projects"
+              />
+              <span className={table.muted}>
+                {filtered.length === projects.length
+                  ? `${projects.length} projects`
+                  : `${filtered.length} of ${projects.length}`}
+              </span>
+            </div>
+            {filtered.length === 0 ? (
+              <EmptyState title="No matches" description="Try a different search." />
+            ) : (
+              <DataTable>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Description</th>
+                    <th>Created</th>
+                    <th>Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p) => {
+                    const selected = project?.id === p.id;
+                    return (
+                      <tr key={p.id}>
+                        <td>
+                          <button type="button" className={table.rowButton} onClick={() => openProject(p)}>
+                            {p.name}
+                          </button>
+                          {selected ? <span className={table.muted}> · selected</span> : null}
+                        </td>
+                        <td className="mono">{p.slug}</td>
+                        <td className={table.muted}>{p.description || "—"}</td>
+                        <td className={table.muted}>{formatTime(p.created_at)}</td>
+                        <td>
+                          <div className={table.formRow}>
+                            <Button type="button" variant="secondary" onClick={() => openProject(p, "/")}>
+                              Overview
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={() => openProject(p, "/pipelines")}>
+                              Pipelines
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </DataTable>
+            )}
+          </>
         )}
       </Panel>
     </div>

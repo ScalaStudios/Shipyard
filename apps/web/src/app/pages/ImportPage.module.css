@@ -1,0 +1,104 @@
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sy-space-2);
+  margin: 0 0 var(--sy-space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.step,
+.stepActive,
+.stepDone {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sy-space-2);
+  padding: var(--sy-space-1) var(--sy-space-3);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  color: var(--sy-color-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.stepActive {
+  border-color: color-mix(in srgb, var(--sy-color-action-primary) 45%, var(--sy-color-border-default));
+  color: var(--sy-color-text-primary);
+  background: color-mix(in srgb, var(--sy-color-action-primary) 8%, transparent);
+}
+
+.stepDone {
+  color: var(--sy-color-text-primary);
+}
+
+.repoList {
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow: auto;
+  border-top: 1px solid var(--sy-color-border-default);
+}
+
+.repoRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: var(--sy-space-3);
+  align-items: center;
+  padding: var(--sy-space-2) var(--sy-space-4);
+  border-bottom: 1px solid var(--sy-color-border-default);
+}
+
+.repoRow:hover {
+  background: color-mix(in srgb, var(--sy-color-action-primary) 6%, transparent);
+}
+
+.repoMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.repoName {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sy-color-text-primary);
+}
+
+.repoDesc {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sy-color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-2);
+  padding: var(--sy-space-4);
+}
+
+.barTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sy-color-bg-subtle);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sy-color-action-primary);
+  transition: width var(--sy-duration-normal) var(--sy-ease-out);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sy-space-3);
+  font-size: 13px;
+  color: var(--sy-color-text-muted);
+}
