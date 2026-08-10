@@ -1,0 +1,97 @@
+:root,
+[data-theme="light"] {
+  --sy-color-bg-canvas: #f5f7f9;
+  --sy-color-bg-surface: #ffffff;
+  --sy-color-bg-subtle: #f8fafc;
+  --sy-color-bg-raised: #ffffff;
+  --sy-color-border-default: #d8dee6;
+  --sy-color-border-strong: #b7c0cc;
+  --sy-color-text-primary: #1f2328;
+  --sy-color-text-muted: #59636e;
+  --sy-color-text-faint: #7a8591;
+  --sy-color-action-primary: #315efb;
+  --sy-color-action-primary-hover: #244cd8;
+  --sy-color-accent-dock: #b86519;
+  --sy-color-status-success: #177a49;
+  --sy-color-status-warning: #a05e00;
+  --sy-color-status-danger: #b92c2c;
+  --sy-color-status-info: #256faf;
+  --sy-color-focus-ring: #1f5eff;
+
+  --sy-space-0: 0;
+  --sy-space-1: 4px;
+  --sy-space-2: 8px;
+  --sy-space-3: 12px;
+  --sy-space-4: 16px;
+  --sy-space-5: 20px;
+  --sy-space-6: 24px;
+  --sy-space-8: 32px;
+  --sy-space-10: 40px;
+  --sy-space-12: 48px;
+  --sy-space-16: 64px;
+
+  --sy-radius-control: 6px;
+  --sy-radius-panel: 8px;
+  --sy-radius-dialog: 12px;
+
+  --sy-control-height-compact: 28px;
+  --sy-control-height-default: 32px;
+  --sy-control-height-prominent: 36px;
+
+  --sy-font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --sy-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --sy-color-bg-canvas: #0b0d10;
+  --sy-color-bg-surface: #111419;
+  --sy-color-bg-subtle: #15191f;
+  --sy-color-bg-raised: #191e25;
+  --sy-color-border-default: #2a3038;
+  --sy-color-border-strong: #3a424d;
+  --sy-color-text-primary: #e7eaf0;
+  --sy-color-text-muted: #9aa4b2;
+  --sy-color-text-faint: #6f7a87;
+  --sy-color-action-primary: #6e97ff;
+  --sy-color-action-primary-hover: #89aaff;
+  --sy-color-accent-dock: #e2a45b;
+  --sy-color-status-success: #45b97c;
+  --sy-color-status-warning: #d8a13b;
+  --sy-color-status-danger: #e26666;
+  --sy-color-status-info: #69a7e8;
+  --sy-color-focus-ring: #9ab8ff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sy-font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sy-color-text-primary);
+  background: var(--sy-color-bg-canvas);
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sy-color-focus-ring);
+  outline-offset: 2px;
+}
