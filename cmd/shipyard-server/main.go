@@ -45,7 +45,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	api := httpapi.New(pool, store)
+	api := httpapi.New(pool, store, httpapi.Options{
+		AllowRegister: cfg.AllowRegister,
+		SessionTTL:    cfg.SessionTTL,
+	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           api.Handler(),

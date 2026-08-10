@@ -9,19 +9,21 @@ import (
 )
 
 type Config struct {
-	HTTPAddr            string
-	DatabaseURL         string
-	MigrationsDir       string
-	StorageBackend      string
+	HTTPAddr             string
+	DatabaseURL          string
+	MigrationsDir        string
+	StorageBackend       string
 	StorageFilesystemDir string
-	S3Endpoint          string
-	S3Region            string
-	S3Bucket            string
-	S3AccessKey         string
-	S3SecretKey         string
-	S3ForcePathStyle    bool
-	LogLevel            string
-	ShutdownTimeout     time.Duration
+	S3Endpoint           string
+	S3Region             string
+	S3Bucket             string
+	S3AccessKey          string
+	S3SecretKey          string
+	S3ForcePathStyle     bool
+	LogLevel             string
+	ShutdownTimeout      time.Duration
+	AllowRegister        bool
+	SessionTTL           time.Duration
 }
 
 func Load() (Config, error) {
@@ -39,6 +41,8 @@ func Load() (Config, error) {
 		S3ForcePathStyle:     envBool("SHIPYARD_S3_FORCE_PATH_STYLE", true),
 		LogLevel:             envOr("SHIPYARD_LOG_LEVEL", "info"),
 		ShutdownTimeout:      envDuration("SHIPYARD_SHUTDOWN_TIMEOUT", 15*time.Second),
+		AllowRegister:        envBool("SHIPYARD_ALLOW_REGISTER", false),
+		SessionTTL:           envDuration("SHIPYARD_SESSION_TTL", 7*24*time.Hour),
 	}
 
 	if cfg.DatabaseURL == "" {
