@@ -12,12 +12,12 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/cluster"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/discord"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
-	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oci"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
@@ -29,38 +29,40 @@ import (
 )
 
 type Options struct {
-	AllowRegister bool
-	SessionTTL    time.Duration
-	NodeID        string
-	SecretsKey    string
-	WebhookSecret string
-	PublicURL     string
-	APIURL        string
-	OIDC          []oidc.ProviderConfig
+	AllowRegister  bool
+	SessionTTL     time.Duration
+	NodeID         string
+	SecretsKey     string
+	WebhookSecret  string
+	PublicURL      string
+	APIURL         string
+	OIDC           []oidc.ProviderConfig
+	ForgeOAuth     []oidc.ProviderConfig
 }
 
 type Server struct {
-	pool          *pgxpool.Pool
-	store         storage.Store
-	identity      *identity.Service
-	orgs          *orgs.Service
-	audit         *audit.Logger
-	pipelines     *pipeline.Service
-	runners       *runners.Service
-	artifacts     *artifacts.Service
-	releases      *releases.Service
-	packages      *packages.Service
-	registry      *registry.Service
-	cluster       *cluster.Service
-	oci           *oci.Distribution
-	secrets       *secrets.Box
-	oidc          *oidc.Service
-	scm           *scm.Service
-	notifications *notifications.Service
-	discord       *discord.Service
-	opts          Options
-	started       time.Time
-	mux           *http.ServeMux
+	pool           *pgxpool.Pool
+	store          storage.Store
+	identity       *identity.Service
+	orgs           *orgs.Service
+	audit          *audit.Logger
+	pipelines      *pipeline.Service
+	runners        *runners.Service
+	artifacts      *artifacts.Service
+	releases       *releases.Service
+	packages       *packages.Service
+	registry       *registry.Service
+	cluster        *cluster.Service
+	oci            *oci.Distribution
+	secrets        *secrets.Box
+	oidc           *oidc.Service
+	forgeOAuth     *oidc.Service
+	scm            *scm.Service
+	notifications  *notifications.Service
+	discord        *discord.Service
+	opts           Options
+	started        time.Time
+	mux            *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
@@ -75,26 +77,27 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		}
 	}
 	s := &Server{
-		pool:          pool,
-		store:         store,
-		identity:      identity.New(pool),
-		orgs:          orgs.New(pool),
-		audit:         audit.New(pool),
-		pipelines:     pipeline.NewService(pool),
-		runners:       runners.New(pool),
-		artifacts:     artifacts.New(pool, store),
-		releases:      releases.New(pool),
-		packages:      packages.New(pool, store),
-		registry:      reg,
-		cluster:       cluster.New(pool, opts.NodeID),
+		pool:      pool,
+		store:     store,
+		identity:  identity.New(pool),
+		orgs:      orgs.New(pool),
+		audit:     audit.New(pool),
+		pipelines: pipeline.NewService(pool),
+		runners:   runners.New(pool),
+		artifacts: artifacts.New(pool, store),
+		releases:  releases.New(pool),
+		packages:  packages.New(pool, store),
+		registry:  reg,
+		cluster:   cluster.New(pool, opts.NodeID),
 		oci:           oci.NewDistribution(pool, store, reg),
 		oidc:          oidc.New(opts.OIDC),
+		forgeOAuth:    oidc.New(opts.ForgeOAuth),
 		scm:           scm.New(pool, box),
 		notifications: notifications.New(pool),
 		discord:       discord.New(pool, opts.PublicURL, box),
 		opts:          opts,
-		started:       time.Now().UTC(),
-		mux:           http.NewServeMux(),
+		started:   time.Now().UTC(),
+		mux:       http.NewServeMux(),
 	}
 	s.secrets = box
 	s.routes()
@@ -177,6 +180,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections", s.requireAuth(s.handleCreateSCMConnection))
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
+	s.mux.HandleFunc("GET /api/v1/forge/oauth/providers", s.requireAuth(s.handleListForgeOAuthProviders))
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/oauth/{provider}/start", s.requireAuth(s.handleForgeOAuthStart))
+	s.mux.HandleFunc("GET /api/v1/forge/oauth/{provider}/callback", s.requireAuth(s.handleForgeOAuthCallback))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/credentials", s.requireAuth(s.handleListForgeCredentials))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/forge/credentials", s.requireAuth(s.handleCreateForgeCredential))
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/forge/credentials/{credentialID}", s.requireAuth(s.handleDeleteForgeCredential))

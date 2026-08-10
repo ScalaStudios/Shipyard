@@ -31,6 +31,22 @@
   color: var(--sy-color-text-primary);
 }
 
+.connectRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-3);
+  padding: var(--sy-space-3) 0;
+  border-bottom: 1px solid var(--sy-color-border-default);
+}
+
+.connectButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sy-space-2);
+}
+
 .repoList {
   display: flex;
   flex-direction: column;

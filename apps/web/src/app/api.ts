@@ -356,6 +356,10 @@ export const api = {
   listWebhookDeliveries: (orgID: string, projectID: string) =>
     request<{ deliveries: WebhookDelivery[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/webhooks/deliveries`),
 
+  listForgeOAuthProviders: () =>
+    request<{ providers: ForgeOAuthProvider[] }>("/api/v1/forge/oauth/providers"),
+  forgeOAuthStartURL: (orgID: string, provider: string) =>
+    `/api/v1/orgs/${orgID}/forge/oauth/${provider}/start`,
   listForgeCredentials: (orgID: string) =>
     request<{ credentials: ForgeCredential[] }>(`/api/v1/orgs/${orgID}/forge/credentials`),
   createForgeCredential: (
@@ -454,6 +458,11 @@ export type SCMConnection = {
   has_token: boolean;
   has_webhook_secret: boolean;
   created_at: string;
+};
+
+export type ForgeOAuthProvider = {
+  name: string;
+  kind: string;
 };
 
 export type ForgeCredential = {

@@ -2,6 +2,7 @@ package scm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -72,6 +73,31 @@ func (s *Service) CreateCredential(ctx context.Context, in CreateCredentialInput
 	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
 		return ForgeCredential{}, identity.ErrConflict
 	}
+	return c, err
+}
+
+func (s *Service) UpsertCredential(ctx context.Context, in CreateCredentialInput) (ForgeCredential, error) {
+	c, err := s.CreateCredential(ctx, in)
+	if !errors.Is(err, identity.ErrConflict) {
+		return c, err
+	}
+	base := strings.TrimRight(strings.TrimSpace(in.BaseURL), "/")
+	if base == "" {
+		base = DefaultBaseURL(NormalizeProvider(in.Provider))
+	}
+	sealed, err := s.secrets.SealString(strings.TrimSpace(in.AccessToken))
+	if err != nil {
+		return ForgeCredential{}, err
+	}
+	err = s.pool.QueryRow(ctx, `
+		UPDATE forge_credentials
+		SET provider = $3, kind = $4, base_url = $5, access_token = $6, updated_at = now()
+		WHERE organization_id = $1 AND name = $2
+		RETURNING id, organization_id, provider, kind, name, base_url, created_at, updated_at,
+		          access_token <> '', COALESCE(created_by::text,'')
+	`, in.OrganizationID, strings.ToLower(strings.TrimSpace(in.Name)), NormalizeProvider(in.Provider),
+		strings.ToLower(strings.TrimSpace(in.Kind)), base, sealed,
+	).Scan(&c.ID, &c.OrganizationID, &c.Provider, &c.Kind, &c.Name, &c.BaseURL, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.CreatedBy)
 	return c, err
 }
 

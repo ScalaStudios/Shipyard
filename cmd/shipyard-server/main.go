@@ -73,6 +73,7 @@ func main() {
 		PublicURL:     cfg.PublicURL,
 		APIURL:        cfg.APIURL,
 		OIDC:          cfg.OIDCProviders,
+		ForgeOAuth:    cfg.ForgeOAuthProviders,
 	}
 	api := httpapi.New(pool, store, opts)
 	server := &http.Server{
