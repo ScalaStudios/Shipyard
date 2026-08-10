@@ -6,7 +6,7 @@ import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, PipelineRun, Runner, SystemInfo } from "../api";
-import { formatTime, runStatus } from "../lib/format";
+import { formatTime, isRunnerAlive, runStatus } from "../lib/format";
 
 export function OverviewPage() {
   const { org, project } = useWorkspace();
@@ -44,7 +44,7 @@ export function OverviewPage() {
     };
   }, [org?.id, project?.id]);
 
-  const online = runners.filter((r) => r.status === "online" || r.status === "ready").length;
+  const online = runners.filter((r) => isRunnerAlive(r)).length;
   const failed = runs.filter((r) => r.status === "failed").length;
   const running = runs.filter((r) => r.status === "running" || r.status === "queued").length;
   const attention = runs.filter((r) => r.status === "failed" || r.status === "cancelled").slice(0, 8);

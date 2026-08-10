@@ -6,17 +6,8 @@ import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Runner, RunnerInstall } from "../api";
-import { formatTime, runStatus } from "../lib/format";
+import { formatTime, heartbeatAgeMs, isRunnerAlive, runStatus } from "../lib/format";
 import styles from "./RunnersPage.module.css";
-
-const ALIVE_MS = 15_000;
-
-function heartbeatAgeMs(iso?: string, now = Date.now()): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.max(0, now - t);
-}
 
 function formatAge(ms: number | null): string {
   if (ms == null) return "never";
@@ -24,13 +15,6 @@ function formatAge(ms: number | null): string {
   if (ms < 60_000) return `${Math.round(ms / 1000)}s ago`;
   if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m ago`;
   return `${Math.round(ms / 3_600_000)}h ago`;
-}
-
-function isRunnerAlive(runner: Runner, now = Date.now()): boolean {
-  if (runner.status === "offline") return false;
-  const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
-  if (age == null) return false;
-  return age <= ALIVE_MS;
 }
 
 function pingClass(ms: number | null): string {
