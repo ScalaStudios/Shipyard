@@ -25,6 +25,12 @@ type Config struct {
 	AllowRegister        bool
 	SessionTTL           time.Duration
 	NodeID               string
+	SecretsKey           string
+	OIDCIssuer           string
+	OIDCClientID         string
+	OIDCClientSecret     string
+	OIDCRedirectURL      string
+	OIDCProviderName     string
 }
 
 func Load() (Config, error) {
@@ -45,6 +51,12 @@ func Load() (Config, error) {
 		AllowRegister:        envBool("SHIPYARD_ALLOW_REGISTER", false),
 		SessionTTL:           envDuration("SHIPYARD_SESSION_TTL", 7*24*time.Hour),
 		NodeID:               envOr("SHIPYARD_NODE_ID", ""),
+		SecretsKey:           os.Getenv("SHIPYARD_SECRETS_KEY"),
+		OIDCIssuer:           os.Getenv("SHIPYARD_OIDC_ISSUER"),
+		OIDCClientID:         os.Getenv("SHIPYARD_OIDC_CLIENT_ID"),
+		OIDCClientSecret:     os.Getenv("SHIPYARD_OIDC_CLIENT_SECRET"),
+		OIDCRedirectURL:      envOr("SHIPYARD_OIDC_REDIRECT_URL", "http://127.0.0.1:8080/api/v1/auth/oidc/primary/callback"),
+		OIDCProviderName:     envOr("SHIPYARD_OIDC_PROVIDER", "primary"),
 	}
 
 	if cfg.DatabaseURL == "" {

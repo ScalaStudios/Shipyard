@@ -13,6 +13,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/database"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/httpapi"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/logging"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 )
 
@@ -45,11 +46,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	api := httpapi.New(pool, store, httpapi.Options{
+	opts := httpapi.Options{
 		AllowRegister: cfg.AllowRegister,
 		SessionTTL:    cfg.SessionTTL,
 		NodeID:        cfg.NodeID,
-	})
+		SecretsKey:    cfg.SecretsKey,
+	}
+	if cfg.OIDCIssuer != "" && cfg.OIDCClientID != "" {
+		opts.OIDC = []oidc.ProviderConfig{{
+			Name:         cfg.OIDCProviderName,
+			Issuer:       cfg.OIDCIssuer,
+			ClientID:     cfg.OIDCClientID,
+			ClientSecret: cfg.OIDCClientSecret,
+			RedirectURL:  cfg.OIDCRedirectURL,
+		}}
+	}
+	api := httpapi.New(pool, store, opts)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           api.Handler(),

@@ -29,10 +29,12 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"product":        "shipyard",
-		"phase":          "9-packages",
+		"phase":          "hardening",
 		"started_at":     s.started.Format(time.RFC3339),
 		"allow_register": allowRegister,
 		"node_id":        s.cluster.NodeID(),
+		"oidc":           s.oidc != nil && s.oidc.Enabled(),
+		"secrets":        s.secrets != nil,
 	})
 }
 
