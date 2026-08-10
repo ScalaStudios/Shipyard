@@ -1,0 +1,11 @@
+FROM oven/bun:1 AS build
+WORKDIR /src
+COPY package.json bun.lock ./
+COPY packages ./packages
+COPY apps ./apps
+RUN bun install --frozen-lockfile
+RUN bun run --filter @shipyard/web build
+
+FROM caddy:2-alpine
+COPY --from=build /src/apps/web/dist /srv
+COPY deploy/caddy/Caddyfile /etc/caddy/Caddyfile

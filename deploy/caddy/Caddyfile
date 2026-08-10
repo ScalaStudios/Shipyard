@@ -1,37 +1,39 @@
-# Shipyard — Caddy reverse proxy (preferred)
-#
-# Usage:
-#   export SHIPYARD_DOMAIN=shipyard.example.com
-#   caddy run --config deploy/caddy/Caddyfile
-# or install system-wide and reload caddy.
-#
-# Lab / no DNS: use http://localhost { ... } and skip automatic HTTPS.
+{
+	email {$SHIPYARD_ACME_EMAIL:admin@example.com}
+}
 
 {$SHIPYARD_DOMAIN:localhost} {
 	encode gzip zstd
 
-	# Control plane API + registry protocols
 	handle /api/* {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 	handle /v2* {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 	handle /auth/* {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 	handle /repository/* {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 	handle /healthz {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 	handle /readyz {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy {$SHIPYARD_UPSTREAM:shipyard-server:8080}
 	}
 
-	# Operator UI — Vite dev by default; switch to file_server for production build
 	handle {
-		reverse_proxy 127.0.0.1:5173
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 }

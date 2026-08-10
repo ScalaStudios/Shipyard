@@ -152,6 +152,6 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	s.setSessionCookie(w, session, expires)
+	s.setSessionCookie(w, r, session, expires)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

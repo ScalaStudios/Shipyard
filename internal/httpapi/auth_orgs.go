@@ -71,7 +71,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	s.setSessionCookie(w, token, expires)
+	s.setSessionCookie(w, r, token, expires)
 	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "user.registered", ResourceType: "user", ResourceID: user.ID, IP: clientIP(r), UserAgent: r.UserAgent()})
 	writeJSON(w, http.StatusCreated, map[string]any{"user": user})
 }
@@ -99,7 +99,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	s.setSessionCookie(w, token, expires)
+	s.setSessionCookie(w, r, token, expires)
 	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "user.login", ResourceType: "user", ResourceID: user.ID, IP: clientIP(r), UserAgent: r.UserAgent()})
 	writeJSON(w, http.StatusOK, map[string]any{"user": user})
 }

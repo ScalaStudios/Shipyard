@@ -119,13 +119,24 @@ func basicAuth(r *http.Request) (username, password string, ok bool) {
 	return parts[0], parts[1], true
 }
 
-func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
+func (s *Server) requestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		return true
+	}
+	return strings.HasPrefix(s.publicURL(r.Context()), "https://")
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true,
+		Secure:   s.requestIsHTTPS(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 }
