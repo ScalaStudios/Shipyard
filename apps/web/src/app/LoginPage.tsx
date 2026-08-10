@@ -54,6 +54,10 @@ export function LoginPage({
         return "Continue with Forgejo";
       case "gitea":
         return "Continue with Gitea";
+      case "entra":
+        return "Continue with Microsoft";
+      case "discord":
+        return "Continue with Discord";
       default:
         return `Continue with ${p.name}`;
     }
