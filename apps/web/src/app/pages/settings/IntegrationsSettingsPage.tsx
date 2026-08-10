@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
@@ -91,9 +92,22 @@ export function IntegrationsSettingsPage() {
         description="Connect GitHub, GitLab, Forgejo, Gitea, Codeberg, Gogs, OneDev, GitBucket, Pagure, and more. The bot token posts build status on pull requests like Vercel."
       />
 
-      <Panel title="Login providers (OIDC)" meta={<StatusBadge status={oidc.length ? "success" : "neutral"}>{oidc.length}</StatusBadge>}>
+      <Panel
+        title="Login providers (OIDC)"
+        meta={<StatusBadge status={oidc.length ? "success" : "neutral"}>{oidc.length}</StatusBadge>}
+        actions={
+          <Link to="/settings/authentication">
+            <Button type="button" variant="secondary">
+              Manage providers
+            </Button>
+          </Link>
+        }
+      >
         {oidc.length === 0 ? (
-          <EmptyState title="No OIDC providers configured" description="Set SHIPYARD_OIDC_* env vars on the server." />
+          <EmptyState
+            title="No sign-in providers configured"
+            description="Add one under Settings › Authentication. No server restart needed."
+          />
         ) : (
           <DataTable>
             <thead>
