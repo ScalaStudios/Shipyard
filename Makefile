@@ -16,10 +16,10 @@ cli:
 	go run ./cmd/shipyard
 
 web:
-	yarn workspace @shipyard/web dev
+	bun run --filter @shipyard/web dev
 
 typecheck:
-	yarn typecheck
+	bun run typecheck
 
 smoke:
 	./scripts/smoke.sh

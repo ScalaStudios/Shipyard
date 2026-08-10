@@ -15,9 +15,8 @@ dist/
 coverage.out
 vendor/
 
-# Node
+# JS / Bun
 node_modules/
-.pnpm-store/
 *.tsbuildinfo
 apps/web/dist/
 packages/*/dist/

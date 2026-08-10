@@ -59,8 +59,8 @@ export SHIPYARD_DATABASE_URL=postgres://shipyard:shipyard@localhost:5432/shipyar
 go run ./cmd/shipyard-server
 
 # UI
-yarn install
-yarn workspace @shipyard/web dev
+bun install
+bun run dev
 
 # Runner (after creating a registration token)
 SHIPYARD_URL=http://127.0.0.1:8080 \

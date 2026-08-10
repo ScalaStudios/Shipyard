@@ -1,14 +1,14 @@
 {
   "name": "shipyard",
   "private": true,
-  "packageManager": "yarn@1.22.22",
+  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "yarn workspace @shipyard/web dev",
-    "build": "yarn workspace @shipyard/ui build && yarn workspace @shipyard/web build",
-    "typecheck": "yarn workspace @shipyard/ui typecheck && yarn workspace @shipyard/web typecheck"
+    "dev": "bun run --filter @shipyard/web dev",
+    "build": "bun run --filter @shipyard/ui build && bun run --filter @shipyard/web build",
+    "typecheck": "bun run --filter @shipyard/ui typecheck && bun run --filter @shipyard/web typecheck"
   }
 }
