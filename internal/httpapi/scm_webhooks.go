@@ -237,11 +237,12 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 							_ = s.scm.AttachRunSCM(r.Context(), run.ID, conn.ID, parsed.PRNumber, res.ID, runURL)
 						}
 					}
-					_ = s.notifications.NotifyOrgMembers(r.Context(), conn.OrganizationID, conn.ProjectID,
+					s.fanoutNotify(r.Context(), conn.OrganizationID, conn.ProjectID,
 						"run.started",
 						fmt.Sprintf("Build started · #%d", run.Number),
 						fmt.Sprintf("%s %s triggered a run on %s", conn.Provider, parsed.EventType, parsed.GitRef),
 						"/pipelines/runs/"+run.ID,
+						run.Number, "started", parsed.GitRef, parsed.GitSHA, "",
 					)
 				}
 			}
@@ -294,11 +295,12 @@ func (s *Server) maybeNotifyRunFinished(runID string) {
 	if runURL == "" {
 		runURL = fmt.Sprintf("%s/pipelines/runs/%s", public, info.RunID)
 	}
-	_ = s.notifications.NotifyOrgMembers(ctx, info.OrganizationID, info.ProjectID,
+	s.fanoutNotify(ctx, info.OrganizationID, info.ProjectID,
 		"run."+info.Status,
 		fmt.Sprintf("Run #%d %s", info.Number, info.Status),
 		fmt.Sprintf("Pipeline finished with status %s", info.Status),
 		"/pipelines/runs/"+info.RunID,
+		info.Number, info.Status, info.GitRef, info.GitSHA, "",
 	)
 	if info.ConnectionID == "" || info.PRNumber <= 0 {
 		return
