@@ -1,0 +1,36 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Go
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.out
+vendor/
+
+# Node
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+apps/web/dist/
+packages/*/dist/
+.vite/
+storybook-static/
+
+# IDE / local
+.idea/
+.vscode/
+*.swp
+.cursor/
+
+# Data
+data/
+.tmp/
+.shipyard/
