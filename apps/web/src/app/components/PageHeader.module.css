@@ -1,0 +1,33 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sy-space-4);
+  margin-bottom: var(--sy-space-5);
+}
+
+.copy {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.description {
+  margin: var(--sy-space-1) 0 0;
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+  line-height: 20px;
+  max-width: 64ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sy-space-2);
+}

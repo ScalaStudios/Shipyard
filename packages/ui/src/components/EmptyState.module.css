@@ -1,0 +1,29 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sy-space-2);
+  padding: var(--sy-space-6);
+  border: 1px dashed var(--sy-color-border-default);
+  border-radius: var(--sy-radius-panel);
+  background: var(--sy-color-bg-subtle);
+}
+
+.title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--sy-color-text-primary);
+}
+
+.description {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.action {
+  margin-top: var(--sy-space-2);
+}

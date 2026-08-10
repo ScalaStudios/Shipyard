@@ -1,0 +1,41 @@
+.panel {
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-panel);
+  background: var(--sy-color-bg-surface);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-3);
+  min-height: 40px;
+  padding: var(--sy-space-2) var(--sy-space-4);
+  border-bottom: 1px solid var(--sy-color-border-default);
+  background: var(--sy-color-bg-subtle);
+}
+
+.headMain {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-2);
+}
+
+.body {
+  padding: 0;
+}
