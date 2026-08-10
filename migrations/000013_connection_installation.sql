@@ -1,0 +1,1 @@
+ALTER TABLE scm_connections ADD COLUMN IF NOT EXISTS installation_id TEXT NOT NULL DEFAULT '';

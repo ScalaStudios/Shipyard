@@ -12,17 +12,17 @@ import (
 
 // ParsedEvent is a normalized forge webhook event.
 type ParsedEvent struct {
-	Provider    string
-	EventType   string
-	DeliveryID  string
-	Action      string
-	GitRef      string
-	GitSHA      string
-	PRNumber    int
-	RepoOwner   string
-	RepoName    string
-	Title       string
-	ShouldBuild bool
+	Provider     string
+	EventType    string
+	DeliveryID   string
+	Action       string
+	GitRef       string
+	GitSHA       string
+	PRNumber     int
+	RepoOwner    string
+	RepoName     string
+	Title        string
+	ShouldBuild  bool
 	IgnoreReason string
 }
 

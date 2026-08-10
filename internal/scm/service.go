@@ -27,6 +27,7 @@ type Connection struct {
 	Enabled        bool      `json:"enabled"`
 	HasToken       bool      `json:"has_token"`
 	HasSecret      bool      `json:"has_webhook_secret"`
+	InstallationID string    `json:"installation_id,omitempty"`
 	CreatedBy      string    `json:"created_by,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -53,6 +54,7 @@ type CreateInput struct {
 	RepoOwner      string
 	RepoName       string
 	AccessToken    string
+	InstallationID string
 	BotUsername    string
 	WebhookSecret  string
 	PipelineSlug   string
@@ -91,13 +93,14 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Connection, error
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO scm_connections (
 			organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
-			access_token, bot_username, webhook_secret, pipeline_slug, created_by
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			access_token, bot_username, webhook_secret, pipeline_slug, created_by, installation_id
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		RETURNING id, organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
 		          bot_username, pipeline_slug, enabled, created_at, updated_at,
 		          access_token <> '', webhook_secret <> '', COALESCE(created_by::text,'')
 	`, in.OrganizationID, in.ProjectID, provider, name, base, strings.TrimSpace(in.RepoOwner),
 		strings.TrimSpace(in.RepoName), sealedToken, bot, sealedSecret, strings.TrimSpace(in.PipelineSlug), nullIfEmpty(in.ActorID),
+		strings.TrimSpace(in.InstallationID),
 	).Scan(
 		&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 		&c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.HasSecret, &c.CreatedBy,
@@ -112,7 +115,7 @@ func (s *Service) List(ctx context.Context, projectID string) ([]Connection, err
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
 		       bot_username, pipeline_slug, enabled, created_at, updated_at,
-		       access_token <> '', webhook_secret <> ''
+		       access_token <> '' OR installation_id <> '', webhook_secret <> '', installation_id
 		FROM scm_connections WHERE project_id = $1 ORDER BY name
 	`, projectID)
 	if err != nil {
@@ -138,12 +141,12 @@ func (s *Service) Get(ctx context.Context, projectID, id string) (Connection, er
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
 		       access_token, webhook_secret, bot_username, pipeline_slug, enabled, created_at, updated_at,
-		       access_token <> '', webhook_secret <> '', COALESCE(created_by::text,'')
+		       access_token <> '', webhook_secret <> '', COALESCE(created_by::text,''), installation_id
 		FROM scm_connections WHERE project_id = $1 AND id = $2
 	`, projectID, id).Scan(
 		&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 		&c.AccessToken, &c.WebhookSecret, &c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
-		&c.HasToken, &c.HasSecret, &c.CreatedBy,
+		&c.HasToken, &c.HasSecret, &c.CreatedBy, &c.InstallationID,
 	)
 	if err == pgx.ErrNoRows {
 		return Connection{}, identity.ErrNotFound
@@ -159,12 +162,12 @@ func (s *Service) GetByID(ctx context.Context, id string) (Connection, error) {
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
 		       access_token, webhook_secret, bot_username, pipeline_slug, enabled, created_at, updated_at,
-		       access_token <> '', webhook_secret <> '', COALESCE(created_by::text,'')
+		       access_token <> '', webhook_secret <> '', COALESCE(created_by::text,''), installation_id
 		FROM scm_connections WHERE id = $1
 	`, id).Scan(
 		&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 		&c.AccessToken, &c.WebhookSecret, &c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt,
-		&c.HasToken, &c.HasSecret, &c.CreatedBy,
+		&c.HasToken, &c.HasSecret, &c.CreatedBy, &c.InstallationID,
 	)
 	if err == pgx.ErrNoRows {
 		return Connection{}, identity.ErrNotFound
@@ -225,15 +228,27 @@ func nullIfEmpty(s string) any {
 }
 
 func (s *Service) openConnection(c *Connection) error {
-	token, err := s.secrets.OpenString(c.AccessToken)
-	if err != nil {
-		return fmt.Errorf("decrypt connection %s token: %w", c.Name, err)
-	}
 	secret, err := s.secrets.OpenString(c.WebhookSecret)
 	if err != nil {
 		return fmt.Errorf("decrypt connection %s webhook secret: %w", c.Name, err)
 	}
-	c.AccessToken = token
 	c.WebhookSecret = secret
+	if c.InstallationID != "" {
+		if s.installationToken == nil {
+			return fmt.Errorf("github app is not configured on this instance")
+		}
+		minted, err := s.installationToken(context.Background(), c.InstallationID)
+		if err != nil {
+			return fmt.Errorf("mint installation token for %s: %w", c.Name, err)
+		}
+		c.AccessToken = minted
+		c.HasToken = true
+		return nil
+	}
+	token, err := s.secrets.OpenString(c.AccessToken)
+	if err != nil {
+		return fmt.Errorf("decrypt connection %s token: %w", c.Name, err)
+	}
+	c.AccessToken = token
 	return nil
 }
