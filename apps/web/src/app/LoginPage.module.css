@@ -4,7 +4,7 @@
   display: grid;
   place-items: center;
   padding: var(--sy-space-6);
-  overflow: hidden;
+  overflow-x: clip;
 }
 
 .atmosphere {
