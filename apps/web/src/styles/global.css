@@ -1,27 +1,5 @@
-h1 {
-  margin: 0 0 var(--sy-space-2);
-  font-size: 24px;
-  line-height: 32px;
-  font-weight: 600;
-}
-
-p {
-  margin: 0 0 var(--sy-space-4);
-  color: var(--sy-color-text-muted);
-  max-width: 64ch;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sy-space-3);
-  margin-bottom: var(--sy-space-4);
-}
-
-.meta {
-  margin: 0;
+.mono {
   font-family: var(--sy-font-mono);
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sy-color-text-primary);
+  font-size: 12px;
+  line-height: 18px;
 }
