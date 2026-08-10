@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shipyard
+      POSTGRES_USER: shipyard
+      POSTGRES_PASSWORD: shipyard
+    ports:
+      - "5432:5432"
+    volumes:
+      - shipyard_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shipyard -d shipyard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  shipyard-server:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.server
+    environment:
+      SHIPYARD_HTTP_ADDR: ":8080"
+      SHIPYARD_DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard?sslmode=disable
+      SHIPYARD_MIGRATIONS_DIR: /app/migrations
+      SHIPYARD_STORAGE_BACKEND: filesystem
+      SHIPYARD_STORAGE_DIR: /data/blobs
+      SHIPYARD_LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    volumes:
+      - shipyard_blobs:/data/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  shipyard_pg:
+  shipyard_blobs:
