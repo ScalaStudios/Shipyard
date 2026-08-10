@@ -1,4 +1,4 @@
-.PHONY: tidy test server runner cli web typecheck compose-up compose-down
+.PHONY: tidy test server runner cli web typecheck smoke compose-up compose-down
 
 tidy:
 	go mod tidy
@@ -20,6 +20,9 @@ web:
 
 typecheck:
 	yarn typecheck
+
+smoke:
+	./scripts/smoke.sh
 
 compose-up:
 	docker compose -f deploy/compose/compose.yml up --build

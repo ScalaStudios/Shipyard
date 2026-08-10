@@ -7,6 +7,11 @@ export type User = {
   created_at: string;
 };
 
+export type OIDCProvider = {
+  name: string;
+  kind: string;
+};
+
 export type Organization = {
   id: string;
   slug: string;
@@ -43,6 +48,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   systemInfo: () => request<{ product: string; phase: string; allow_register: boolean }>("/api/v1/system/info"),
+  oidcProviders: () => request<{ providers: OIDCProvider[] }>("/api/v1/auth/oidc/providers"),
   me: () => request<{ user: User }>("/api/v1/me"),
   register: (payload: { username: string; email: string; display_name?: string; password: string }) =>
     request<{ user: User }>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(payload) }),

@@ -88,7 +88,7 @@ func (s *Server) handleListSecrets(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListOIDCProviders(w http.ResponseWriter, _ *http.Request) {
 	if s.oidc == nil || !s.oidc.Enabled() {
-		writeJSON(w, http.StatusOK, map[string]any{"providers": []string{}})
+		writeJSON(w, http.StatusOK, map[string]any{"providers": []any{}})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"providers": s.oidc.List()})
@@ -126,12 +126,21 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "oidc token missing email")
 		return
 	}
-	username := strings.Split(email, "@")[0]
-	if tok.Subject != "" {
-		username = provider + "-" + strings.ReplaceAll(tok.Subject, ":", "-")
-		if len(username) > 64 {
-			username = username[:64]
+	username := strings.TrimSpace(tok.Username)
+	if username == "" {
+		username = strings.Split(email, "@")[0]
+	}
+	username = provider + "-" + username
+	username = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		default:
+			return '-'
 		}
+	}, username)
+	if len(username) > 64 {
+		username = username[:64]
 	}
 	user, err := s.identity.EnsureOIDCUser(r.Context(), username, email, tok.Name)
 	if err != nil {

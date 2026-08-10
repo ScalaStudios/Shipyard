@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 )
 
 type Config struct {
@@ -31,6 +33,7 @@ type Config struct {
 	OIDCClientSecret     string
 	OIDCRedirectURL      string
 	OIDCProviderName     string
+	OIDCProviders        []oidc.ProviderConfig
 }
 
 func Load() (Config, error) {
@@ -75,7 +78,67 @@ func Load() (Config, error) {
 		}
 	}
 
+	cfg.OIDCProviders = loadOIDCProviders(cfg)
 	return cfg, nil
+}
+
+func loadOIDCProviders(cfg Config) []oidc.ProviderConfig {
+	var out []oidc.ProviderConfig
+	if cfg.OIDCIssuer != "" && cfg.OIDCClientID != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         cfg.OIDCProviderName,
+			Kind:         oidc.KindOIDC,
+			Issuer:       cfg.OIDCIssuer,
+			ClientID:     cfg.OIDCClientID,
+			ClientSecret: cfg.OIDCClientSecret,
+			RedirectURL:  cfg.OIDCRedirectURL,
+		})
+	}
+	baseRedirect := strings.TrimSuffix(cfg.OIDCRedirectURL, "/"+cfg.OIDCProviderName+"/callback")
+	if !strings.Contains(baseRedirect, "/api/v1/auth/oidc") {
+		baseRedirect = "http://127.0.0.1:8080/api/v1/auth/oidc"
+	}
+
+	if id := os.Getenv("SHIPYARD_OIDC_GITHUB_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "github",
+			Kind:         oidc.KindGitHub,
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_GITHUB_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_GITHUB_REDIRECT_URL", baseRedirect+"/github/callback"),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_OIDC_GITLAB_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "gitlab",
+			Kind:         oidc.KindGitLab,
+			Issuer:       envOr("SHIPYARD_OIDC_GITLAB_ISSUER", "https://gitlab.com"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_GITLAB_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_GITLAB_REDIRECT_URL", baseRedirect+"/gitlab/callback"),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_OIDC_FORGEJO_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "forgejo",
+			Kind:         oidc.KindForgejo,
+			Issuer:       envOr("SHIPYARD_OIDC_FORGEJO_ISSUER", "https://git.lunarlabs.dev"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_FORGEJO_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_FORGEJO_REDIRECT_URL", baseRedirect+"/forgejo/callback"),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_OIDC_GITEA_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "gitea",
+			Kind:         oidc.KindGitea,
+			Issuer:       os.Getenv("SHIPYARD_OIDC_GITEA_ISSUER"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_GITEA_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_GITEA_REDIRECT_URL", baseRedirect+"/gitea/callback"),
+		})
+	}
+	return out
 }
 
 func envOr(key, fallback string) string {
