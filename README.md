@@ -30,6 +30,27 @@ API smoke (server must already be running):
 ./scripts/smoke.sh
 ```
 
+## Docker (rootless on Arch)
+
+If you do not have root/sudo for system Docker, rootless works:
+
+```bash
+# already installed under ~/bin for this machine
+export PATH="$HOME/bin:$PATH"
+export DOCKER_HOST=unix:///run/user/$UID/docker.sock
+systemctl --user start docker
+docker compose -f deploy/compose/compose.yml up --build -d
+./scripts/smoke.sh
+```
+
+System Docker (preferred when you have sudo):
+
+```bash
+sudo pacman -S docker docker-compose docker-buildx
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
 ## Quick start
 
 ```bash

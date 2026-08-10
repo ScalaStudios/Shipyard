@@ -176,12 +176,20 @@ func (s *Service) StartRun(ctx context.Context, orgID, projectID, pipelineID, ac
 		if len(job.Needs) > 0 {
 			status = "pending"
 		}
+		needs := job.Needs
+		if needs == nil {
+			needs = []string{}
+		}
+		labels := job.Labels()
+		if labels == nil {
+			labels = []string{}
+		}
 		var jobID string
 		err = tx.QueryRow(ctx, `
 			INSERT INTO jobs (run_id, name, status, needs, runner_labels, queued_at)
 			VALUES ($1,$2,$3,$4,$5, CASE WHEN $3 = 'queued' THEN now() ELSE NULL END)
 			RETURNING id
-		`, run.ID, name, status, job.Needs, job.Labels()).Scan(&jobID)
+		`, run.ID, name, status, needs, labels).Scan(&jobID)
 		if err != nil {
 			return Run{}, err
 		}
@@ -194,7 +202,11 @@ func (s *Service) StartRun(ctx context.Context, orgID, projectID, pipelineID, ac
 					stepName = step.Uses
 				}
 			}
-			withRaw, _ := json.Marshal(step.With)
+			withArgs := step.With
+			if withArgs == nil {
+				withArgs = map[string]any{}
+			}
+			withRaw, _ := json.Marshal(withArgs)
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO job_steps (job_id, position, name, uses, run_script, with_args)
 				VALUES ($1,$2,$3,$4,$5,$6::jsonb)
