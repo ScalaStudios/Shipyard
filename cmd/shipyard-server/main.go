@@ -13,6 +13,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/database"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/httpapi"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/logging"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 )
 
@@ -43,6 +44,24 @@ func main() {
 	if err != nil {
 		log.Error("storage init failed", "error", err)
 		os.Exit(1)
+	}
+
+	if cfg.SecretsKey != "" {
+		box, err := secrets.New(pool, cfg.SecretsKey)
+		if err != nil {
+			log.Error("secrets init failed", "error", err)
+			os.Exit(1)
+		}
+		n, err := box.BackfillLegacy(ctx)
+		if err != nil {
+			log.Error("encrypting stored credentials failed", "error", err)
+			os.Exit(1)
+		}
+		if n > 0 {
+			log.Info("encrypted plaintext credentials at rest", "values", n)
+		}
+	} else {
+		log.Warn("SHIPYARD_SECRETS_KEY is not set; storing forge, scm and discord credentials will be rejected")
 	}
 
 	opts := httpapi.Options{

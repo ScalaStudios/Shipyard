@@ -13,6 +13,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/auth"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 )
 
 const sessionCookie = "shipyard_session"
@@ -175,6 +176,8 @@ func mapIdentityError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "conflict")
 	case errors.Is(err, identity.ErrInvalidInput), errors.Is(err, auth.ErrInvalidPassword):
 		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, secrets.ErrNotConfigured):
+		writeError(w, http.StatusServiceUnavailable, err.Error())
 	default:
 		if strings.Contains(err.Error(), "parse shipyard.yml") || strings.Contains(err.Error(), "pipeline must") {
 			writeError(w, http.StatusBadRequest, err.Error())

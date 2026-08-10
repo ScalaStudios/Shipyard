@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 )
 
 type Connection struct {
@@ -34,11 +35,12 @@ type Connection struct {
 }
 
 type Service struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	secrets *secrets.Box
 }
 
-func New(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func New(pool *pgxpool.Pool, box *secrets.Box) *Service {
+	return &Service{pool: pool, secrets: box}
 }
 
 type CreateInput struct {
@@ -76,8 +78,16 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Connection, error
 	if bot == "" {
 		bot = "shipyard[bot]"
 	}
+	sealedToken, err := s.secrets.SealString(in.AccessToken)
+	if err != nil {
+		return Connection{}, err
+	}
+	sealedSecret, err := s.secrets.SealString(in.WebhookSecret)
+	if err != nil {
+		return Connection{}, err
+	}
 	var c Connection
-	err := s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		INSERT INTO scm_connections (
 			organization_id, project_id, provider, name, base_url, repo_owner, repo_name,
 			access_token, bot_username, webhook_secret, pipeline_slug, created_by
@@ -86,7 +96,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Connection, error
 		          bot_username, pipeline_slug, enabled, created_at, updated_at,
 		          access_token <> '', webhook_secret <> '', COALESCE(created_by::text,'')
 	`, in.OrganizationID, in.ProjectID, provider, name, base, strings.TrimSpace(in.RepoOwner),
-		strings.TrimSpace(in.RepoName), in.AccessToken, bot, in.WebhookSecret, strings.TrimSpace(in.PipelineSlug), nullIfEmpty(in.ActorID),
+		strings.TrimSpace(in.RepoName), sealedToken, bot, sealedSecret, strings.TrimSpace(in.PipelineSlug), nullIfEmpty(in.ActorID),
 	).Scan(
 		&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 		&c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.HasSecret, &c.CreatedBy,
@@ -137,7 +147,10 @@ func (s *Service) Get(ctx context.Context, projectID, id string) (Connection, er
 	if err == pgx.ErrNoRows {
 		return Connection{}, identity.ErrNotFound
 	}
-	return c, err
+	if err != nil {
+		return Connection{}, err
+	}
+	return c, s.openConnection(&c)
 }
 
 func (s *Service) GetByID(ctx context.Context, id string) (Connection, error) {
@@ -155,7 +168,10 @@ func (s *Service) GetByID(ctx context.Context, id string) (Connection, error) {
 	if err == pgx.ErrNoRows {
 		return Connection{}, identity.ErrNotFound
 	}
-	return c, err
+	if err != nil {
+		return Connection{}, err
+	}
+	return c, s.openConnection(&c)
 }
 
 func (s *Service) FindForWebhook(ctx context.Context, provider, projectID, connectionID string) (Connection, error) {
@@ -205,4 +221,18 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+func (s *Service) openConnection(c *Connection) error {
+	token, err := s.secrets.OpenString(c.AccessToken)
+	if err != nil {
+		return fmt.Errorf("decrypt connection %s token: %w", c.Name, err)
+	}
+	secret, err := s.secrets.OpenString(c.WebhookSecret)
+	if err != nil {
+		return fmt.Errorf("decrypt connection %s webhook secret: %w", c.Name, err)
+	}
+	c.AccessToken = token
+	c.WebhookSecret = secret
+	return nil
 }

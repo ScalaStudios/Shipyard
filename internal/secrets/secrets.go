@@ -45,6 +45,47 @@ func New(pool *pgxpool.Pool, keyB64 string) (*Box, error) {
 	return &Box{pool: pool, gcm: gcm}, nil
 }
 
+const sealPrefix = "enc:v1:"
+
+var ErrNotConfigured = errors.New("secrets encryption is not configured: set SHIPYARD_SECRETS_KEY")
+
+func (b *Box) SealString(plain string) (string, error) {
+	if plain == "" {
+		return "", nil
+	}
+	if b == nil {
+		return "", ErrNotConfigured
+	}
+	nonce := make([]byte, b.gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", err
+	}
+	ct := b.gcm.Seal(nonce, nonce, []byte(plain), nil)
+	return sealPrefix + base64.StdEncoding.EncodeToString(ct), nil
+}
+
+func (b *Box) OpenString(stored string) (string, error) {
+	if !strings.HasPrefix(stored, sealPrefix) {
+		return stored, nil
+	}
+	if b == nil {
+		return "", ErrNotConfigured
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(stored, sealPrefix))
+	if err != nil {
+		return "", err
+	}
+	if len(raw) < b.gcm.NonceSize() {
+		return "", errors.New("sealed value is truncated")
+	}
+	nonce := raw[:b.gcm.NonceSize()]
+	plain, err := b.gcm.Open(nil, nonce, raw[b.gcm.NonceSize():], nil)
+	if err != nil {
+		return "", err
+	}
+	return string(plain), nil
+}
+
 type SecretMeta struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
