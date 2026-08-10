@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
 
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 )
 
@@ -63,8 +65,8 @@ func (s *Server) handleNPMPackument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":     name,
-		"versions": vers,
+		"name":      name,
+		"versions":  vers,
 		"dist-tags": distTags,
 	})
 }
@@ -104,20 +106,39 @@ func (s *Server) handleNPMPublish(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
 	name := strings.Trim(r.PathValue("name"), "/")
 	version := r.URL.Query().Get("version")
 	if version == "" {
 		version = r.Header.Get("X-Shipyard-Version")
 	}
+
+	var data []byte
+	if packages.IsNPMPublishJSON(r.Header.Get("Content-Type"), body) {
+		parsed, err := packages.ParseNPMPublish(body)
+		if err != nil {
+			mapIdentityError(w, err)
+			return
+		}
+		if name == "" {
+			name = parsed.Name
+		}
+		if version == "" {
+			version = parsed.Version
+		}
+		data = parsed.Data
+	} else {
+		data = body
+	}
 	if name == "" || version == "" {
 		writeError(w, http.StatusBadRequest, "name and version required")
 		return
 	}
-	size, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
-	if err != nil {
-		size = -1
-	}
-	v, err := s.packages.Publish(r.Context(), repoID, name, version, r.Body, size)
+	v, err := s.packages.Publish(r.Context(), repoID, name, version, bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		mapIdentityError(w, err)
 		return
@@ -133,6 +154,10 @@ func (s *Server) handleMavenPut(w http.ResponseWriter, r *http.Request) {
 	artifactPath := strings.Trim(r.PathValue("path"), "/")
 	if artifactPath == "" {
 		writeError(w, http.StatusBadRequest, "path required")
+		return
+	}
+	if strings.HasSuffix(artifactPath, "maven-metadata.xml") {
+		w.WriteHeader(http.StatusCreated)
 		return
 	}
 	name, version := mavenCoords(artifactPath)
@@ -154,6 +179,27 @@ func (s *Server) handleMavenGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	artifactPath := strings.Trim(r.PathValue("path"), "/")
+	if groupID, artifactID, okMeta := packages.MavenMetadataCoords(artifactPath); okMeta {
+		name := groupID + ":" + artifactID
+		versions, err := s.packages.ListVersionsByName(r.Context(), repoID, name)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		var vers []string
+		for _, v := range versions {
+			vers = append(vers, v.Version)
+		}
+		xmlBytes, err := packages.BuildMavenMetadata(groupID, artifactID, vers)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(xmlBytes)
+		return
+	}
 	name, version := mavenCoords(artifactPath)
 	v, err := s.packages.GetVersion(r.Context(), repoID, name, version)
 	if err != nil {

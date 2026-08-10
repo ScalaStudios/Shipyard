@@ -70,3 +70,32 @@
   padding: 0;
   font-size: 13px;
 }
+
+.oauth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-2);
+  margin-top: var(--sy-space-2);
+}
+
+.oauthDivider {
+  color: var(--sy-color-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.oauthLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--sy-control-height-default);
+  border: 1px solid var(--sy-color-border-default);
+  border-radius: var(--sy-radius-control);
+  color: var(--sy-color-text-primary);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.oauthLink:hover {
+  background: var(--sy-color-bg-subtle);
+}

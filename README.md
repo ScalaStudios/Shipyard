@@ -24,6 +24,12 @@ Phases 0–9 foundation verticals are implemented locally on `master` (not pushe
 
 CLI: `go run ./cmd/shipyard` (`login`, `whoami`, `status`, `run`).
 
+API smoke (server must already be running):
+
+```bash
+./scripts/smoke.sh
+```
+
 ## Quick start
 
 ```bash

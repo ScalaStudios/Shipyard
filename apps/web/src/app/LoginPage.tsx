@@ -1,7 +1,7 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@shipyard/ui";
 import styles from "./LoginPage.module.css";
-import { api } from "./api";
+import { api, OIDCProvider } from "./api";
 
 export function LoginPage({
   allowRegister,
@@ -17,6 +17,14 @@ export function LoginPage({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [providers, setProviders] = useState<OIDCProvider[]>([]);
+
+  useEffect(() => {
+    void api
+      .oidcProviders()
+      .then((res) => setProviders(res.providers ?? []))
+      .catch(() => setProviders([]));
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -33,6 +41,21 @@ export function LoginPage({
       setError(err instanceof Error ? err.message : "authentication failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function providerLabel(p: OIDCProvider) {
+    switch (p.kind) {
+      case "github":
+        return "Continue with GitHub";
+      case "gitlab":
+        return "Continue with GitLab";
+      case "forgejo":
+        return "Continue with Forgejo";
+      case "gitea":
+        return "Continue with Gitea";
+      default:
+        return `Continue with ${p.name}`;
     }
   }
 
@@ -82,6 +105,17 @@ export function LoginPage({
         <Button type="submit" variant="primary" loading={loading}>
           {mode === "login" ? "Sign in" : "Create account"}
         </Button>
+
+        {providers.length > 0 ? (
+          <div className={styles.oauth}>
+            <div className={styles.oauthDivider}>or</div>
+            {providers.map((p) => (
+              <a key={p.name} className={styles.oauthLink} href={`/api/v1/auth/oidc/${p.name}/start`}>
+                {providerLabel(p)}
+              </a>
+            ))}
+          </div>
+        ) : null}
 
         {allowRegister ? (
           <button
