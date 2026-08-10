@@ -237,3 +237,37 @@ func (s *Service) GetProject(ctx context.Context, orgID, projectID string) (Proj
 	}
 	return p, err
 }
+
+func (s *Service) RequireBySlug(ctx context.Context, userID, orgSlug, projectSlug string, perm rbac.Permission) (Organization, Project, error) {
+	orgSlug = strings.ToLower(strings.TrimSpace(orgSlug))
+	projectSlug = strings.ToLower(strings.TrimSpace(projectSlug))
+	var org Organization
+	var role string
+	err := s.pool.QueryRow(ctx, `
+		SELECT o.id, o.slug, o.name, o.description, o.created_at, m.role
+		FROM organizations o
+		JOIN organization_members m ON m.organization_id = o.id
+		WHERE o.slug = $1 AND m.user_id = $2
+	`, orgSlug, userID).Scan(&org.ID, &org.Slug, &org.Name, &org.Description, &org.CreatedAt, &role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Organization{}, Project{}, identity.ErrNotFound
+	}
+	if err != nil {
+		return Organization{}, Project{}, err
+	}
+	parsed, ok := rbac.ParseRole(role)
+	if !ok || !rbac.Can(parsed, perm) {
+		return Organization{}, Project{}, identity.ErrForbidden
+	}
+	org.Role = role
+	var p Project
+	err = s.pool.QueryRow(ctx, `
+		SELECT id, organization_id, slug, name, description, created_at
+		FROM projects
+		WHERE organization_id = $1 AND slug = $2
+	`, org.ID, projectSlug).Scan(&p.ID, &p.OrganizationID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Organization{}, Project{}, identity.ErrNotFound
+	}
+	return org, p, err
+}

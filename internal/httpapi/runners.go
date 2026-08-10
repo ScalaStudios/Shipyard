@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 )
 
 type runnerRegisterRequest struct {
@@ -100,7 +101,23 @@ func (s *Server) handleRunnerAppendLog(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if err := s.runners.AppendLog(r.Context(), r.PathValue("jobID"), req.StepID, req.Stream, req.Line); err != nil {
+	line := req.Line
+	if s.secrets != nil {
+		var orgID, projectID string
+		err := s.pool.QueryRow(r.Context(), `
+			SELECT p.organization_id, pr.project_id
+			FROM jobs j
+			JOIN pipeline_runs pr ON pr.id = j.run_id
+			JOIN projects p ON p.id = pr.project_id
+			WHERE j.id = $1
+		`, r.PathValue("jobID")).Scan(&orgID, &projectID)
+		if err == nil {
+			if values, err := s.secrets.ValuesForScope(r.Context(), orgID, projectID); err == nil {
+				line = secrets.MaskLine(line, values)
+			}
+		}
+	}
+	if err := s.runners.AppendLog(r.Context(), r.PathValue("jobID"), req.StepID, req.Stream, line); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}

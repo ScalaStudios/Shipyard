@@ -1,4 +1,4 @@
-.PHONY: tidy test server runner web typecheck compose-up compose-down
+.PHONY: tidy test server runner cli web typecheck compose-up compose-down
 
 tidy:
 	go mod tidy
@@ -11,6 +11,9 @@ server:
 
 runner:
 	go run ./cmd/shipyard-runner
+
+cli:
+	go run ./cmd/shipyard
 
 web:
 	yarn workspace @shipyard/web dev

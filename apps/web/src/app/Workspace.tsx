@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Button, StatusBadge } from "@shipyard/ui";
-import { api, Organization, Pipeline, PipelineRun, Project, Runner, User } from "./api";
+import { api, Job, LogLine, Organization, Pipeline, PipelineRun, Project, Runner, User } from "./api";
 import styles from "./Workspace.module.css";
 
 const defaultYAML = `pipeline:
@@ -28,6 +28,10 @@ export function Workspace({
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [runs, setRuns] = useState<PipelineRun[]>([]);
   const [runners, setRunners] = useState<Runner[]>([]);
+  const [selectedRun, setSelectedRun] = useState<PipelineRun | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [logs, setLogs] = useState<LogLine[]>([]);
+  const [selectedJobID, setSelectedJobID] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [orgName, setOrgName] = useState("");
@@ -71,6 +75,9 @@ export function Workspace({
     if (!selectedOrg || !selectedProject) {
       setPipelines([]);
       setRuns([]);
+      setSelectedRun(null);
+      setJobs([]);
+      setLogs([]);
       return;
     }
     void Promise.all([
@@ -83,6 +90,43 @@ export function Workspace({
       })
       .catch((err) => setError(err instanceof Error ? err.message : "failed to load pipelines"));
   }, [selectedOrg?.id, selectedProject?.id]);
+
+  async function openRun(run: PipelineRun) {
+    if (!selectedOrg || !selectedProject) return;
+    setSelectedRun(run);
+    setBusy(true);
+    setError("");
+    try {
+      const detail = await api.getRun(selectedOrg.id, selectedProject.id, run.id);
+      setJobs(detail.jobs);
+      const first = detail.jobs[0];
+      setSelectedJobID(first?.id ?? null);
+      if (first) {
+        const logRes = await api.jobLogs(selectedOrg.id, selectedProject.id, first.id);
+        setLogs(logRes.logs);
+      } else {
+        setLogs([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to load run");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openJob(jobID: string) {
+    if (!selectedOrg || !selectedProject) return;
+    setSelectedJobID(jobID);
+    setBusy(true);
+    try {
+      const logRes = await api.jobLogs(selectedOrg.id, selectedProject.id, jobID);
+      setLogs(logRes.logs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to load logs");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function createOrg(event: FormEvent) {
     event.preventDefault();
@@ -140,9 +184,10 @@ export function Workspace({
     setBusy(true);
     setError("");
     try {
-      await api.startRun(selectedOrg.id, selectedProject.id, pipelineID);
+      const res = await api.startRun(selectedOrg.id, selectedProject.id, pipelineID);
       const list = await api.listRuns(selectedOrg.id, selectedProject.id);
       setRuns(list.runs);
+      await openRun(res.run);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to start run");
     } finally {
@@ -283,19 +328,53 @@ export function Workspace({
           </div>
           <ul className={styles.list}>
             {runs.map((run) => (
-              <li key={run.id} className={styles.projectRow}>
-                <strong>#{run.number}</strong>
-                <StatusBadge
-                  status={
-                    run.status === "succeeded" ? "success" : run.status === "failed" ? "danger" : run.status === "running" ? "info" : "neutral"
-                  }
-                >
-                  {run.status}
-                </StatusBadge>
+              <li key={run.id}>
+                <button type="button" className={selectedRun?.id === run.id ? styles.listActive : styles.listItem} onClick={() => void openRun(run)}>
+                  <strong>#{run.number}</strong>
+                  <StatusBadge
+                    status={
+                      run.status === "succeeded" ? "success" : run.status === "failed" ? "danger" : run.status === "running" ? "info" : "neutral"
+                    }
+                  >
+                    {run.status}
+                  </StatusBadge>
+                </button>
               </li>
             ))}
             {selectedProject && runs.length === 0 ? <li className={styles.empty}>No runs yet.</li> : null}
           </ul>
+        </div>
+
+        <div className={`${styles.panel} ${styles.wide}`}>
+          <div className={styles.panelHead}>
+            <h2>{selectedRun ? `Run #${selectedRun.number}` : "Run detail"}</h2>
+            <StatusBadge status={selectedRun ? "info" : "neutral"}>{jobs.length} jobs</StatusBadge>
+          </div>
+          {!selectedRun ? <p className={styles.empty}>Select a run to inspect jobs and logs.</p> : null}
+          {selectedRun ? (
+            <div className={styles.detailGrid}>
+              <ul className={styles.list}>
+                {jobs.map((job) => (
+                  <li key={job.id}>
+                    <button
+                      type="button"
+                      className={selectedJobID === job.id ? styles.listActive : styles.listItem}
+                      onClick={() => void openJob(job.id)}
+                    >
+                      <strong>{job.name}</strong>
+                      <StatusBadge status={job.status === "succeeded" ? "success" : job.status === "failed" ? "danger" : "neutral"}>
+                        {job.status}
+                      </StatusBadge>
+                    </button>
+                  </li>
+                ))}
+                {jobs.length === 0 ? <li className={styles.empty}>No jobs for this run yet.</li> : null}
+              </ul>
+              <pre className={styles.logs} aria-live="polite">
+                {logs.length === 0 ? "No log lines yet." : logs.map((l) => l.line ?? "").join("\n")}
+              </pre>
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
