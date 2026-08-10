@@ -331,6 +331,31 @@ export const api = {
     request<{ status: string }>(`/api/v1/notifications/${id}/read`, { method: "POST", body: "{}" }),
   markAllNotificationsRead: () =>
     request<{ status: string }>("/api/v1/notifications/read-all", { method: "POST", body: "{}" }),
+
+  listDiscord: (orgID: string, projectID?: string) => {
+    const q = projectID ? `?project_id=${encodeURIComponent(projectID)}` : "";
+    return request<{ integrations: DiscordIntegration[] }>(`/api/v1/orgs/${orgID}/discord${q}`);
+  },
+  createDiscord: (
+    orgID: string,
+    payload: {
+      name: string;
+      mode: string;
+      webhook_url?: string;
+      bot_token?: string;
+      channel_id?: string;
+      project_id?: string;
+      notify_on?: string[];
+    },
+  ) =>
+    request<{ integration: DiscordIntegration }>(`/api/v1/orgs/${orgID}/discord`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteDiscord: (orgID: string, id: string) =>
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/discord/${id}`, { method: "DELETE" }),
+  testDiscord: (orgID: string, id: string) =>
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/discord/${id}/test`, { method: "POST", body: "{}" }),
 };
 
 export type SCMProvider = {
@@ -378,5 +403,19 @@ export type AppNotification = {
   body: string;
   href: string;
   read_at?: string;
+  created_at: string;
+};
+
+export type DiscordIntegration = {
+  id: string;
+  organization_id: string;
+  project_id?: string;
+  name: string;
+  mode: string;
+  channel_id?: string;
+  notify_on: string[];
+  enabled: boolean;
+  has_webhook: boolean;
+  has_bot_token: boolean;
   created_at: string;
 };

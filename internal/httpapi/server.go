@@ -10,6 +10,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/artifacts"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/audit"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/cluster"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/discord"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oci"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
@@ -55,6 +56,7 @@ type Server struct {
 	oidc           *oidc.Service
 	scm            *scm.Service
 	notifications  *notifications.Service
+	discord        *discord.Service
 	opts           Options
 	started        time.Time
 	mux            *http.ServeMux
@@ -82,6 +84,7 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		oidc:          oidc.New(opts.OIDC),
 		scm:           scm.New(pool),
 		notifications: notifications.New(pool),
+		discord:       discord.New(pool, opts.PublicURL),
 		opts:          opts,
 		started:   time.Now().UTC(),
 		mux:       http.NewServeMux(),
@@ -172,6 +175,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/notifications", s.requireAuth(s.handleListNotifications))
 	s.mux.HandleFunc("POST /api/v1/notifications/read-all", s.requireAuth(s.handleMarkAllNotificationsRead))
 	s.mux.HandleFunc("POST /api/v1/notifications/{notificationID}/read", s.requireAuth(s.handleMarkNotificationRead))
+
+	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/discord", s.requireAuth(s.handleListDiscord))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/discord", s.requireAuth(s.handleCreateDiscord))
+	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/discord/{integrationID}", s.requireAuth(s.handleDeleteDiscord))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/discord/{integrationID}/test", s.requireAuth(s.handleTestDiscord))
 
 	s.mux.HandleFunc("GET /api/v1/secrets", s.requireAuth(s.handleListSecrets))
 	s.mux.HandleFunc("POST /api/v1/secrets", s.requireAuth(s.handleCreateSecret))
