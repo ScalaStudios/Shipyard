@@ -14,7 +14,7 @@ const PROJECT_PATH_SECTIONS = new Set([
   "deployments",
 ]);
 
-export function sectionFromPath(pathname: string): NavItem {
+export function sectionFromPath(pathname: string): NavItem | undefined {
   const ranked = [...NAV_ITEMS].sort((a, b) => b.to.length - a.to.length);
   for (const item of ranked) {
     if (item.to === "/") {
@@ -25,7 +25,7 @@ export function sectionFromPath(pathname: string): NavItem {
       return item;
     }
   }
-  return NAV_ITEMS[0];
+  return undefined;
 }
 
 export function buildPathSegments({
@@ -44,12 +44,14 @@ export function buildPathSegments({
     label: orgSlug || "org",
     to: orgSlug ? "/projects" : undefined,
   });
-  segments.push({
-    label: section.id,
-    to: section.to,
-  });
+  if (section) {
+    segments.push({ label: section.id, to: section.to });
+  } else {
+    const first = pathname.split("/").filter(Boolean)[0];
+    if (first) segments.push({ label: first.replace(/-/g, " "), to: `/${first}` });
+  }
 
-  if (projectSlug && PROJECT_PATH_SECTIONS.has(section.id)) {
+  if (projectSlug && section && PROJECT_PATH_SECTIONS.has(section.id)) {
     segments.push({
       label: projectSlug,
       to: "/",
