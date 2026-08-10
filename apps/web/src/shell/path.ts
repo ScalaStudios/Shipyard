@@ -1,0 +1,58 @@
+import { NAV_ITEMS, type NavItem } from "./nav";
+
+export type PathSegment = {
+  label: string;
+  to?: string;
+};
+
+export function sectionFromPath(pathname: string): NavItem {
+  const ranked = [...NAV_ITEMS].sort((a, b) => b.to.length - a.to.length);
+  for (const item of ranked) {
+    if (item.to === "/") {
+      if (pathname === "/") return item;
+      continue;
+    }
+    if (pathname === item.to || pathname.startsWith(`${item.to}/`)) {
+      return item;
+    }
+  }
+  return NAV_ITEMS[0];
+}
+
+export function buildPathSegments({
+  orgSlug,
+  projectSlug,
+  pathname,
+}: {
+  orgSlug?: string;
+  projectSlug?: string;
+  pathname: string;
+}): PathSegment[] {
+  const section = sectionFromPath(pathname);
+  const segments: PathSegment[] = [];
+
+  segments.push({
+    label: orgSlug || "org",
+    to: orgSlug ? "/projects" : undefined,
+  });
+  segments.push({
+    label: projectSlug || "project",
+    to: projectSlug ? "/" : undefined,
+  });
+  segments.push({
+    label: section.id,
+    to: section.to,
+  });
+
+  const runMatch = pathname.match(/^\/pipelines\/runs\/([^/]+)/);
+  if (runMatch) {
+    segments.push({ label: runMatch[1] });
+  }
+
+  const settingsMatch = pathname.match(/^\/settings(?:\/([^/]+))?/);
+  if (settingsMatch && settingsMatch[1]) {
+    segments.push({ label: settingsMatch[1], to: `/settings/${settingsMatch[1]}` });
+  }
+
+  return segments;
+}
