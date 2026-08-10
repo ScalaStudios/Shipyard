@@ -14,6 +14,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/httpapi"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/logging"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/settings"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 )
 
@@ -40,6 +41,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	var admins int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE is_admin`).Scan(&admins); err == nil && admins == 0 {
+		var users int
+		_ = pool.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&users)
+		if users > 0 {
+			log.Warn("no instance admin exists; grant one with: UPDATE users SET is_admin = TRUE WHERE username = '<you>'", "users", users)
+		}
+	}
+
 	store, err := newStore(cfg)
 	if err != nil {
 		log.Error("storage init failed", "error", err)
@@ -59,6 +69,14 @@ func main() {
 		}
 		if n > 0 {
 			log.Info("encrypted plaintext credentials at rest", "values", n)
+		}
+		seeded, err := settings.New(pool, box).SeedProvidersFromEnv(ctx, cfg.OIDCProviders, cfg.ForgeOAuthProviders)
+		if err != nil {
+			log.Error("seeding auth providers from env failed", "error", err)
+			os.Exit(1)
+		}
+		if seeded > 0 {
+			log.Info("imported auth providers from environment; manage them in settings from now on", "providers", seeded)
 		}
 	} else {
 		log.Warn("SHIPYARD_SECRETS_KEY is not set; storing forge, scm and discord credentials will be rejected")

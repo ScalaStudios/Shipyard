@@ -27,6 +27,7 @@ type User struct {
 	Email       string    `json:"email"`
 	DisplayName string    `json:"display_name"`
 	IsActive    bool      `json:"is_active"`
+	IsAdmin     bool      `json:"is_admin"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -61,10 +62,10 @@ func (s *Service) CreateUser(ctx context.Context, username, email, displayName, 
 
 	var u User
 	err = s.pool.QueryRow(ctx, `
-		INSERT INTO users (username, email, display_name, password_hash)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, username, email, display_name, is_active, created_at
-	`, username, email, displayName, hash).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+		INSERT INTO users (username, email, display_name, password_hash, is_admin)
+		VALUES ($1, $2, $3, $4, NOT EXISTS (SELECT 1 FROM users))
+		RETURNING id, username, email, display_name, is_active, is_admin, created_at
+	`, username, email, displayName, hash).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return User{}, ErrConflict
@@ -81,10 +82,10 @@ func (s *Service) Authenticate(ctx context.Context, login, password string) (Use
 		hash string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, email, display_name, is_active, created_at, password_hash
+		SELECT id, username, email, display_name, is_active, is_admin, created_at, password_hash
 		FROM users
 		WHERE lower(username) = lower($1) OR lower(email) = lower($1)
-	`, login).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt, &hash)
+	`, login).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUnauthorized
 	}
@@ -108,9 +109,9 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (User, error
 	email = strings.TrimSpace(strings.ToLower(email))
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, email, display_name, is_active, created_at
+		SELECT id, username, email, display_name, is_active, is_admin, created_at
 		FROM users WHERE lower(email) = $1
-	`, email).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+	`, email).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -121,10 +122,10 @@ func (s *Service) FindUser(ctx context.Context, login string) (User, error) {
 	login = strings.TrimSpace(login)
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, username, email, display_name, is_active, created_at
+		SELECT id, username, email, display_name, is_active, is_admin, created_at
 		FROM users
 		WHERE lower(username) = lower($1) OR lower(email) = lower($1)
-	`, login).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+	`, login).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -163,14 +164,14 @@ func (s *Service) UserFromSession(ctx context.Context, token string) (User, erro
 	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.created_at
+		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = $1
 		  AND s.revoked_at IS NULL
 		  AND s.expires_at > now()
 		  AND u.is_active = TRUE
-	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUnauthorized
 	}
@@ -214,14 +215,14 @@ func (s *Service) UserFromAPIToken(ctx context.Context, token string) (User, err
 	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.created_at
+		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
 		FROM api_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.token_hash = $1
 		  AND t.revoked_at IS NULL
 		  AND (t.expires_at IS NULL OR t.expires_at > now())
 		  AND u.is_active = TRUE
-	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUnauthorized
 	}

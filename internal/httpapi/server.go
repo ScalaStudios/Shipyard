@@ -12,57 +12,59 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/cluster"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/discord"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oci"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
-	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/scm"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/settings"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Options struct {
-	AllowRegister  bool
-	SessionTTL     time.Duration
-	NodeID         string
-	SecretsKey     string
-	WebhookSecret  string
-	PublicURL      string
-	APIURL         string
-	OIDC           []oidc.ProviderConfig
-	ForgeOAuth     []oidc.ProviderConfig
+	AllowRegister bool
+	SessionTTL    time.Duration
+	NodeID        string
+	SecretsKey    string
+	WebhookSecret string
+	PublicURL     string
+	APIURL        string
+	OIDC          []oidc.ProviderConfig
+	ForgeOAuth    []oidc.ProviderConfig
 }
 
 type Server struct {
-	pool           *pgxpool.Pool
-	store          storage.Store
-	identity       *identity.Service
-	orgs           *orgs.Service
-	audit          *audit.Logger
-	pipelines      *pipeline.Service
-	runners        *runners.Service
-	artifacts      *artifacts.Service
-	releases       *releases.Service
-	packages       *packages.Service
-	registry       *registry.Service
-	cluster        *cluster.Service
-	oci            *oci.Distribution
-	secrets        *secrets.Box
-	oidc           *oidc.Service
-	forgeOAuth     *oidc.Service
-	scm            *scm.Service
-	notifications  *notifications.Service
-	discord        *discord.Service
-	opts           Options
-	started        time.Time
-	mux            *http.ServeMux
+	pool          *pgxpool.Pool
+	store         storage.Store
+	identity      *identity.Service
+	orgs          *orgs.Service
+	audit         *audit.Logger
+	pipelines     *pipeline.Service
+	runners       *runners.Service
+	artifacts     *artifacts.Service
+	releases      *releases.Service
+	packages      *packages.Service
+	registry      *registry.Service
+	cluster       *cluster.Service
+	oci           *oci.Distribution
+	secrets       *secrets.Box
+	oidc          *oidc.Service
+	settings      *settings.Service
+	forgeOAuth    *oidc.Service
+	scm           *scm.Service
+	notifications *notifications.Service
+	discord       *discord.Service
+	opts          Options
+	started       time.Time
+	mux           *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
@@ -77,29 +79,31 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		}
 	}
 	s := &Server{
-		pool:      pool,
-		store:     store,
-		identity:  identity.New(pool),
-		orgs:      orgs.New(pool),
-		audit:     audit.New(pool),
-		pipelines: pipeline.NewService(pool),
-		runners:   runners.New(pool),
-		artifacts: artifacts.New(pool, store),
-		releases:  releases.New(pool),
-		packages:  packages.New(pool, store),
-		registry:  reg,
-		cluster:   cluster.New(pool, opts.NodeID),
+		pool:          pool,
+		store:         store,
+		identity:      identity.New(pool),
+		orgs:          orgs.New(pool),
+		audit:         audit.New(pool),
+		pipelines:     pipeline.NewService(pool),
+		runners:       runners.New(pool),
+		artifacts:     artifacts.New(pool, store),
+		releases:      releases.New(pool),
+		packages:      packages.New(pool, store),
+		registry:      reg,
+		cluster:       cluster.New(pool, opts.NodeID),
 		oci:           oci.NewDistribution(pool, store, reg),
 		oidc:          oidc.New(opts.OIDC),
 		forgeOAuth:    oidc.New(opts.ForgeOAuth),
+		settings:      settings.New(pool, box),
 		scm:           scm.New(pool, box),
 		notifications: notifications.New(pool),
 		discord:       discord.New(pool, opts.PublicURL, box),
 		opts:          opts,
-		started:   time.Now().UTC(),
-		mux:       http.NewServeMux(),
+		started:       time.Now().UTC(),
+		mux:           http.NewServeMux(),
 	}
 	s.secrets = box
+	s.reloadAuthProviders(context.Background())
 	s.routes()
 	go s.background()
 	return s
@@ -181,6 +185,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/projects/{projectID}/scm/connections/{connectionID}", s.requireAuth(s.handleDeleteSCMConnection))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/webhooks/deliveries", s.requireAuth(s.handleListWebhookDeliveries))
 	s.mux.HandleFunc("GET /api/v1/forge/oauth/providers", s.requireAuth(s.handleListForgeOAuthProviders))
+	s.mux.HandleFunc("GET /api/v1/settings/instance", s.requireAdmin(s.handleListInstanceSettings))
+	s.mux.HandleFunc("GET /api/v1/settings/admins", s.requireAdmin(s.handleListInstanceAdmins))
+	s.mux.HandleFunc("PUT /api/v1/settings/admins/{userID}", s.requireAdmin(s.handleSetInstanceAdmin))
+	s.mux.HandleFunc("PUT /api/v1/settings/instance", s.requireAdmin(s.handleSetInstanceSetting))
+	s.mux.HandleFunc("GET /api/v1/settings/auth-providers", s.requireAdmin(s.handleListAuthProviders))
+	s.mux.HandleFunc("POST /api/v1/settings/auth-providers", s.requireAdmin(s.handleUpsertAuthProvider))
+	s.mux.HandleFunc("DELETE /api/v1/settings/auth-providers/{providerID}", s.requireAdmin(s.handleDeleteAuthProvider))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/oauth/{provider}/start", s.requireAuth(s.handleForgeOAuthStart))
 	s.mux.HandleFunc("GET /api/v1/forge/oauth/{provider}/callback", s.requireAuth(s.handleForgeOAuthCallback))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/forge/credentials", s.requireAuth(s.handleListForgeCredentials))
@@ -221,6 +232,7 @@ func (s *Server) background() {
 	defer ticker.Stop()
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		s.reloadAuthProviders(ctx)
 		_ = s.cluster.Heartbeat(ctx)
 		if ok, _, err := s.cluster.AcquireLease(ctx, "scheduler", 15*time.Second); err == nil && ok {
 			_, _ = s.runners.ExpireLeases(ctx)
@@ -280,4 +292,9 @@ func queryInt64(r *http.Request, key string, fallback int64) int64 {
 		return fallback
 	}
 	return n
+}
+
+func (s *Server) reloadAuthProviders(ctx context.Context) {
+	s.oidc.SetProviders(s.settings.OIDCConfigs(ctx, settings.PurposeLogin))
+	s.forgeOAuth.SetProviders(s.settings.OIDCConfigs(ctx, settings.PurposeForge))
 }

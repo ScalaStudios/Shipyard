@@ -55,6 +55,12 @@ type ProviderInfo struct {
 }
 
 func New(providers []ProviderConfig) *Service {
+	s := &Service{providers: map[string]ProviderConfig{}, states: map[string]stateRecord{}}
+	s.SetProviders(providers)
+	return s
+}
+
+func (s *Service) SetProviders(providers []ProviderConfig) {
 	m := map[string]ProviderConfig{}
 	for _, p := range providers {
 		p = Normalize(p)
@@ -66,7 +72,16 @@ func New(providers []ProviderConfig) *Service {
 		}
 		m[p.Name] = p
 	}
-	return &Service{providers: m, states: map[string]stateRecord{}}
+	s.mu.Lock()
+	s.providers = m
+	s.mu.Unlock()
+}
+
+func (s *Service) provider(name string) (ProviderConfig, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.providers[name]
+	return p, ok
 }
 
 func Normalize(p ProviderConfig) ProviderConfig {
@@ -138,13 +153,20 @@ func detectKind(p ProviderConfig) ProviderKind {
 	}
 }
 
-func (s *Service) Enabled() bool { return len(s.providers) > 0 }
+func (s *Service) Enabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.providers) > 0
+}
 
 func (s *Service) Issuer(provider string) string {
-	return s.providers[provider].Issuer
+	p, _ := s.provider(provider)
+	return p.Issuer
 }
 
 func (s *Service) List() []ProviderInfo {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := make([]ProviderInfo, 0, len(s.providers))
 	for _, p := range s.providers {
 		out = append(out, ProviderInfo{Name: p.Name, Kind: string(p.Kind)})
@@ -157,7 +179,7 @@ func (s *Service) AuthURL(provider string) (string, string, error) {
 }
 
 func (s *Service) AuthURLFor(provider, data string) (string, string, error) {
-	p, ok := s.providers[provider]
+	p, ok := s.provider(provider)
 	if !ok {
 		return "", "", fmt.Errorf("unknown oidc provider")
 	}
@@ -201,7 +223,7 @@ func (s *Service) Exchange(ctx context.Context, provider, code, state string) (T
 	if !ok || rec.Provider != provider || time.Since(rec.CreatedAt) > 10*time.Minute {
 		return TokenResult{}, errors.New("invalid oauth state")
 	}
-	p, ok := s.providers[provider]
+	p, ok := s.provider(provider)
 	if !ok {
 		return TokenResult{}, errors.New("unknown provider")
 	}
