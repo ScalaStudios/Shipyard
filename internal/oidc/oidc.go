@@ -23,6 +23,8 @@ const (
 	KindGitLab  ProviderKind = "gitlab"
 	KindForgejo ProviderKind = "forgejo"
 	KindGitea   ProviderKind = "gitea"
+	KindEntra   ProviderKind = "entra"
+	KindDiscord ProviderKind = "discord"
 )
 
 type ProviderConfig struct {
@@ -91,6 +93,20 @@ func Normalize(p ProviderConfig) ProviderConfig {
 		if len(p.Scopes) == 0 {
 			p.Scopes = []string{"openid", "profile", "email"}
 		}
+	case KindEntra:
+		if p.Issuer == "" {
+			p.Issuer = "https://login.microsoftonline.com/common/v2.0"
+		}
+		if len(p.Scopes) == 0 {
+			p.Scopes = []string{"openid", "profile", "email", "User.Read"}
+		}
+	case KindDiscord:
+		if p.Issuer == "" {
+			p.Issuer = "https://discord.com"
+		}
+		if len(p.Scopes) == 0 {
+			p.Scopes = []string{"identify", "email"}
+		}
 	default:
 		p.Kind = KindOIDC
 		if len(p.Scopes) == 0 {
@@ -112,6 +128,10 @@ func detectKind(p ProviderConfig) ProviderKind {
 		return KindForgejo
 	case name == "gitea" || strings.Contains(issuer, "gitea"):
 		return KindGitea
+	case name == "entra" || name == "azure" || name == "azuread" || strings.Contains(issuer, "microsoftonline.com") || strings.Contains(issuer, "windows.net"):
+		return KindEntra
+	case name == "discord" || strings.Contains(issuer, "discord.com"):
+		return KindDiscord
 	default:
 		return KindOIDC
 	}
@@ -146,6 +166,9 @@ func (s *Service) AuthURL(provider string) (string, string, error) {
 	q.Set("scope", strings.Join(p.Scopes, " "))
 	q.Set("redirect_uri", p.RedirectURL)
 	q.Set("state", state)
+	if p.Kind == KindEntra {
+		q.Set("response_mode", "query")
+	}
 	return authEndpoint(p) + "?" + q.Encode(), state, nil
 }
 
@@ -269,6 +292,37 @@ func enrichFromUserInfo(ctx context.Context, p ProviderConfig, accessToken strin
 	if result.Email == "" && p.Kind == KindGitHub {
 		result.Email = fetchGitHubPrimaryEmail(ctx, accessToken)
 	}
+	if result.Email == "" && p.Kind == KindDiscord {
+		if email, ok := info["email"].(string); ok {
+			result.Email = email
+		}
+	}
+	if result.Username == "" && p.Kind == KindDiscord {
+		if v, ok := info["global_name"].(string); ok && v != "" {
+			result.Name = v
+		}
+		if v, ok := info["username"].(string); ok {
+			result.Username = v
+		}
+	}
+	if result.Email == "" && p.Kind == KindEntra {
+		for _, key := range []string{"mail", "userPrincipalName"} {
+			if v, ok := info[key].(string); ok && v != "" {
+				result.Email = v
+				break
+			}
+		}
+	}
+	if result.Username == "" && p.Kind == KindEntra {
+		if v, ok := info["userPrincipalName"].(string); ok {
+			result.Username = strings.Split(v, "@")[0]
+		}
+	}
+	if result.Name == "" && p.Kind == KindEntra {
+		if v, ok := info["displayName"].(string); ok {
+			result.Name = v
+		}
+	}
 	return nil
 }
 
@@ -314,9 +368,16 @@ func authEndpoint(p ProviderConfig) string {
 		return base + "/oauth/authorize"
 	case KindForgejo, KindGitea:
 		return base + "/login/oauth/authorize"
+	case KindDiscord:
+		return "https://discord.com/api/oauth2/authorize"
+	case KindEntra:
+		return entraBase(base) + "/oauth2/v2.0/authorize"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://accounts.google.com/o/oauth2/v2/auth"
+		}
+		if strings.Contains(base, "microsoftonline.com") {
+			return entraBase(base) + "/oauth2/v2.0/authorize"
 		}
 		return base + "/protocol/openid-connect/auth"
 	}
@@ -331,9 +392,16 @@ func tokenEndpoint(p ProviderConfig) string {
 		return base + "/oauth/token"
 	case KindForgejo, KindGitea:
 		return base + "/login/oauth/access_token"
+	case KindDiscord:
+		return "https://discord.com/api/oauth2/token"
+	case KindEntra:
+		return entraBase(base) + "/oauth2/v2.0/token"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://oauth2.googleapis.com/token"
+		}
+		if strings.Contains(base, "microsoftonline.com") {
+			return entraBase(base) + "/oauth2/v2.0/token"
 		}
 		return base + "/protocol/openid-connect/token"
 	}
@@ -348,12 +416,25 @@ func userInfoEndpoint(p ProviderConfig) string {
 		return base + "/api/v4/user"
 	case KindForgejo, KindGitea:
 		return base + "/api/v1/user"
+	case KindDiscord:
+		return "https://discord.com/api/users/@me"
+	case KindEntra:
+		return "https://graph.microsoft.com/v1.0/me"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://openidconnect.googleapis.com/v1/userinfo"
 		}
+		if strings.Contains(base, "microsoftonline.com") {
+			return "https://graph.microsoft.com/v1.0/me"
+		}
 		return base + "/protocol/openid-connect/userinfo"
 	}
+}
+
+func entraBase(issuer string) string {
+	base := strings.TrimRight(issuer, "/")
+	base = strings.TrimSuffix(base, "/v2.0")
+	return base
 }
 
 func decodeJWTClaims(token string) (map[string]any, error) {

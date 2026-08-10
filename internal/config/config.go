@@ -144,6 +144,27 @@ func loadOIDCProviders(cfg Config) []oidc.ProviderConfig {
 			RedirectURL:  envOr("SHIPYARD_OIDC_GITEA_REDIRECT_URL", baseRedirect+"/gitea/callback"),
 		})
 	}
+	if id := os.Getenv("SHIPYARD_OIDC_ENTRA_CLIENT_ID"); id != "" {
+		tenant := envOr("SHIPYARD_OIDC_ENTRA_TENANT", "common")
+		out = append(out, oidc.ProviderConfig{
+			Name:         "entra",
+			Kind:         oidc.KindEntra,
+			Issuer:       envOr("SHIPYARD_OIDC_ENTRA_ISSUER", "https://login.microsoftonline.com/"+tenant+"/v2.0"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_ENTRA_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_ENTRA_REDIRECT_URL", baseRedirect+"/entra/callback"),
+		})
+	}
+	if id := os.Getenv("SHIPYARD_OIDC_DISCORD_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "discord",
+			Kind:         oidc.KindDiscord,
+			Issuer:       "https://discord.com",
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_DISCORD_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_DISCORD_REDIRECT_URL", baseRedirect+"/discord/callback"),
+		})
+	}
 	return out
 }
 

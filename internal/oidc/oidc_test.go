@@ -13,15 +13,21 @@ func TestNormalizeGitHub(t *testing.T) {
 	}
 }
 
-func TestDetectForgejo(t *testing.T) {
+func TestNormalizeEntraAndDiscord(t *testing.T) {
 	t.Parallel()
-	p := Normalize(ProviderConfig{
-		Name:     "company",
-		Issuer:   "https://git.example.com",
-		ClientID: "x",
-		Kind:     KindForgejo,
-	})
-	if authEndpoint(p) != "https://git.example.com/login/oauth/authorize" {
-		t.Fatalf("auth %s", authEndpoint(p))
+	entra := Normalize(ProviderConfig{Name: "entra", ClientID: "abc", Kind: KindEntra})
+	if entra.Kind != KindEntra {
+		t.Fatalf("entra kind %s", entra.Kind)
+	}
+	wantAuth := "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+	if authEndpoint(entra) != wantAuth {
+		t.Fatalf("entra auth %s", authEndpoint(entra))
+	}
+	discord := Normalize(ProviderConfig{Name: "discord", ClientID: "xyz"})
+	if discord.Kind != KindDiscord {
+		t.Fatalf("discord kind %s", discord.Kind)
+	}
+	if authEndpoint(discord) != "https://discord.com/api/oauth2/authorize" {
+		t.Fatalf("discord auth %s", authEndpoint(discord))
 	}
 }
