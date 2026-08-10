@@ -190,12 +190,11 @@ func (s *Server) handleGetOrg(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgRead); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgRead)
+	if !ok {
 		return
 	}
-	members, err := s.orgs.ListMembers(r.Context(), orgID)
+	members, err := s.orgs.ListMembers(r.Context(), org.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -212,12 +211,12 @@ type memberRequest struct {
 }
 
 func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	actor := currentUser(r)
-	if _, _, err := s.orgs.Require(r.Context(), actor.ID, orgID, rbac.PermOrgManageMembers); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermOrgManageMembers)
+	if !ok {
 		return
 	}
+	orgID := org.ID
+	actor := currentUser(r)
 	var req memberRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -250,12 +249,11 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermProjectRead); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
 		return
 	}
-	list, err := s.orgs.ListProjects(r.Context(), orgID)
+	list, err := s.orgs.ListProjects(r.Context(), org.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -273,12 +271,12 @@ type projectRequest struct {
 }
 
 func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	user := currentUser(r)
-	if _, _, err := s.orgs.Require(r.Context(), user.ID, orgID, rbac.PermProjectCreate); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermProjectCreate)
+	if !ok {
 		return
 	}
+	orgID := org.ID
+	user := currentUser(r)
 	var req projectRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -294,12 +292,11 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
-	orgID := r.PathValue("orgID")
-	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermProjectRead); err != nil {
-		mapIdentityError(w, err)
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
 		return
 	}
-	project, err := s.orgs.GetProject(r.Context(), orgID, r.PathValue("projectID"))
+	project, err := s.orgs.GetProject(r.Context(), org.ID, r.PathValue("projectID"))
 	if err != nil {
 		mapIdentityError(w, err)
 		return
