@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 )
 
 type Integration struct {
@@ -37,13 +38,15 @@ type Service struct {
 	pool      *pgxpool.Pool
 	publicURL string
 	client    *http.Client
+	secrets   *secrets.Box
 }
 
-func New(pool *pgxpool.Pool, publicURL string) *Service {
+func New(pool *pgxpool.Pool, publicURL string, box *secrets.Box) *Service {
 	return &Service{
 		pool:      pool,
 		publicURL: strings.TrimRight(publicURL, "/"),
 		client:    &http.Client{Timeout: 12 * time.Second},
+		secrets:   box,
 	}
 }
 
@@ -81,14 +84,22 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Integration, erro
 	if len(notifyOn) == 0 {
 		notifyOn = []string{"run.started", "run.succeeded", "run.failed", "run.canceled"}
 	}
+	sealedURL, err := s.secrets.SealString(strings.TrimSpace(in.WebhookURL))
+	if err != nil {
+		return Integration{}, err
+	}
+	sealedToken, err := s.secrets.SealString(strings.TrimSpace(in.BotToken))
+	if err != nil {
+		return Integration{}, err
+	}
 	var row Integration
-	err := s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		INSERT INTO discord_integrations (
 			organization_id, project_id, name, mode, webhook_url, bot_token, channel_id, notify_on, created_by
 		) VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6, $7, $8, NULLIF($9,'')::uuid)
 		RETURNING id, organization_id, COALESCE(project_id::text,''), name, mode, channel_id, notify_on, enabled,
 		          created_at, updated_at, webhook_url <> '', bot_token <> ''
-	`, in.OrganizationID, in.ProjectID, name, mode, strings.TrimSpace(in.WebhookURL), strings.TrimSpace(in.BotToken),
+	`, in.OrganizationID, in.ProjectID, name, mode, sealedURL, sealedToken,
 		strings.TrimSpace(in.ChannelID), notifyOn, in.ActorID,
 	).Scan(&row.ID, &row.OrganizationID, &row.ProjectID, &row.Name, &row.Mode, &row.ChannelID, &row.NotifyOn,
 		&row.Enabled, &row.CreatedAt, &row.UpdatedAt, &row.HasWebhook, &row.HasBotToken)
@@ -154,6 +165,9 @@ func (s *Service) getEnabledForEvent(ctx context.Context, orgID, projectID, kind
 		if err := rows.Scan(&row.ID, &row.OrganizationID, &row.ProjectID, &row.Name, &row.Mode, &row.ChannelID,
 			&row.NotifyOn, &row.Enabled, &row.CreatedAt, &row.UpdatedAt, &row.WebhookURL, &row.BotToken,
 			&row.HasWebhook, &row.HasBotToken); err != nil {
+			return nil, err
+		}
+		if err := s.openIntegration(&row); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -298,6 +312,9 @@ func (s *Service) TestPing(ctx context.Context, orgID, id string) error {
 	if err == pgx.ErrNoRows {
 		return identity.ErrNotFound
 	}
+	if err == nil {
+		err = s.openIntegration(&row)
+	}
 	if err != nil {
 		return err
 	}
@@ -308,4 +325,18 @@ func (s *Service) TestPing(ctx context.Context, orgID, id string) error {
 		Href:   "/settings/notifications",
 		Status: "ok",
 	})
+}
+
+func (s *Service) openIntegration(row *Integration) error {
+	url, err := s.secrets.OpenString(row.WebhookURL)
+	if err != nil {
+		return fmt.Errorf("decrypt discord %s webhook url: %w", row.Name, err)
+	}
+	token, err := s.secrets.OpenString(row.BotToken)
+	if err != nil {
+		return fmt.Errorf("decrypt discord %s bot token: %w", row.Name, err)
+	}
+	row.WebhookURL = url
+	row.BotToken = token
+	return nil
 }

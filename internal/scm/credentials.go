@@ -57,13 +57,17 @@ func (s *Service) CreateCredential(ctx context.Context, in CreateCredentialInput
 	if base == "" {
 		return ForgeCredential{}, fmt.Errorf("%w: base_url required", identity.ErrInvalidInput)
 	}
+	sealed, err := s.secrets.SealString(token)
+	if err != nil {
+		return ForgeCredential{}, err
+	}
 	var c ForgeCredential
-	err := s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		INSERT INTO forge_credentials (organization_id, provider, kind, name, base_url, access_token, created_by)
 		VALUES ($1,$2,$3,$4,$5,$6,$7)
 		RETURNING id, organization_id, provider, kind, name, base_url, created_at, updated_at,
 		          access_token <> '', COALESCE(created_by::text,'')
-	`, in.OrganizationID, provider, kind, name, base, token, nullIfEmpty(in.ActorID),
+	`, in.OrganizationID, provider, kind, name, base, sealed, nullIfEmpty(in.ActorID),
 	).Scan(&c.ID, &c.OrganizationID, &c.Provider, &c.Kind, &c.Name, &c.BaseURL, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.CreatedBy)
 	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
 		return ForgeCredential{}, identity.ErrConflict
@@ -104,6 +108,11 @@ func (s *Service) GetCredential(ctx context.Context, orgID, id string) (ForgeCre
 	if err != nil {
 		return ForgeCredential{}, identity.ErrNotFound
 	}
+	token, err := s.secrets.OpenString(c.AccessToken)
+	if err != nil {
+		return ForgeCredential{}, fmt.Errorf("decrypt credential %s: %w", c.Name, err)
+	}
+	c.AccessToken = token
 	return c, nil
 }
 

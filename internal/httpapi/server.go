@@ -12,12 +12,12 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/cluster"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/discord"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oci"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/oidc"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
-	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
@@ -29,38 +29,38 @@ import (
 )
 
 type Options struct {
-	AllowRegister  bool
-	SessionTTL     time.Duration
-	NodeID         string
-	SecretsKey     string
-	WebhookSecret  string
-	PublicURL      string
-	APIURL         string
-	OIDC           []oidc.ProviderConfig
+	AllowRegister bool
+	SessionTTL    time.Duration
+	NodeID        string
+	SecretsKey    string
+	WebhookSecret string
+	PublicURL     string
+	APIURL        string
+	OIDC          []oidc.ProviderConfig
 }
 
 type Server struct {
-	pool           *pgxpool.Pool
-	store          storage.Store
-	identity       *identity.Service
-	orgs           *orgs.Service
-	audit          *audit.Logger
-	pipelines      *pipeline.Service
-	runners        *runners.Service
-	artifacts      *artifacts.Service
-	releases       *releases.Service
-	packages       *packages.Service
-	registry       *registry.Service
-	cluster        *cluster.Service
-	oci            *oci.Distribution
-	secrets        *secrets.Box
-	oidc           *oidc.Service
-	scm            *scm.Service
-	notifications  *notifications.Service
-	discord        *discord.Service
-	opts           Options
-	started        time.Time
-	mux            *http.ServeMux
+	pool          *pgxpool.Pool
+	store         storage.Store
+	identity      *identity.Service
+	orgs          *orgs.Service
+	audit         *audit.Logger
+	pipelines     *pipeline.Service
+	runners       *runners.Service
+	artifacts     *artifacts.Service
+	releases      *releases.Service
+	packages      *packages.Service
+	registry      *registry.Service
+	cluster       *cluster.Service
+	oci           *oci.Distribution
+	secrets       *secrets.Box
+	oidc          *oidc.Service
+	scm           *scm.Service
+	notifications *notifications.Service
+	discord       *discord.Service
+	opts          Options
+	started       time.Time
+	mux           *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
@@ -68,33 +68,35 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		opts.SessionTTL = 7 * 24 * time.Hour
 	}
 	reg := registry.New(pool, store)
-	s := &Server{
-		pool:      pool,
-		store:     store,
-		identity:  identity.New(pool),
-		orgs:      orgs.New(pool),
-		audit:     audit.New(pool),
-		pipelines: pipeline.NewService(pool),
-		runners:   runners.New(pool),
-		artifacts: artifacts.New(pool, store),
-		releases:  releases.New(pool),
-		packages:  packages.New(pool, store),
-		registry:  reg,
-		cluster:   cluster.New(pool, opts.NodeID),
-		oci:           oci.NewDistribution(pool, store, reg),
-		oidc:          oidc.New(opts.OIDC),
-		scm:           scm.New(pool),
-		notifications: notifications.New(pool),
-		discord:       discord.New(pool, opts.PublicURL),
-		opts:          opts,
-		started:   time.Now().UTC(),
-		mux:       http.NewServeMux(),
-	}
+	var box *secrets.Box
 	if opts.SecretsKey != "" {
-		if box, err := secrets.New(pool, opts.SecretsKey); err == nil {
-			s.secrets = box
+		if b, err := secrets.New(pool, opts.SecretsKey); err == nil {
+			box = b
 		}
 	}
+	s := &Server{
+		pool:          pool,
+		store:         store,
+		identity:      identity.New(pool),
+		orgs:          orgs.New(pool),
+		audit:         audit.New(pool),
+		pipelines:     pipeline.NewService(pool),
+		runners:       runners.New(pool),
+		artifacts:     artifacts.New(pool, store),
+		releases:      releases.New(pool),
+		packages:      packages.New(pool, store),
+		registry:      reg,
+		cluster:       cluster.New(pool, opts.NodeID),
+		oci:           oci.NewDistribution(pool, store, reg),
+		oidc:          oidc.New(opts.OIDC),
+		scm:           scm.New(pool, box),
+		notifications: notifications.New(pool),
+		discord:       discord.New(pool, opts.PublicURL, box),
+		opts:          opts,
+		started:       time.Now().UTC(),
+		mux:           http.NewServeMux(),
+	}
+	s.secrets = box
 	s.routes()
 	go s.background()
 	return s
