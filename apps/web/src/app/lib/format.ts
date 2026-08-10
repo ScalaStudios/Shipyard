@@ -1,4 +1,21 @@
 import type { Status } from "@shipyard/ui";
+import type { Runner } from "../api";
+
+const ALIVE_MS = 15_000;
+
+export function heartbeatAgeMs(iso?: string, now = Date.now()): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.max(0, now - t);
+}
+
+export function isRunnerAlive(runner: Runner, now = Date.now()): boolean {
+  if (runner.status === "offline") return false;
+  const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
+  if (age == null) return false;
+  return age <= ALIVE_MS;
+}
 
 export function runStatus(status: string): Status {
   switch (status) {
