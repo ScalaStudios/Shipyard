@@ -206,6 +206,49 @@ func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"members": members})
 }
 
+type memberRequest struct {
+	Login string `json:"login"`
+	Role  string `json:"role"`
+}
+
+func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
+	orgID := r.PathValue("orgID")
+	actor := currentUser(r)
+	if _, _, err := s.orgs.Require(r.Context(), actor.ID, orgID, rbac.PermOrgManageMembers); err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	var req memberRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	role, ok := rbac.ParseRole(req.Role)
+	if !ok {
+		role = rbac.RoleDeveloper
+	}
+	user, err := s.identity.FindUser(r.Context(), req.Login)
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	if err := s.orgs.AddMember(r.Context(), orgID, user.ID, role); err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	_ = s.audit.Record(r.Context(), audit.Event{
+		ActorUserID:    &actor.ID,
+		Action:         "org.member_added",
+		ResourceType:   "organization",
+		ResourceID:     orgID,
+		OrganizationID: &orgID,
+		IP:             clientIP(r),
+		UserAgent:      r.UserAgent(),
+		Metadata:       map[string]any{"user_id": user.ID, "role": role},
+	})
+	writeJSON(w, http.StatusCreated, map[string]any{"status": "ok", "user_id": user.ID, "role": role})
+}
+
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("orgID")
 	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermProjectRead); err != nil {

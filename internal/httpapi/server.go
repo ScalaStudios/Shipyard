@@ -26,32 +26,33 @@ import (
 )
 
 type Options struct {
-	AllowRegister bool
-	SessionTTL    time.Duration
-	NodeID        string
-	SecretsKey    string
-	OIDC          []oidc.ProviderConfig
+	AllowRegister  bool
+	SessionTTL     time.Duration
+	NodeID         string
+	SecretsKey     string
+	WebhookSecret  string
+	OIDC           []oidc.ProviderConfig
 }
 
 type Server struct {
-	pool      *pgxpool.Pool
-	store     storage.Store
-	identity  *identity.Service
-	orgs      *orgs.Service
-	audit     *audit.Logger
-	pipelines *pipeline.Service
-	runners   *runners.Service
-	artifacts *artifacts.Service
-	releases  *releases.Service
-	packages  *packages.Service
-	registry  *registry.Service
-	cluster   *cluster.Service
-	oci       *oci.Distribution
-	secrets   *secrets.Box
-	oidc      *oidc.Service
-	opts      Options
-	started   time.Time
-	mux       *http.ServeMux
+	pool           *pgxpool.Pool
+	store          storage.Store
+	identity       *identity.Service
+	orgs           *orgs.Service
+	audit          *audit.Logger
+	pipelines      *pipeline.Service
+	runners        *runners.Service
+	artifacts      *artifacts.Service
+	releases       *releases.Service
+	packages       *packages.Service
+	registry       *registry.Service
+	cluster        *cluster.Service
+	oci            *oci.Distribution
+	secrets        *secrets.Box
+	oidc           *oidc.Service
+	opts           Options
+	started        time.Time
+	mux            *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
@@ -110,6 +111,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/orgs", s.requireAuth(s.handleCreateOrg))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}", s.requireAuth(s.handleGetOrg))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/members", s.requireAuth(s.handleListMembers))
+	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/members", s.requireAuth(s.handleAddMember))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects", s.requireAuth(s.handleListProjects))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects", s.requireAuth(s.handleCreateProject))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}", s.requireAuth(s.handleGetProject))

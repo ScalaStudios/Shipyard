@@ -50,6 +50,7 @@ func main() {
 		SessionTTL:    cfg.SessionTTL,
 		NodeID:        cfg.NodeID,
 		SecretsKey:    cfg.SecretsKey,
+		WebhookSecret: cfg.WebhookSecret,
 		OIDC:          cfg.OIDCProviders,
 	}
 	api := httpapi.New(pool, store, opts)
