@@ -59,4 +59,43 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  listPipelines: (orgID: string, projectID: string) =>
+    request<{ pipelines: Pipeline[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/pipelines`),
+  upsertPipeline: (orgID: string, projectID: string, payload: { slug: string; yaml: string }) =>
+    request<{ pipeline: Pipeline }>(`/api/v1/orgs/${orgID}/projects/${projectID}/pipelines`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  listRuns: (orgID: string, projectID: string) =>
+    request<{ runs: PipelineRun[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs`),
+  startRun: (orgID: string, projectID: string, pipelineID: string) =>
+    request<{ run: PipelineRun }>(`/api/v1/orgs/${orgID}/projects/${projectID}/pipelines/${pipelineID}/runs`, {
+      method: "POST",
+      body: "{}",
+    }),
+  listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
+};
+
+export type Pipeline = {
+  id: string;
+  project_id: string;
+  name: string;
+  slug: string;
+  yaml_source: string;
+  created_at: string;
+};
+
+export type PipelineRun = {
+  id: string;
+  pipeline_id: string;
+  number: number;
+  status: string;
+  created_at: string;
+};
+
+export type Runner = {
+  id: string;
+  name: string;
+  status: string;
+  labels: string[];
 };

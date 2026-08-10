@@ -24,6 +24,7 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	AllowRegister        bool
 	SessionTTL           time.Duration
+	NodeID               string
 }
 
 func Load() (Config, error) {
@@ -43,6 +44,7 @@ func Load() (Config, error) {
 		ShutdownTimeout:      envDuration("SHIPYARD_SHUTDOWN_TIMEOUT", 15*time.Second),
 		AllowRegister:        envBool("SHIPYARD_ALLOW_REGISTER", false),
 		SessionTTL:           envDuration("SHIPYARD_SESSION_TTL", 7*24*time.Hour),
+		NodeID:               envOr("SHIPYARD_NODE_ID", ""),
 	}
 
 	if cfg.DatabaseURL == "" {

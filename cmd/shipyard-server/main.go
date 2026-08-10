@@ -48,6 +48,7 @@ func main() {
 	api := httpapi.New(pool, store, httpapi.Options{
 		AllowRegister: cfg.AllowRegister,
 		SessionTTL:    cfg.SessionTTL,
+		NodeID:        cfg.NodeID,
 	})
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

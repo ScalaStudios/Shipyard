@@ -26,8 +26,9 @@ services:
       SHIPYARD_STORAGE_BACKEND: filesystem
       SHIPYARD_STORAGE_DIR: /data/blobs
       SHIPYARD_LOG_LEVEL: info
-      SHIPYARD_ALLOW_REGISTER: "false"
+      SHIPYARD_ALLOW_REGISTER: "true"
       SHIPYARD_SESSION_TTL: 168h
+      SHIPYARD_NODE_ID: server-1
     ports:
       - "8080:8080"
     volumes:
@@ -35,6 +36,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  shipyard-runner:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.runner
+    environment:
+      SHIPYARD_URL: http://shipyard-server:8080
+      SHIPYARD_REGISTRATION_TOKEN: ${SHIPYARD_REGISTRATION_TOKEN:-}
+      SHIPYARD_RUNNER_TOKEN: ${SHIPYARD_RUNNER_TOKEN:-}
+      SHIPYARD_RUNNER_NAME: compose-runner
+      SHIPYARD_RUNNER_LABELS: linux
+    depends_on:
+      - shipyard-server
+    profiles: ["runner"]
 
 volumes:
   shipyard_pg:
