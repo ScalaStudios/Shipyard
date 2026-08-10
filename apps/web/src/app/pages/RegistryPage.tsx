@@ -6,6 +6,19 @@ import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OCIRepo, PackageRepo, PackageVersion } from "../api";
 
+function formatLabel(format: string): string {
+  switch (format) {
+    case "maven":
+      return "Maven / Gradle";
+    case "npm":
+      return "npm";
+    case "generic":
+      return "generic";
+    default:
+      return format;
+  }
+}
+
 export function RegistryPage() {
   const { org, project, setError } = useWorkspace();
   const [packages, setPackages] = useState<PackageRepo[]>([]);
@@ -15,7 +28,7 @@ export function RegistryPage() {
   const [selectedOci, setSelectedOci] = useState<OCIRepo | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [pkgName, setPkgName] = useState("");
-  const [pkgFormat, setPkgFormat] = useState("npm");
+  const [pkgFormat, setPkgFormat] = useState("maven");
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
@@ -73,8 +86,16 @@ export function RegistryPage() {
   return (
     <div className={table.stack}>
       <PageHeader
-        title="Registry"
-        description="Artifactory-style package repositories and OCI image repositories for the selected project."
+        title={project ? `${project.name} - Registry` : "Registry"}
+        description={
+          project ? (
+            <>
+              Package and OCI repositories for <strong>{project.name}</strong>. Maven layout also serves Gradle.
+            </>
+          ) : (
+            "Package and OCI repositories for the selected project. Maven layout also serves Gradle."
+          )
+        }
       />
 
       {!org || !project ? (
@@ -87,9 +108,14 @@ export function RegistryPage() {
             actions={
               <form className={table.formRow} onSubmit={createPackage}>
                 <input className={table.input} placeholder="name" value={pkgName} onChange={(e) => setPkgName(e.target.value)} required />
-                <select className={table.select} value={pkgFormat} onChange={(e) => setPkgFormat(e.target.value)}>
+                <select
+                  className={table.select}
+                  value={pkgFormat}
+                  onChange={(e) => setPkgFormat(e.target.value)}
+                  aria-label="Package format"
+                >
+                  <option value="maven">Maven / Gradle</option>
                   <option value="npm">npm</option>
-                  <option value="maven">maven</option>
                   <option value="generic">generic</option>
                 </select>
                 <Button type="submit" variant="primary" loading={busy}>
@@ -113,7 +139,7 @@ export function RegistryPage() {
                   {packages.map((p) => (
                     <tr key={p.id}>
                       <td>{p.name}</td>
-                      <td className="mono">{p.format}</td>
+                      <td className="mono">{formatLabel(p.format)}</td>
                       <td>
                         <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
                           Versions
@@ -166,11 +192,15 @@ export function RegistryPage() {
             {selectedOci ? (
               <div className={table.toolbar}>
                 <strong className="mono">{selectedOci.name}</strong>
-                {tags.length === 0 ? <span className={table.muted}>No tags</span> : tags.map((t) => (
-                  <span key={t} className="mono">
-                    {t}
-                  </span>
-                ))}
+                {tags.length === 0 ? (
+                  <span className={table.muted}>No tags</span>
+                ) : (
+                  tags.map((t) => (
+                    <span key={t} className="mono">
+                      {t}
+                    </span>
+                  ))
+                )}
               </div>
             ) : null}
           </Panel>

@@ -35,12 +35,9 @@
   color: transparent;
 }
 
-.description {
-  margin: var(--sy-space-2) 0 0;
-  color: var(--sy-color-text-muted);
-  font-size: 14px;
-  line-height: 22px;
-  max-width: 64ch;
+.description strong {
+  color: var(--sy-color-text-primary);
+  font-weight: 600;
 }
 
 .actions {

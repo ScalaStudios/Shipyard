@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
@@ -52,8 +52,16 @@ export function OverviewPage() {
   return (
     <div className={table.stack}>
       <PageHeader
-        title="Overview"
-        description="Control-plane health, runner capacity, and recent delivery activity for the selected project."
+        title={project ? `${project.name} - Overview` : "Overview"}
+        description={
+          project ? (
+            <>
+              Control-plane health, runner capacity, and recent delivery activity for <strong>{project.name}</strong>.
+            </>
+          ) : (
+            "Control-plane health, runner capacity, and recent delivery activity. Select a project to scope this view."
+          )
+        }
       />
 
       <div className={table.stats}>
@@ -79,7 +87,17 @@ export function OverviewPage() {
 
       <Panel title="Needs attention" meta={<StatusBadge status={attention.length ? "danger" : "success"}>{attention.length}</StatusBadge>}>
         {!org || !project ? (
-          <EmptyState title="Select an organization and project" description="Create them under Projects to populate this dashboard." />
+          <EmptyState
+            title="Select an organization and project"
+            description="Create them under Projects, or import an existing forge org."
+            action={
+              <Link to={org ? "/projects/import" : "/projects"}>
+                <Button type="button" variant="primary">
+                  {org ? "Import from forge" : "Get started"}
+                </Button>
+              </Link>
+            }
+          />
         ) : attention.length === 0 ? (
           <EmptyState title="Nothing needs attention" description="Recent runs are healthy." />
         ) : (

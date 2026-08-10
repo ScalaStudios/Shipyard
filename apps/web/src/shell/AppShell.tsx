@@ -181,8 +181,8 @@ export function AppShell({
               </label>
             )}
             {orgs.length > 0 && projects.length === 0 ? (
-              <Link className={styles.contextCta} to="/projects">
-                Create project
+              <Link className={styles.contextCta} to="/projects/import">
+                Import from forge
               </Link>
             ) : null}
             {projects.length > 0 ? (
@@ -193,6 +193,7 @@ export function AppShell({
                   value={project?.id ?? ""}
                   onChange={(e) => setProjectID(e.target.value)}
                 >
+                  <option value="">Select project</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
