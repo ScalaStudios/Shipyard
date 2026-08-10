@@ -7,6 +7,13 @@ URL="${SHIPYARD_URL:-http://127.0.0.1:8080}"
 COOKIE="$(mktemp)"
 trap 'rm -f "$COOKIE"' EXIT
 
+json_field() {
+  python3 -c 'import json,sys; data=json.load(sys.stdin); path=sys.argv[1].split(".");
+cur=data
+for p in path: cur=cur[p]
+print(cur)' "$1"
+}
+
 echo "==> health"
 curl -fsS "$URL/healthz" >/dev/null
 curl -fsS "$URL/readyz" >/dev/null
@@ -25,32 +32,47 @@ curl -fsS -c "$COOKIE" -H 'Content-Type: application/json' \
 curl -fsS -b "$COOKIE" "$URL/api/v1/me" | grep -q "$USER"
 
 echo "==> org/project/pipeline"
-ORG=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
-  -d "{\"slug\":\"smoke-org\",\"name\":\"Smoke Org\"}" \
-  "$URL/api/v1/orgs")
-ORG_ID=$(printf '%s' "$ORG" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1)
-PROJ=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
-  -d "{\"slug\":\"smoke-app\",\"name\":\"Smoke App\"}" \
-  "$URL/api/v1/orgs/$ORG_ID/projects")
-PROJ_ID=$(printf '%s' "$PROJ" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1)
+ORG_ID=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
+  -d "{\"slug\":\"smoke-org-$USER\",\"name\":\"Smoke Org\"}" \
+  "$URL/api/v1/orgs" | json_field organization.id)
+PROJ_ID=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
+  -d '{"slug":"smoke-app","name":"Smoke App"}' \
+  "$URL/api/v1/orgs/$ORG_ID/projects" | json_field project.id)
 
-YAML=$'pipeline:\n  name: smoke\njobs:\n  greet:\n    runner:\n      os: linux\n    steps:\n      - name: echo\n        run: echo smoke\n'
-PIPE=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
-  --data-binary "{\"slug\":\"smoke\",\"yaml\":$(printf '%s' "$YAML" | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" \
-  "$URL/api/v1/orgs/$ORG_ID/projects/$PROJ_ID/pipelines")
-PIPE_ID=$(printf '%s' "$PIPE" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1)
+PIPE_PAYLOAD=$(python3 - <<'PY'
+import json
+print(json.dumps({
+  "slug": "smoke",
+  "yaml": """pipeline:
+  name: smoke
+jobs:
+  greet:
+    runner:
+      os: linux
+    steps:
+      - name: echo
+        run: echo smoke
+"""
+}))
+PY
+)
+PIPE_ID=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
+  -d "$PIPE_PAYLOAD" \
+  "$URL/api/v1/orgs/$ORG_ID/projects/$PROJ_ID/pipelines" | json_field pipeline.id)
 
 RUN=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' -d '{}' \
   "$URL/api/v1/orgs/$ORG_ID/projects/$PROJ_ID/pipelines/$PIPE_ID/runs")
 printf '%s\n' "$RUN" | grep -q '"status"'
 
-echo "==> package repo + maven metadata path"
-PKG=$(curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
+echo "==> package repo"
+curl -fsS -b "$COOKIE" -H 'Content-Type: application/json' \
   -d '{"name":"libs","format":"maven"}' \
-  "$URL/api/v1/orgs/$ORG_ID/projects/$PROJ_ID/packages")
-printf '%s\n' "$PKG" | grep -q maven
+  "$URL/api/v1/orgs/$ORG_ID/projects/$PROJ_ID/packages" | grep -q maven
 
 echo "==> oidc providers endpoint"
 curl -fsS "$URL/api/v1/auth/oidc/providers" | grep -q providers
+
+echo "==> oci api version"
+curl -fsS "$URL/v2/" >/dev/null
 
 echo "OK smoke against $URL"
