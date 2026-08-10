@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/webhooks"
 )
@@ -15,11 +16,27 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := r.PathValue("provider")
-	secret := r.Header.Get("X-Shipyard-Webhook-Secret")
+	configured := s.opts.WebhookSecret
+	if configured == "" {
+		configured = os.Getenv("SHIPYARD_WEBHOOK_SECRET")
+	}
 	sig := r.Header.Get("X-Hub-Signature-256")
-	if secret != "" && sig != "" && !webhooks.VerifySignature(secret, sig, body) {
-		writeError(w, http.StatusUnauthorized, "invalid signature")
-		return
+	if sig == "" {
+		sig = r.Header.Get("X-Gitea-Signature")
+	}
+	shared := r.Header.Get("X-Shipyard-Webhook-Secret")
+	if configured != "" {
+		ok := false
+		if sig != "" && webhooks.VerifySignature(configured, sig, body) {
+			ok = true
+		}
+		if shared != "" && shared == configured {
+			ok = true
+		}
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "invalid signature")
+			return
+		}
 	}
 	eventType := r.Header.Get("X-GitHub-Event")
 	if eventType == "" {

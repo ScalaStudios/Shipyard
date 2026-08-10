@@ -117,6 +117,20 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (User, error
 	return u, err
 }
 
+func (s *Service) FindUser(ctx context.Context, login string) (User, error) {
+	login = strings.TrimSpace(login)
+	var u User
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, username, email, display_name, is_active, created_at
+		FROM users
+		WHERE lower(username) = lower($1) OR lower(email) = lower($1)
+	`, login).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	return u, err
+}
+
 func (s *Service) EnsureOIDCUser(ctx context.Context, username, email, displayName string) (User, error) {
 	if existing, err := s.GetUserByEmail(ctx, email); err == nil {
 		return existing, nil

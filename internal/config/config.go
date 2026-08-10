@@ -28,6 +28,7 @@ type Config struct {
 	SessionTTL           time.Duration
 	NodeID               string
 	SecretsKey           string
+	WebhookSecret        string
 	OIDCIssuer           string
 	OIDCClientID         string
 	OIDCClientSecret     string
@@ -55,6 +56,7 @@ func Load() (Config, error) {
 		SessionTTL:           envDuration("SHIPYARD_SESSION_TTL", 7*24*time.Hour),
 		NodeID:               envOr("SHIPYARD_NODE_ID", ""),
 		SecretsKey:           os.Getenv("SHIPYARD_SECRETS_KEY"),
+		WebhookSecret:        os.Getenv("SHIPYARD_WEBHOOK_SECRET"),
 		OIDCIssuer:           os.Getenv("SHIPYARD_OIDC_ISSUER"),
 		OIDCClientID:         os.Getenv("SHIPYARD_OIDC_CLIENT_ID"),
 		OIDCClientSecret:     os.Getenv("SHIPYARD_OIDC_CLIENT_SECRET"),
