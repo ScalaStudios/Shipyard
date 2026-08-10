@@ -11,6 +11,7 @@ import {
   ForgeImportJob,
   ForgeImportJobItem,
   ForgeOAuthProvider,
+  GitHubAppStatus,
   RemoteOrg,
   RemoteRepo,
   SCMProvider,
@@ -26,6 +27,7 @@ export function ImportPage() {
   const [step, setStep] = useState<Step>("credential");
   const [providers, setProviders] = useState<SCMProvider[]>([]);
   const [oauthProviders, setOauthProviders] = useState<ForgeOAuthProvider[]>([]);
+  const [githubApp, setGithubApp] = useState<GitHubAppStatus | null>(null);
   const [credentials, setCredentials] = useState<ForgeCredential[]>([]);
   const [credentialID, setCredentialID] = useState("");
   const [provider, setProvider] = useState("forgejo");
@@ -68,6 +70,10 @@ export function ImportPage() {
       .listForgeOAuthProviders()
       .then((res) => setOauthProviders(res.providers ?? []))
       .catch(() => setOauthProviders([]));
+    void api
+      .githubAppStatus()
+      .then(setGithubApp)
+      .catch(() => setGithubApp(null));
   }, []);
 
   useEffect(() => {
@@ -267,6 +273,23 @@ export function ImportPage() {
                   <Button type="button" variant="primary" loading={busy} onClick={() => void loadRemoteOrgs()}>
                     Use credential
                   </Button>
+                </div>
+              ) : null}
+
+              {githubApp?.configured && githubApp.slug && org ? (
+                <div className={styles.connectRow}>
+                  <span className={table.muted}>Install the GitHub App for org-wide access</span>
+                  <div className={styles.connectButtons}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        window.location.href = api.githubAppInstallURL(org.id);
+                      }}
+                    >
+                      Install GitHub App
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 

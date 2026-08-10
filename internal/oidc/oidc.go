@@ -174,6 +174,30 @@ func (s *Service) List() []ProviderInfo {
 	return out
 }
 
+func (s *Service) IssueState(data string) (string, error) {
+	state, err := randomState()
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	s.states[state] = stateRecord{Provider: "", Data: data, CreatedAt: time.Now().UTC()}
+	s.mu.Unlock()
+	return state, nil
+}
+
+func (s *Service) ConsumeState(state string) (string, bool) {
+	s.mu.Lock()
+	rec, ok := s.states[state]
+	if ok {
+		delete(s.states, state)
+	}
+	s.mu.Unlock()
+	if !ok || rec.Provider != "" || time.Since(rec.CreatedAt) > 30*time.Minute {
+		return "", false
+	}
+	return rec.Data, true
+}
+
 func (s *Service) AuthURL(provider string) (string, string, error) {
 	return s.AuthURLFor(provider, "")
 }

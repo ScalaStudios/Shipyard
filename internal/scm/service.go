@@ -35,8 +35,9 @@ type Connection struct {
 }
 
 type Service struct {
-	pool    *pgxpool.Pool
-	secrets *secrets.Box
+	pool              *pgxpool.Pool
+	secrets           *secrets.Box
+	installationToken func(ctx context.Context, installationID string) (string, error)
 }
 
 func New(pool *pgxpool.Pool, box *secrets.Box) *Service {
