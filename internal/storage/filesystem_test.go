@@ -3,6 +3,8 @@ package storage
 import (
 	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -20,6 +22,21 @@ func TestNormalizeDigest(t *testing.T) {
 
 	if _, err := normalizeDigest("md5:deadbeef"); err == nil {
 		t.Fatal("expected error for non-sha256 digest")
+	}
+}
+
+func TestNewFilesystemStoreRejectsUnwritableRoot(t *testing.T) {
+	t.Parallel()
+
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory permissions")
+	}
+	dir := filepath.Join(t.TempDir(), "blobs")
+	if err := os.Mkdir(dir, 0o555); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if _, err := NewFilesystemStore(dir); err == nil {
+		t.Fatal("expected error for read-only storage root")
 	}
 }
 
