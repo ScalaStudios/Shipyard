@@ -19,13 +19,13 @@ type RemoteOrg struct {
 }
 
 type RemoteRepo struct {
-	Owner       string `json:"owner"`
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description,omitempty"`
-	Private     bool   `json:"private"`
-	Archived    bool   `json:"archived"`
-	HTMLURL     string `json:"html_url,omitempty"`
+	Owner         string `json:"owner"`
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Description   string `json:"description,omitempty"`
+	Private       bool   `json:"private"`
+	Archived      bool   `json:"archived"`
+	HTMLURL       string `json:"html_url,omitempty"`
 	DefaultBranch string `json:"default_branch,omitempty"`
 }
 
@@ -33,6 +33,9 @@ func (s *Service) ListRemoteOrgs(ctx context.Context, cred ForgeCredential) ([]R
 	family := Family(cred.Provider)
 	switch family {
 	case "github":
+		if cred.Kind == KindGitHubApp {
+			return listGitHubAppOrgs(ctx, cred)
+		}
 		return listGitHubOrgs(ctx, cred)
 	case "gitea":
 		return listGiteaOrgs(ctx, cred)
@@ -51,6 +54,9 @@ func (s *Service) ListRemoteRepos(ctx context.Context, cred ForgeCredential, rem
 	family := Family(cred.Provider)
 	switch family {
 	case "github":
+		if cred.Kind == KindGitHubApp {
+			return listGitHubAppRepos(ctx, cred, remoteOrg, query, includeArchived)
+		}
 		return listGitHubRepos(ctx, cred, remoteOrg, query, page, limit, includeArchived)
 	case "gitea":
 		return listGiteaRepos(ctx, cred, remoteOrg, query, page, limit, includeArchived)
@@ -236,6 +242,92 @@ func listGitHubRepos(ctx context.Context, cred ForgeCredential, org, query strin
 		out = append(out, RemoteRepo{
 			Owner: owner, Name: r.Name, FullName: r.FullName, Description: r.Description,
 			Private: r.Private, Archived: r.Archived, HTMLURL: r.HTMLURL, DefaultBranch: r.DefaultBranch,
+		})
+	}
+	return out, nil
+}
+
+type installationRepo struct {
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Description   string `json:"description"`
+	Private       bool   `json:"private"`
+	Archived      bool   `json:"archived"`
+	HTMLURL       string `json:"html_url"`
+	DefaultBranch string `json:"default_branch"`
+	Owner         struct {
+		Login     string `json:"login"`
+		AvatarURL string `json:"avatar_url"`
+	} `json:"owner"`
+}
+
+func listInstallationRepos(ctx context.Context, cred ForgeCredential) ([]installationRepo, error) {
+	var out []installationRepo
+	for page := 1; page <= 10; page++ {
+		var raw struct {
+			TotalCount   int                `json:"total_count"`
+			Repositories []installationRepo `json:"repositories"`
+		}
+		endpoint := fmt.Sprintf("%s/installation/repositories?per_page=100&page=%d", forgeAPIBase(cred), page)
+		if err := doJSON(ctx, http.MethodGet, endpoint, cred.AccessToken, &raw); err != nil {
+			return nil, err
+		}
+		out = append(out, raw.Repositories...)
+		if len(raw.Repositories) < 100 || len(out) >= raw.TotalCount {
+			break
+		}
+	}
+	return out, nil
+}
+
+func listGitHubAppOrgs(ctx context.Context, cred ForgeCredential) ([]RemoteOrg, error) {
+	repos, err := listInstallationRepos(ctx, cred)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	out := []RemoteOrg{}
+	for _, r := range repos {
+		login := r.Owner.Login
+		if login == "" || seen[login] {
+			continue
+		}
+		seen[login] = true
+		out = append(out, RemoteOrg{Login: login, Name: login, AvatarURL: r.Owner.AvatarURL})
+	}
+	return out, nil
+}
+
+func listGitHubAppRepos(ctx context.Context, cred ForgeCredential, org, query string, includeArchived bool) ([]RemoteRepo, error) {
+	repos, err := listInstallationRepos(ctx, cred)
+	if err != nil {
+		return nil, err
+	}
+	org = strings.ToLower(strings.TrimSpace(org))
+	qlower := strings.ToLower(strings.TrimSpace(query))
+	out := []RemoteRepo{}
+	for _, r := range repos {
+		if r.Archived && !includeArchived {
+			continue
+		}
+		if org != "" && strings.ToLower(r.Owner.Login) != org {
+			continue
+		}
+		if qlower != "" {
+			hay := strings.ToLower(r.Name + " " + r.FullName + " " + r.Description)
+			if !strings.Contains(hay, qlower) {
+				continue
+			}
+		}
+		out = append(out, RemoteRepo{
+			Owner:         r.Owner.Login,
+			Name:          r.Name,
+			FullName:      r.FullName,
+			Description:   r.Description,
+			Private:       r.Private,
+			Archived:      r.Archived,
+			HTMLURL:       r.HTMLURL,
+			DefaultBranch: r.DefaultBranch,
 		})
 	}
 	return out, nil
