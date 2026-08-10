@@ -148,6 +148,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/jobs/{jobID}/logs", s.requireAuth(s.handleJobLogs))
 
 	s.mux.HandleFunc("GET /api/v1/runners", s.requireAuth(s.handleListRunners))
+	s.mux.HandleFunc("DELETE /api/v1/runners/{runnerID}", s.requireAdmin(s.handleDeleteRunner))
 	s.mux.HandleFunc("POST /api/v1/runners/registration-tokens", s.requireAuth(s.handleCreateRunnerRegToken))
 	s.mux.HandleFunc("POST /api/v1/runners/install-token", s.requireAuth(s.handleCreateRunnerInstall))
 	s.mux.HandleFunc("GET /api/v1/runners/install.sh", s.handleRunnerInstallScript)

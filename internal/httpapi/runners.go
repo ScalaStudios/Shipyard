@@ -29,6 +29,14 @@ func (s *Server) handleRunnerRegister(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"runner": runner, "runner_token": token})
 }
 
+func (s *Server) handleDeleteRunner(w http.ResponseWriter, r *http.Request) {
+	if err := s.runners.Delete(r.Context(), r.PathValue("runnerID")); err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "deleted"})
+}
+
 func (s *Server) handleRunnerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if err := s.runners.Heartbeat(r.Context(), currentRunner(r).ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
