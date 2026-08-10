@@ -26,6 +26,12 @@
   font-size: 12px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -66,9 +72,22 @@
   flex: 1;
 }
 
-.listItem,
-.listActive,
 .projectRow {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--sy-radius-control);
+  background: transparent;
+  color: var(--sy-color-text-primary);
+  padding: var(--sy-space-2) var(--sy-space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sy-space-3);
+}
+
+.listItem,
+.listActive {
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
