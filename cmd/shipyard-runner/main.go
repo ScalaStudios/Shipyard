@@ -148,7 +148,11 @@ func fetchSteps(client *http.Client, serverURL, token, jobID string) []step {
 func execStep(client *http.Client, serverURL, token, jobID string, st step) (int, error) {
 	script := st.Run
 	if script == "" {
-		script = "echo uses=" + st.Uses
+		if strings.HasPrefix(st.Uses, "shipyard/build-image") {
+			script = "echo buildkit step placeholder: install buildctl and configure SHIPYARD_BUILDKIT_ADDR for image builds"
+		} else {
+			script = "echo uses=" + st.Uses
+		}
 	}
 	cmd := exec.Command("bash", "-lc", script)
 	stdout, _ := cmd.StdoutPipe()
