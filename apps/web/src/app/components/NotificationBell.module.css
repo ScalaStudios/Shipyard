@@ -47,18 +47,15 @@
 }
 
 .panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
+  position: fixed;
   width: min(340px, calc(100vw - 24px));
   max-height: 420px;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 18%, var(--sy-color-border-default));
   border-radius: var(--sy-radius-panel);
-  background: color-mix(in srgb, var(--sy-color-bg-surface) 92%, transparent);
-  backdrop-filter: blur(18px) saturate(1.15);
+  background: var(--sy-color-bg-surface);
   box-shadow: var(--sy-shadow-float);
-  z-index: 40;
+  z-index: 80;
   animation: sy-rise var(--sy-duration) var(--sy-ease-out);
 }
 

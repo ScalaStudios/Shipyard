@@ -108,13 +108,8 @@
   background: var(--sy-gradient-cta);
 }
 
-.menu {
+.menuButton {
   display: none;
-  position: relative;
-}
-
-.menuSummary {
-  display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 32px;
@@ -123,16 +118,12 @@
   border-radius: var(--sy-radius-control);
   background: color-mix(in srgb, var(--sy-color-bg-surface) 88%, transparent);
   color: var(--sy-color-text-primary);
+  font: inherit;
   font-size: 13px;
   cursor: pointer;
-  list-style: none;
 }
 
-.menuSummary::-webkit-details-marker {
-  display: none;
-}
-
-.menu[open] .menuSummary {
+.menuButton[aria-expanded="true"] {
   border-color: color-mix(in srgb, var(--sy-color-action-primary) 40%, var(--sy-color-border-default));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--sy-color-action-primary) 12%, transparent);
 }
@@ -303,6 +294,25 @@
   min-width: 0;
 }
 
+.contextCta {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 var(--sy-space-3);
+  border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 35%, var(--sy-color-border-default));
+  border-radius: var(--sy-radius-control);
+  background: color-mix(in srgb, var(--sy-color-action-primary) 10%, var(--sy-color-bg-surface));
+  color: var(--sy-color-action-primary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.contextCta:hover {
+  background: color-mix(in srgb, var(--sy-color-action-primary) 16%, var(--sy-color-bg-surface));
+}
+
 .contextLabel {
   display: block;
   min-width: 0;
@@ -421,8 +431,8 @@
     display: none;
   }
 
-  .menu {
-    display: block;
+  .menuButton {
+    display: inline-flex;
   }
 
   .pathbar {
@@ -439,13 +449,13 @@
   .context {
     width: 100%;
     order: 2;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
   }
 
-  .select {
-    width: 100%;
-    max-width: none;
+  .context .select,
+  .contextCta {
+    flex: 1 1 140px;
   }
 
   .themeToggle :global(button) {
@@ -477,7 +487,7 @@
     display: none;
   }
 
-  .menuSummary {
+  .menuButton {
     width: 34px;
     padding: 0;
     justify-content: center;
