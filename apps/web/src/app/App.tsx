@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Button, StatusBadge } from "@shipyard/ui";
+import { Button } from "@shipyard/ui";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { AppShell } from "../shell/AppShell";
 import { api, User } from "./api";
+import bootStyles from "./BootScreen.module.css";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { LoginPage } from "./LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -128,20 +129,32 @@ export function App() {
 
   if (boot === "loading") {
     return (
-      <div style={{ padding: 24 }}>
-        <StatusBadge status="info">Loading control plane…</StatusBadge>
+      <div className={bootStyles.screen}>
+        <div className={bootStyles.glow} aria-hidden />
+        <div className={bootStyles.card}>
+          <img className={bootStyles.mark} src="/shipyard-mark.svg" width={40} height={40} alt="" />
+          <h1 className={bootStyles.title}>Shipyard</h1>
+          <div className={bootStyles.pulse}>
+            <span className={bootStyles.dot} aria-hidden />
+            Connecting to control plane…
+          </div>
+        </div>
       </div>
     );
   }
 
   if (boot === "offline") {
     return (
-      <div style={{ padding: 24 }}>
-        <h1>Control plane offline</h1>
-        <p>Start shipyard-server and PostgreSQL, then refresh.</p>
-        <Button variant="primary" onClick={() => void bootstrap()}>
-          Retry
-        </Button>
+      <div className={bootStyles.screen}>
+        <div className={bootStyles.glow} aria-hidden />
+        <div className={bootStyles.card}>
+          <img className={bootStyles.mark} src="/shipyard-mark.svg" width={40} height={40} alt="" />
+          <h1 className={bootStyles.title}>Control plane offline</h1>
+          <p className={bootStyles.copy}>Start shipyard-server and PostgreSQL, then retry.</p>
+          <Button variant="primary" onClick={() => void bootstrap()}>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }

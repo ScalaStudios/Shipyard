@@ -115,7 +115,9 @@ export function AppShell({
               </button>
             </div>
           ) : null}
-          {children}
+          <div key={location.pathname} className={styles.route}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

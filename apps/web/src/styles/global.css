@@ -3,3 +3,72 @@
   font-size: 12px;
   line-height: 18px;
 }
+
+@keyframes sy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sy-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sy-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes sy-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.syEnter {
+  animation: sy-rise var(--sy-duration-slow) var(--sy-ease-out) both;
+}
+
+.syEnterDelay1 {
+  animation-delay: 60ms;
+}
+
+.syEnterDelay2 {
+  animation-delay: 120ms;
+}
+
+.syEnterDelay3 {
+  animation-delay: 180ms;
+}
+
+.syEnterDelay4 {
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .syEnter,
+  .syEnterDelay1,
+  .syEnterDelay2,
+  .syEnterDelay3,
+  .syEnterDelay4 {
+    animation: none;
+  }
+}

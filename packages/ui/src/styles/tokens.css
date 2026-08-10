@@ -1,22 +1,35 @@
 :root,
 [data-theme="light"] {
-  --sy-color-bg-canvas: #f5f7f9;
+  --sy-color-bg-canvas: #eef2f7;
   --sy-color-bg-surface: #ffffff;
-  --sy-color-bg-subtle: #f8fafc;
+  --sy-color-bg-subtle: #f4f7fb;
   --sy-color-bg-raised: #ffffff;
-  --sy-color-border-default: #d8dee6;
-  --sy-color-border-strong: #b7c0cc;
-  --sy-color-text-primary: #1f2328;
-  --sy-color-text-muted: #59636e;
-  --sy-color-text-faint: #7a8591;
-  --sy-color-action-primary: #315efb;
-  --sy-color-action-primary-hover: #244cd8;
-  --sy-color-accent-dock: #b86519;
+  --sy-color-border-default: #d5dde8;
+  --sy-color-border-strong: #b4bfce;
+  --sy-color-text-primary: #151a22;
+  --sy-color-text-muted: #5a6573;
+  --sy-color-text-faint: #7d8794;
+  --sy-color-action-primary: #2f5af5;
+  --sy-color-action-primary-hover: #2448d4;
+  --sy-color-accent-dock: #c56a1c;
   --sy-color-status-success: #177a49;
   --sy-color-status-warning: #a05e00;
   --sy-color-status-danger: #b92c2c;
   --sy-color-status-info: #256faf;
   --sy-color-focus-ring: #1f5eff;
+
+  --sy-gradient-canvas:
+    radial-gradient(1200px 560px at 8% -10%, color-mix(in srgb, var(--sy-color-action-primary) 18%, transparent), transparent 58%),
+    radial-gradient(900px 480px at 100% 0%, color-mix(in srgb, var(--sy-color-accent-dock) 12%, transparent), transparent 52%),
+    radial-gradient(700px 420px at 70% 110%, color-mix(in srgb, var(--sy-color-status-info) 10%, transparent), transparent 55%),
+    linear-gradient(180deg, #f7f9fc 0%, var(--sy-color-bg-canvas) 48%, #e8eef6 100%);
+  --sy-gradient-nav: linear-gradient(185deg, #ffffff 0%, color-mix(in srgb, #ffffff 88%, #315efb) 100%);
+  --sy-gradient-panel: linear-gradient(165deg, #ffffff 0%, color-mix(in srgb, #ffffff 94%, #315efb) 100%);
+  --sy-gradient-cta: linear-gradient(135deg, #315efb 0%, #1f4ed8 55%, #b86519 160%);
+  --sy-shadow-panel: 0 1px 0 color-mix(in srgb, #fff 70%, transparent), 0 10px 30px color-mix(in srgb, #15233a 8%, transparent);
+  --sy-shadow-float: 0 18px 50px color-mix(in srgb, #15233a 14%, transparent);
+  --sy-glow-primary: 0 0 0 1px color-mix(in srgb, var(--sy-color-action-primary) 28%, transparent),
+    0 8px 28px color-mix(in srgb, var(--sy-color-action-primary) 22%, transparent);
 
   --sy-space-0: 0;
   --sy-space-1: 4px;
@@ -30,36 +43,55 @@
   --sy-space-12: 48px;
   --sy-space-16: 64px;
 
-  --sy-radius-control: 6px;
-  --sy-radius-panel: 8px;
-  --sy-radius-dialog: 12px;
+  --sy-radius-control: 8px;
+  --sy-radius-panel: 12px;
+  --sy-radius-dialog: 16px;
 
   --sy-control-height-compact: 28px;
-  --sy-control-height-default: 32px;
-  --sy-control-height-prominent: 36px;
+  --sy-control-height-default: 34px;
+  --sy-control-height-prominent: 38px;
 
   --sy-font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
   --sy-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --sy-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sy-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --sy-duration-fast: 140ms;
+  --sy-duration: 240ms;
+  --sy-duration-slow: 420ms;
 }
 
 [data-theme="dark"] {
-  --sy-color-bg-canvas: #0b0d10;
-  --sy-color-bg-surface: #111419;
-  --sy-color-bg-subtle: #15191f;
-  --sy-color-bg-raised: #191e25;
-  --sy-color-border-default: #2a3038;
-  --sy-color-border-strong: #3a424d;
-  --sy-color-text-primary: #e7eaf0;
-  --sy-color-text-muted: #9aa4b2;
-  --sy-color-text-faint: #6f7a87;
-  --sy-color-action-primary: #6e97ff;
-  --sy-color-action-primary-hover: #89aaff;
+  --sy-color-bg-canvas: #07090d;
+  --sy-color-bg-surface: #0f1319;
+  --sy-color-bg-subtle: #141922;
+  --sy-color-bg-raised: #1a212c;
+  --sy-color-border-default: #273040;
+  --sy-color-border-strong: #3a4658;
+  --sy-color-text-primary: #e9eef7;
+  --sy-color-text-muted: #9aa6b8;
+  --sy-color-text-faint: #6f7b8d;
+  --sy-color-action-primary: #7aa2ff;
+  --sy-color-action-primary-hover: #97b6ff;
   --sy-color-accent-dock: #e2a45b;
   --sy-color-status-success: #45b97c;
   --sy-color-status-warning: #d8a13b;
   --sy-color-status-danger: #e26666;
   --sy-color-status-info: #69a7e8;
   --sy-color-focus-ring: #9ab8ff;
+
+  --sy-gradient-canvas:
+    radial-gradient(1000px 520px at 0% -5%, color-mix(in srgb, #315efb 28%, transparent), transparent 55%),
+    radial-gradient(800px 460px at 100% 5%, color-mix(in srgb, #b86519 16%, transparent), transparent 50%),
+    radial-gradient(640px 400px at 55% 100%, color-mix(in srgb, #256faf 14%, transparent), transparent 55%),
+    linear-gradient(180deg, #0a0d12 0%, #07090d 45%, #0b1018 100%);
+  --sy-gradient-nav: linear-gradient(185deg, #121821 0%, #0f1319 55%, #101722 100%);
+  --sy-gradient-panel: linear-gradient(160deg, #141b25 0%, #0f1319 70%);
+  --sy-gradient-cta: linear-gradient(135deg, #6e97ff 0%, #315efb 48%, #b86519 140%);
+  --sy-shadow-panel: 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 14px 40px color-mix(in srgb, #000 45%, transparent);
+  --sy-shadow-float: 0 22px 60px color-mix(in srgb, #000 55%, transparent);
+  --sy-glow-primary: 0 0 0 1px color-mix(in srgb, var(--sy-color-action-primary) 35%, transparent),
+    0 10px 36px color-mix(in srgb, #315efb 35%, transparent);
 }
 
 *,
@@ -81,7 +113,10 @@ body {
   line-height: 20px;
   color: var(--sy-color-text-primary);
   background: var(--sy-color-bg-canvas);
+  background-image: var(--sy-gradient-canvas);
+  background-attachment: fixed;
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -94,4 +129,14 @@ textarea {
 :focus-visible {
   outline: 2px solid var(--sy-color-focus-ring);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

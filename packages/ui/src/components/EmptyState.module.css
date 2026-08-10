@@ -3,10 +3,13 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sy-space-2);
+  margin: var(--sy-space-4);
   padding: var(--sy-space-6);
-  border: 1px dashed var(--sy-color-border-default);
+  border: 1px dashed color-mix(in srgb, var(--sy-color-action-primary) 28%, var(--sy-color-border-default));
   border-radius: var(--sy-radius-panel);
-  background: var(--sy-color-bg-subtle);
+  background:
+    radial-gradient(420px 160px at 0% 0%, color-mix(in srgb, var(--sy-color-action-primary) 12%, transparent), transparent 70%),
+    var(--sy-color-bg-subtle);
 }
 
 .title {

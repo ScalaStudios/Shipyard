@@ -5,62 +5,103 @@
   place-items: center;
   padding: var(--sy-space-6);
   overflow: hidden;
-  background: var(--sy-color-bg-canvas);
 }
 
 .atmosphere {
   position: absolute;
-  inset: 0;
+  inset: -20%;
   background:
-    radial-gradient(900px 420px at 12% 18%, color-mix(in srgb, var(--sy-color-action-primary) 16%, transparent), transparent 70%),
-    radial-gradient(700px 380px at 88% 78%, color-mix(in srgb, var(--sy-color-accent-dock) 10%, transparent), transparent 65%),
-    linear-gradient(180deg, var(--sy-color-bg-subtle), var(--sy-color-bg-canvas));
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, #315efb 34%, transparent), transparent 42%),
+    radial-gradient(circle at 80% 30%, color-mix(in srgb, #b86519 22%, transparent), transparent 40%),
+    radial-gradient(circle at 50% 90%, color-mix(in srgb, #256faf 18%, transparent), transparent 45%),
+    var(--sy-color-bg-canvas);
+  filter: blur(8px);
+  animation: sy-drift 18s ease-in-out infinite alternate;
   pointer-events: none;
+}
+
+.atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(color-mix(in srgb, var(--sy-color-border-default) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--sy-color-border-default) 35%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 40%, #000 20%, transparent 75%);
+  opacity: 0.35;
 }
 
 .stage {
   position: relative;
   z-index: 1;
-  width: min(100%, 920px);
+  width: min(100%, 980px);
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: var(--sy-space-6);
   align-items: stretch;
+  animation: sy-rise 0.55s var(--sy-ease-out);
 }
 
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: var(--sy-space-4);
-  padding: var(--sy-space-6);
-  border: 1px solid var(--sy-color-border-default);
+  padding: var(--sy-space-8);
+  border: 1px solid color-mix(in srgb, var(--sy-color-action-primary) 25%, var(--sy-color-border-default));
   border-radius: var(--sy-radius-dialog);
   background:
-    linear-gradient(160deg, color-mix(in srgb, var(--sy-color-bg-surface) 88%, var(--sy-color-action-primary)), var(--sy-color-bg-surface));
+    linear-gradient(145deg, color-mix(in srgb, var(--sy-color-bg-surface) 70%, transparent), color-mix(in srgb, #315efb 12%, var(--sy-color-bg-surface))),
+    var(--sy-color-bg-surface);
+  box-shadow: var(--sy-shadow-float);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -40px;
+  top: -40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sy-color-action-primary) 20%, transparent);
+  filter: blur(20px);
+  animation: sy-pulse-soft 5s ease-in-out infinite;
 }
 
 .heroMark {
-  border-radius: 14px;
+  position: relative;
+  border-radius: 16px;
   border: 1px solid var(--sy-color-border-strong);
+  box-shadow: var(--sy-glow-primary);
 }
 
 .heroBrand {
-  font-size: 32px;
-  line-height: 40px;
+  position: relative;
+  font-size: 40px;
+  line-height: 44px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  background: linear-gradient(120deg, var(--sy-color-text-primary) 20%, var(--sy-color-action-primary) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .heroLine {
+  position: relative;
   margin: 0;
   max-width: 34ch;
   color: var(--sy-color-text-muted);
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 15px;
+  line-height: 24px;
 }
 
 .panel {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -68,8 +109,9 @@
   padding: var(--sy-space-6);
   border: 1px solid var(--sy-color-border-default);
   border-radius: var(--sy-radius-dialog);
-  background: var(--sy-color-bg-surface);
-  box-shadow: 0 12px 40px color-mix(in srgb, #000 8%, transparent);
+  background: color-mix(in srgb, var(--sy-color-bg-surface) 88%, transparent);
+  box-shadow: var(--sy-shadow-float);
+  backdrop-filter: blur(20px);
 }
 
 .panelHead {
@@ -79,24 +121,26 @@
 }
 
 .panelHead img {
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--sy-color-border-default);
+  box-shadow: var(--sy-glow-primary);
 }
 
 .brand {
   color: var(--sy-color-action-primary);
   font-weight: 600;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 11px;
+  line-height: 14px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .panel h1 {
-  margin: 2px 0 0;
-  font-size: 22px;
-  line-height: 28px;
+  margin: 4px 0 0;
+  font-size: 24px;
+  line-height: 30px;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .copy {
@@ -115,19 +159,22 @@
 }
 
 .field input {
-  height: var(--sy-control-height-default);
+  height: var(--sy-control-height-prominent);
   padding: 0 var(--sy-space-3);
   border: 1px solid var(--sy-color-border-default);
   border-radius: var(--sy-radius-control);
-  background: var(--sy-color-bg-canvas);
+  background: color-mix(in srgb, var(--sy-color-bg-canvas) 80%, transparent);
   color: var(--sy-color-text-primary);
   font: inherit;
+  transition:
+    border-color var(--sy-duration-fast) var(--sy-ease-out),
+    box-shadow var(--sy-duration-fast) var(--sy-ease-out);
 }
 
 .field input:focus {
-  outline: 2px solid color-mix(in srgb, var(--sy-color-focus-ring) 45%, transparent);
-  outline-offset: 1px;
-  border-color: var(--sy-color-border-strong);
+  outline: none;
+  border-color: color-mix(in srgb, var(--sy-color-action-primary) 55%, var(--sy-color-border-default));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sy-color-action-primary) 16%, transparent);
 }
 
 .error {
@@ -137,6 +184,7 @@
   background: color-mix(in srgb, var(--sy-color-status-danger) 10%, transparent);
   color: var(--sy-color-text-primary);
   font-size: 13px;
+  animation: sy-rise 0.25s var(--sy-ease-out);
 }
 
 .switch {
@@ -172,10 +220,44 @@
   color: var(--sy-color-text-primary);
   text-decoration: none;
   font-size: 13px;
+  transition:
+    background var(--sy-duration-fast) var(--sy-ease-out),
+    transform var(--sy-duration-fast) var(--sy-ease-out);
 }
 
 .oauthLink:hover {
   background: var(--sy-color-bg-subtle);
+  transform: translateY(-1px);
+}
+
+@keyframes sy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sy-drift {
+  from {
+    transform: translate3d(-2%, -1%, 0) scale(1.02);
+  }
+  to {
+    transform: translate3d(2%, 1%, 0) scale(1.06);
+  }
+}
+
+@keyframes sy-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
 }
 
 @media (max-width: 840px) {
@@ -185,5 +267,11 @@
 
   .hero {
     min-height: auto;
+    padding: var(--sy-space-6);
+  }
+
+  .heroBrand {
+    font-size: 32px;
+    line-height: 36px;
   }
 }
