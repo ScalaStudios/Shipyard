@@ -1,0 +1,93 @@
+name: shipyard-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shipyard
+      POSTGRES_USER: shipyard
+      POSTGRES_PASSWORD: shipyard
+    volumes:
+      - demo_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shipyard -d shipyard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  shipyard-server:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.server
+    environment:
+      SHIPYARD_HTTP_ADDR: ":8080"
+      SHIPYARD_DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard?sslmode=disable
+      SHIPYARD_MIGRATIONS_DIR: /app/migrations
+      SHIPYARD_STORAGE_BACKEND: filesystem
+      SHIPYARD_STORAGE_DIR: /data/blobs
+      SHIPYARD_LOG_LEVEL: info
+      SHIPYARD_ALLOW_REGISTER: "false"
+      SHIPYARD_SESSION_TTL: 168h
+      SHIPYARD_NODE_ID: demo-1
+      SHIPYARD_PUBLIC_URL: http://localhost:${SHIPYARD_DEMO_PORT:-8088}
+      SHIPYARD_API_URL: http://localhost:${SHIPYARD_DEMO_PORT:-8088}
+      SHIPYARD_SECRETS_KEY: ZGVtby1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=
+    volumes:
+      - demo_blobs:/data/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.web
+    environment:
+      SHIPYARD_DOMAIN: ":80"
+      SHIPYARD_UPSTREAM: shipyard-server:8080
+    ports:
+      - "${SHIPYARD_DEMO_PORT:-8088}:80"
+    depends_on:
+      - shipyard-server
+
+  shipyard-runner:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.runner
+    environment:
+      SHIPYARD_URL: http://shipyard-server:8080
+      SHIPYARD_RUNNER_NAME: demo-runner-1
+      SHIPYARD_RUNNER_LABELS: linux,demo
+    volumes:
+      - demo_shared:/shared
+    entrypoint: ["bash", "-lc"]
+    command:
+      - |
+        until [ -s /shared/reg-token ]; do sleep 1; done
+        SHIPYARD_REGISTRATION_TOKEN="$$(cat /shared/reg-token)"
+        export SHIPYARD_REGISTRATION_TOKEN
+        rm -f /shared/reg-token
+        exec shipyard-runner
+    restart: unless-stopped
+    depends_on:
+      - shipyard-server
+
+  seed:
+    image: alpine:3
+    environment:
+      SHIPYARD_URL: http://shipyard-server:8080
+      DEMO_PUBLIC_URL: http://localhost:${SHIPYARD_DEMO_PORT:-8088}
+      DEMO_USER: ${DEMO_USER:-demo}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+    volumes:
+      - ../../scripts/seed-demo.sh:/seed-demo.sh:ro
+      - demo_shared:/shared
+    command: ["sh", "-c", "apk add --no-cache curl jq >/dev/null && sh /seed-demo.sh"]
+    restart: "no"
+    depends_on:
+      - shipyard-server
+
+volumes:
+  demo_pg:
+  demo_blobs:
+  demo_shared:
