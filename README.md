@@ -26,6 +26,26 @@ Most teams glue this path together from four or five separate tools. Shipyard is
 
 > **Status: alpha.** It runs real pipelines against real forges today, and the schema and HTTP API are still moving. Pin a commit if you deploy it.
 
+<p align="center">
+  <img src="docs/screenshots/overview.jpg" alt="Project overview with runner capacity and recent runs" width="900" />
+</p>
+
+## Try the demo
+
+One command brings up Postgres, the control plane, the UI behind Caddy, a runner, and a seeded organization with pipelines that actually execute:
+
+```bash
+docker compose -f deploy/compose/compose.demo.yml up --build -d
+```
+
+Open <http://localhost:8088> and sign in as **`demo`** / **`demo1234`**. Everything you see is created by [`scripts/seed-demo.sh`](scripts/seed-demo.sh) — three projects, real pipeline runs (including one that fails on purpose), artifacts, npm and Maven packages, container tags, releases and deployments.
+
+```bash
+docker compose -f deploy/compose/compose.demo.yml down -v   # remove it again
+```
+
+The demo uses a throwaway encryption key and a well-known password. Do not expose it to the internet.
+
 ---
 
 ## Features
@@ -44,6 +64,17 @@ Most teams glue this path together from four or five separate tools. Shipyard is
 | **Ops** | Instance settings in the database, encrypted credentials, cluster heartbeat, setup checklist |
 
 Credentials — forge tokens, OAuth client secrets, GitHub App keys, webhook secrets — are encrypted at rest with AES-GCM. GitHub App installation tokens are minted on demand and never stored.
+
+## Screenshots
+
+| | |
+|---|---|
+| <img src="docs/screenshots/run-detail.jpg" alt="Run detail" /> | <img src="docs/screenshots/pipelines.jpg" alt="Pipeline definitions" /> |
+| **Run detail** — jobs, per-job logs and status, updated while the run is live. | **Pipelines** — edit the YAML in place, trigger a run, jump into its logs. |
+| <img src="docs/screenshots/runners.jpg" alt="Runner fleet" /> | <img src="docs/screenshots/registry.jpg" alt="Package and OCI repositories" /> |
+| **Runners** — fleet health, heartbeats and labels, plus a one-command install. | **Registry** — npm and Maven repositories alongside OCI image tags. |
+| <img src="docs/screenshots/deployments.jpg" alt="Environments and deployments" /> | <img src="docs/screenshots/settings.jpg" alt="Instance settings" /> |
+| **Deployments** — promote a release into an environment. | **Settings** — instance configuration in the database, no restart needed. |
 
 ## Quick start
 
@@ -88,7 +119,7 @@ Full guide, including nginx and forge webhook setup: **[docs/DEPLOY.md](docs/DEP
 | `internal/` | Pipelines, runners, packages, registry, scm, secrets, settings |
 | `apps/web` | Operator UI (React + TypeScript) |
 | `packages/ui` | `@shipyard/ui` design system |
-| `deploy/compose` | Dev and production stacks |
+| `deploy/compose` | Dev, demo and production stacks |
 | `deploy/caddy`, `deploy/nginx` | Reverse proxy configs |
 | `migrations/` | SQL migrations, applied on boot |
 
