@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
 	github.com/jackc/pgx/v5 v5.7.4
 	golang.org/x/crypto v0.31.0
