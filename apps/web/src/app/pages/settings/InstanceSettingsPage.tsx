@@ -47,6 +47,7 @@ export function InstanceSettingsPage() {
   const { setError } = useWorkspace();
   const [stored, setStored] = useState<Record<string, InstanceSetting>>({});
   const [values, setValues] = useState<Record<string, string>>({});
+  const [envDefaults, setEnvDefaults] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [savedAt, setSavedAt] = useState(0);
 
@@ -67,6 +68,13 @@ export function InstanceSettingsPage() {
 
   useEffect(() => {
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load settings"));
+  }, []);
+
+  useEffect(() => {
+    void api
+      .systemInfo()
+      .then((info) => setEnvDefaults({ allow_register: info.allow_register ? "true" : "false" }))
+      .catch(() => undefined);
   }, []);
 
   const dirty = useMemo(
@@ -131,7 +139,7 @@ export function InstanceSettingsPage() {
                   <select
                     id={`setting-${field.key}`}
                     className={`${table.select} ${form.narrow}`}
-                    value={values[field.key] || "false"}
+                    value={values[field.key] || envDefaults[field.key] || "false"}
                     onChange={(e) => setValues({ ...values, [field.key]: e.target.value })}
                   >
                     <option value="true">Enabled</option>

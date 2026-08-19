@@ -24,6 +24,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--sy-space-3);
   min-height: 44px;
   padding: var(--sy-space-2) var(--sy-space-4);
@@ -51,6 +52,7 @@
   display: flex;
   align-items: center;
   gap: var(--sy-space-2);
+  min-width: 0;
 }
 
 .body {

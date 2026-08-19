@@ -21,6 +21,9 @@ import styles from "./ImportPage.module.css";
 
 type Step = "credential" | "org" | "repos" | "progress";
 
+const POLL_FAILURE_LIMIT = 5;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
 export function ImportPage() {
   const navigate = useNavigate();
   const { org, user, setError, refreshProjects } = useWorkspace();
@@ -33,7 +36,7 @@ export function ImportPage() {
   const [credentialID, setCredentialID] = useState("");
   const [provider, setProvider] = useState("forgejo");
   const [credName, setCredName] = useState("forgejo-pat");
-  const [baseURL, setBaseURL] = useState("https://git.lunarlabs.dev");
+  const [baseURL, setBaseURL] = useState("");
   const [token, setToken] = useState("");
   const [remoteOrgs, setRemoteOrgs] = useState<RemoteOrg[]>([]);
   const [remoteOrg, setRemoteOrg] = useState("");
@@ -44,6 +47,7 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState<ForgeImportJob | null>(null);
   const [items, setItems] = useState<ForgeImportJobItem[]>([]);
+  const [pollNote, setPollNote] = useState("");
 
   const selectedRepos = useMemo(() => repos.filter((r) => selected[r.full_name]), [repos, selected]);
   const browseProviders = useMemo(
@@ -66,11 +70,17 @@ export function ImportPage() {
     void api
       .listSCMProviders()
       .then((res) => setProviders(res.providers ?? []))
-      .catch(() => setProviders([]));
+      .catch((err) => {
+        setProviders([]);
+        setError(err instanceof Error ? err.message : "failed to load forge providers");
+      });
     void api
       .listForgeOAuthProviders()
       .then((res) => setOauthProviders(res.providers ?? []))
-      .catch(() => setOauthProviders([]));
+      .catch((err) => {
+        setOauthProviders([]);
+        setError(err instanceof Error ? err.message : "failed to load forge providers");
+      });
     void api
       .githubAppStatus()
       .then(setGithubApp)
@@ -104,17 +114,30 @@ export function ImportPage() {
   useEffect(() => {
     if (!job || !org) return;
     if (job.status === "completed" || job.status === "failed") return;
+    let failures = 0;
+    const startedAt = Date.now();
     const timer = window.setInterval(() => {
+      if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+        window.clearInterval(timer);
+        setPollNote("Import is still running — refresh to check again.");
+        return;
+      }
       void api
         .getForgeImport(org.id, job.id)
         .then((res) => {
+          failures = 0;
           setJob(res.job);
           setItems(res.items ?? []);
           if (res.job.status === "completed" || res.job.status === "failed") {
             void refreshProjects();
           }
         })
-        .catch(() => undefined);
+        .catch((err) => {
+          failures += 1;
+          if (failures < POLL_FAILURE_LIMIT) return;
+          window.clearInterval(timer);
+          setError(err instanceof Error ? err.message : "failed to follow the import job");
+        });
     }, 1200);
     return () => window.clearInterval(timer);
   }, [job?.id, job?.status, org?.id]);
@@ -210,6 +233,7 @@ export function ImportPage() {
       });
       setJob(res.job);
       setItems([]);
+      setPollNote("");
       setStep("progress");
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to start import");
@@ -367,7 +391,7 @@ export function ImportPage() {
                     value={credName}
                     onChange={(e) => setCredName(e.target.value)}
                     required
-                    pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                    pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
                   />
                   <input
                     className={table.input}
@@ -528,6 +552,7 @@ export function ImportPage() {
                   <span className={table.muted}>{formatTime(job.updated_at)}</span>
                 </div>
                 {job.error_message ? <div className={table.error}>{job.error_message}</div> : null}
+                {pollNote ? <div className={table.muted}>{pollNote}</div> : null}
               </div>
               {items.length > 0 ? (
                 <DataTable>

@@ -140,7 +140,7 @@ export function NotificationsSettingsPage() {
                 <option value="webhook">Incoming webhook</option>
                 <option value="bot">Bot token</option>
               </select>
-              <input className={table.input} placeholder="name" value={name} onChange={(e) => setName(e.target.value)} required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" />
+              <input className={table.input} placeholder="name" value={name} onChange={(e) => setName(e.target.value)} required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" />
               {mode === "webhook" ? (
                 <input
                   className={table.input}

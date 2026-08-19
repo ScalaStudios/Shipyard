@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { IconMenu2 } from "@tabler/icons-react";
+import { IconLogout, IconMenu2 } from "@tabler/icons-react";
 import { NotificationBell } from "../app/components/NotificationBell";
 import { useWorkspace } from "../app/context/WorkspaceContext";
 import { NAV_ITEMS } from "./nav";
@@ -139,7 +139,8 @@ export function AppShell({
             <div className={styles.themeToggle}>{themeToggle}</div>
             <div className={styles.account}>
               <span className={styles.accountName}>{user.display_name || user.username}</span>
-              <button type="button" className={styles.signOut} onClick={onLogout}>
+              <button type="button" className={styles.signOut} onClick={onLogout} aria-label="Sign out">
+                <IconLogout size={16} stroke={1.75} aria-hidden="true" />
                 <span className={styles.signOutLabel}>Sign out</span>
               </button>
             </div>

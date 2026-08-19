@@ -192,7 +192,7 @@ function ProviderSection({ purpose }: { purpose: (typeof PURPOSES)[number] }) {
                   placeholder="github"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                  pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
                   required
                   spellCheck={false}
                 />
