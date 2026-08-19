@@ -24,6 +24,8 @@ packages/*/dist/
 .vite/
 storybook-static/
 
+deploy/caddy/Caddyfile.local
+
 # IDE / local
 .idea/
 .vscode/
