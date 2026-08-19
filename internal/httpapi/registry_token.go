@@ -12,21 +12,31 @@ func (s *Server) handleRegistryToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	token := bearerToken(r)
-	if token == "" {
+	cred := bearerToken(r)
+	if cred == "" {
 		if _, pass, ok := basicAuth(r); ok {
-			token = pass
+			cred = pass
+		}
+	}
+	token := ""
+	if cred != "" {
+		if _, err := s.identity.UserFromAPIToken(r.Context(), cred); err == nil {
+			token = cred
 		}
 	}
 	if token == "" {
-		writeError(w, http.StatusBadRequest, "provide an API token via Basic password or Bearer")
-		return
+		ttl := 12 * time.Hour
+		plain, _, _, err := s.identity.CreateAPIToken(r.Context(), user.ID, "registry", &ttl)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		token = plain
 	}
-	_ = user
 	writeJSON(w, http.StatusOK, map[string]any{
 		"token":        token,
 		"access_token": token,
-		"expires_in":   int((12 * time.Hour).Seconds()),
+		"expires_in":   43200,
 		"issued_at":    time.Now().UTC().Format(time.RFC3339),
 	})
 }

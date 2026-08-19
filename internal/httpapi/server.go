@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/artifacts"
@@ -42,30 +44,37 @@ type Options struct {
 	ForgeOAuth    []oidc.ProviderConfig
 }
 
+type pendingInstall struct {
+	InstallationID string
+	At             time.Time
+}
+
 type Server struct {
-	pool          *pgxpool.Pool
-	store         storage.Store
-	identity      *identity.Service
-	orgs          *orgs.Service
-	audit         *audit.Logger
-	pipelines     *pipeline.Service
-	runners       *runners.Service
-	artifacts     *artifacts.Service
-	releases      *releases.Service
-	packages      *packages.Service
-	registry      *registry.Service
-	cluster       *cluster.Service
-	oci           *oci.Distribution
-	secrets       *secrets.Box
-	oidc          *oidc.Service
-	settings      *settings.Service
-	forgeOAuth    *oidc.Service
-	scm           *scm.Service
-	notifications *notifications.Service
-	discord       *discord.Service
-	opts          Options
-	started       time.Time
-	mux           *http.ServeMux
+	pool            *pgxpool.Pool
+	store           storage.Store
+	identity        *identity.Service
+	orgs            *orgs.Service
+	audit           *audit.Logger
+	pipelines       *pipeline.Service
+	runners         *runners.Service
+	artifacts       *artifacts.Service
+	releases        *releases.Service
+	packages        *packages.Service
+	registry        *registry.Service
+	cluster         *cluster.Service
+	oci             *oci.Distribution
+	secrets         *secrets.Box
+	oidc            *oidc.Service
+	settings        *settings.Service
+	forgeOAuth      *oidc.Service
+	scm             *scm.Service
+	notifications   *notifications.Service
+	discord         *discord.Service
+	pendingMu       sync.Mutex
+	pendingInstalls map[string]pendingInstall
+	opts            Options
+	started         time.Time
+	mux             *http.ServeMux
 }
 
 func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
@@ -80,28 +89,29 @@ func New(pool *pgxpool.Pool, store storage.Store, opts Options) *Server {
 		}
 	}
 	s := &Server{
-		pool:          pool,
-		store:         store,
-		identity:      identity.New(pool),
-		orgs:          orgs.New(pool),
-		audit:         audit.New(pool),
-		pipelines:     pipeline.NewService(pool),
-		runners:       runners.New(pool),
-		artifacts:     artifacts.New(pool, store),
-		releases:      releases.New(pool),
-		packages:      packages.New(pool, store),
-		registry:      reg,
-		cluster:       cluster.New(pool, opts.NodeID),
-		oci:           oci.NewDistribution(pool, store, reg),
-		oidc:          oidc.New(opts.OIDC),
-		forgeOAuth:    oidc.New(opts.ForgeOAuth),
-		settings:      settings.New(pool, box),
-		scm:           scm.New(pool, box),
-		notifications: notifications.New(pool),
-		discord:       discord.New(pool, opts.PublicURL, box),
-		opts:          opts,
-		started:       time.Now().UTC(),
-		mux:           http.NewServeMux(),
+		pool:            pool,
+		store:           store,
+		identity:        identity.New(pool),
+		orgs:            orgs.New(pool),
+		audit:           audit.New(pool),
+		pipelines:       pipeline.NewService(pool),
+		runners:         runners.New(pool),
+		artifacts:       artifacts.New(pool, store),
+		releases:        releases.New(pool),
+		packages:        packages.New(pool, store),
+		registry:        reg,
+		cluster:         cluster.New(pool, opts.NodeID),
+		oci:             oci.NewDistribution(pool, store, reg),
+		oidc:            oidc.New(opts.OIDC),
+		forgeOAuth:      oidc.New(opts.ForgeOAuth),
+		settings:        settings.New(pool, box),
+		scm:             scm.New(pool, box),
+		notifications:   notifications.New(pool),
+		discord:         discord.New(pool, opts.PublicURL, box),
+		pendingInstalls: map[string]pendingInstall{},
+		opts:            opts,
+		started:         time.Now().UTC(),
+		mux:             http.NewServeMux(),
 	}
 	s.secrets = box
 	s.scm.SetInstallationTokenFunc(s.installationToken)
@@ -134,6 +144,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}", s.requireAuth(s.handleGetOrg))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/members", s.requireAuth(s.handleListMembers))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/members", s.requireAuth(s.handleAddMember))
+	s.mux.HandleFunc("DELETE /api/v1/orgs/{orgID}/members/{userID}", s.requireAuth(s.handleRemoveMember))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects", s.requireAuth(s.handleListProjects))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects", s.requireAuth(s.handleCreateProject))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}", s.requireAuth(s.handleGetProject))
@@ -157,6 +168,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/runner/jobs/lease", s.requireRunner(s.handleRunnerLease))
 	s.mux.HandleFunc("POST /api/v1/runner/jobs/{jobID}/start", s.requireRunner(s.handleRunnerStartJob))
 	s.mux.HandleFunc("POST /api/v1/runner/jobs/{jobID}/complete", s.requireRunner(s.handleRunnerCompleteJob))
+	s.mux.HandleFunc("POST /api/v1/runner/jobs/{jobID}/renew", s.requireRunner(s.handleRunnerRenewLease))
 	s.mux.HandleFunc("POST /api/v1/runner/jobs/{jobID}/logs", s.requireRunner(s.handleRunnerAppendLog))
 	s.mux.HandleFunc("POST /api/v1/runner/steps/{stepID}/status", s.requireRunner(s.handleRunnerStepStatus))
 	s.mux.HandleFunc("GET /api/v1/runner/jobs/{jobID}/steps", s.requireRunner(s.handleRunnerJobSteps))
@@ -233,6 +245,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("HEAD /v2/{rest...}", s.requireRegistryAuth(s.handleOCIDistribution))
 	s.mux.HandleFunc("GET /v2/{rest...}", s.handleOCIGet)
 	s.mux.HandleFunc("POST /v2/{rest...}", s.requireRegistryAuth(s.handleOCIDistribution))
+	s.mux.HandleFunc("PATCH /v2/{rest...}", s.requireRegistryAuth(s.handleOCIDistribution))
 	s.mux.HandleFunc("PUT /v2/{rest...}", s.requireRegistryAuth(s.handleOCIDistribution))
 }
 
@@ -244,16 +257,27 @@ func (s *Server) background() {
 		s.reloadAuthProviders(ctx)
 		_ = s.cluster.Heartbeat(ctx)
 		if ok, _, err := s.cluster.AcquireLease(ctx, "scheduler", 15*time.Second); err == nil && ok {
-			_, _ = s.runners.ExpireLeases(ctx)
+			_, lost, _ := s.runners.ExpireLeases(ctx)
 			rows, err := s.pool.Query(ctx, `SELECT id FROM pipeline_runs WHERE status IN ('queued','running')`)
 			if err == nil {
+				var active []string
 				for rows.Next() {
 					var id string
 					if rows.Scan(&id) == nil {
-						_ = s.pipelines.AdvanceRunGraph(ctx, id)
+						active = append(active, id)
 					}
 				}
 				rows.Close()
+				for _, id := range active {
+					_ = s.pipelines.AdvanceRunGraph(ctx, id)
+				}
+			}
+			changed, _ := s.releases.SyncDeploymentStatuses(ctx)
+			for _, c := range changed {
+				s.fanoutNotify(ctx, c.OrganizationID, c.ProjectID, "deployment."+c.Status, fmt.Sprintf("Deployment %s", c.Status), "", "/deployments", 0, c.Status, "", "", "")
+			}
+			for _, id := range lost {
+				go s.maybeNotifyRunFinished(id)
 			}
 		}
 		cancel()

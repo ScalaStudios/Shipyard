@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
@@ -84,8 +87,11 @@ func (s *Service) FindConnectionByRepo(ctx context.Context, orgID, provider, own
 		&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 		&c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.HasSecret, &c.CreatedBy,
 	)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return Connection{}, identity.ErrNotFound
+	}
+	if err != nil {
+		return Connection{}, err
 	}
 	return c, nil
 }
@@ -171,7 +177,8 @@ func (s *Service) GetImportJob(ctx context.Context, orgID, jobID string) (Import
 }
 
 func (s *Service) runImportJob(jobID string, cred ForgeCredential, in StartImportInput) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 	_, _ = s.pool.Exec(ctx, `UPDATE forge_import_jobs SET status='running', updated_at=now() WHERE id=$1`, jobID)
 
 	type work struct {
@@ -230,7 +237,11 @@ func (s *Service) runImportJob(jobID string, cred ForgeCredential, in StartImpor
 		}(w)
 	}
 	wg.Wait()
-	_, _ = s.pool.Exec(ctx, `UPDATE forge_import_jobs SET status='completed', updated_at=now() WHERE id=$1`, jobID)
+	finalStatus := "completed"
+	if failed.Load() > 0 && created.Load() == 0 && skipped.Load() == 0 {
+		finalStatus = "failed"
+	}
+	_, _ = s.pool.Exec(ctx, `UPDATE forge_import_jobs SET status=$2, updated_at=now() WHERE id=$1`, jobID, finalStatus)
 }
 
 func (s *Service) importOneRepo(ctx context.Context, cred ForgeCredential, in StartImportInput, repo RemoteRepo) (status, projectID, connID, errMsg string) {
@@ -242,20 +253,21 @@ func (s *Service) importOneRepo(ctx context.Context, cred ForgeCredential, in St
 	name := repo.Name
 	desc := repo.Description
 	project, err := in.Orgs.CreateProject(ctx, in.ActorID, in.OrganizationID, slug, name, desc)
-	if err != nil {
+	if errors.Is(err, identity.ErrConflict) {
 		for i := 2; i <= 20; i++ {
-			alt := fmt.Sprintf("%s-%d", slug, i)
-			if len(alt) > 63 {
-				alt = alt[:63]
+			suffix := fmt.Sprintf("-%d", i)
+			base := slug
+			if len(base)+len(suffix) > 63 {
+				base = strings.TrimRight(slug[:63-len(suffix)], "-")
 			}
-			project, err = in.Orgs.CreateProject(ctx, in.ActorID, in.OrganizationID, alt, name, desc)
-			if err == nil {
+			project, err = in.Orgs.CreateProject(ctx, in.ActorID, in.OrganizationID, base+suffix, name, desc)
+			if err == nil || !errors.Is(err, identity.ErrConflict) {
 				break
 			}
 		}
-		if err != nil {
-			return "failed", "", "", err.Error()
-		}
+	}
+	if err != nil {
+		return "failed", "", "", err.Error()
 	}
 
 	secret, _ := randomSecret(24)

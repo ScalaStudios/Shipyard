@@ -149,6 +149,7 @@ func (b *Box) NamedValuesForScope(ctx context.Context, orgID, projectID string) 
 	rows, err := b.pool.Query(ctx, `
 		SELECT name, ciphertext, nonce FROM secrets
 		WHERE organization_id = $1::uuid
+		  AND environment_id IS NULL
 		  AND (project_id IS NULL OR project_id = NULLIF($2,'')::uuid)
 	`, orgID, projectID)
 	if err != nil {

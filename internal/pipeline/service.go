@@ -40,16 +40,16 @@ type Run struct {
 }
 
 type Job struct {
-	ID            string     `json:"id"`
-	RunID         string     `json:"run_id"`
-	Name          string     `json:"name"`
-	Status        string     `json:"status"`
-	Needs         []string   `json:"needs"`
-	RunnerLabels  []string   `json:"runner_labels"`
-	ErrorMessage  string     `json:"error_message,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	StartedAt     *time.Time `json:"started_at,omitempty"`
-	FinishedAt    *time.Time `json:"finished_at,omitempty"`
+	ID           string     `json:"id"`
+	RunID        string     `json:"run_id"`
+	Name         string     `json:"name"`
+	Status       string     `json:"status"`
+	Needs        []string   `json:"needs"`
+	RunnerLabels []string   `json:"runner_labels"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at,omitempty"`
+	FinishedAt   *time.Time `json:"finished_at,omitempty"`
 }
 
 type Step struct {
@@ -132,6 +132,18 @@ func (s *Service) GetDefinition(ctx context.Context, projectID, pipelineID strin
 	return d, err
 }
 
+func (s *Service) GetDefinitionBySlug(ctx context.Context, projectID, slug string) (Definition, error) {
+	var d Definition
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, project_id, name, slug, yaml_source, created_at
+		FROM pipeline_definitions WHERE project_id = $1 AND slug = $2
+	`, projectID, slug).Scan(&d.ID, &d.ProjectID, &d.Name, &d.Slug, &d.YAML, &d.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Definition{}, identity.ErrNotFound
+	}
+	return d, err
+}
+
 func (s *Service) StartRun(ctx context.Context, orgID, projectID, pipelineID, actorID, triggerType, gitRef, gitSHA string) (Run, error) {
 	def, err := s.GetDefinition(ctx, projectID, pipelineID)
 	if err != nil {
@@ -150,6 +162,11 @@ func (s *Service) StartRun(ctx context.Context, orgID, projectID, pipelineID, ac
 		return Run{}, err
 	}
 	defer tx.Rollback(ctx)
+
+	var locked int
+	if err := tx.QueryRow(ctx, `SELECT 1 FROM pipeline_definitions WHERE id = $1 FOR UPDATE`, pipelineID).Scan(&locked); err != nil {
+		return Run{}, err
+	}
 
 	var number int64
 	if err := tx.QueryRow(ctx, `
@@ -312,6 +329,12 @@ func (s *Service) CancelRun(ctx context.Context, projectID, runID string) error 
 	if ct.RowsAffected() == 0 {
 		return identity.ErrNotFound
 	}
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE runners SET status = CASE WHEN drained THEN 'draining' ELSE 'idle' END
+		WHERE status = 'busy' AND id IN (SELECT runner_id FROM jobs WHERE run_id = $1 AND runner_id IS NOT NULL AND status IN ('leased','running'))
+	`, runID); err != nil {
+		return err
+	}
 	_, err = s.pool.Exec(ctx, `
 		UPDATE jobs
 		SET status = 'canceled', finished_at = now()
@@ -357,7 +380,7 @@ func (s *Service) AdvanceRunGraph(ctx context.Context, runID string) error {
 			dep := byName[need]
 			switch dep.status {
 			case "succeeded":
-			case "failed", "canceled":
+			case "failed", "canceled", "skipped":
 				failedDep = true
 				ready = false
 			default:

@@ -14,11 +14,12 @@ import (
 )
 
 type Environment struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	Slug      string    `json:"slug"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                 string    `json:"id"`
+	ProjectID          string    `json:"project_id"`
+	Slug               string    `json:"slug"`
+	Name               string    `json:"name"`
+	DeployPipelineSlug string    `json:"deploy_pipeline_slug"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 type Release struct {
@@ -38,8 +39,15 @@ type Deployment struct {
 	EnvironmentID string     `json:"environment_id"`
 	ReleaseID     string     `json:"release_id"`
 	Status        string     `json:"status"`
+	RunID         string     `json:"run_id,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	FinishedAt    *time.Time `json:"finished_at,omitempty"`
+}
+
+type DeploymentChange struct {
+	ProjectID      string
+	OrganizationID string
+	Status         string
 }
 
 type Service struct {
@@ -50,17 +58,18 @@ func New(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool}
 }
 
-func (s *Service) CreateEnvironment(ctx context.Context, projectID, slug, name string) (Environment, error) {
+func (s *Service) CreateEnvironment(ctx context.Context, projectID, slug, name, deployPipelineSlug string) (Environment, error) {
 	slug = strings.ToLower(strings.TrimSpace(slug))
 	name = strings.TrimSpace(name)
+	deployPipelineSlug = strings.ToLower(strings.TrimSpace(deployPipelineSlug))
 	if slug == "" || name == "" {
 		return Environment{}, fmt.Errorf("%w: slug and name required", identity.ErrInvalidInput)
 	}
 	var e Environment
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO environments (project_id, slug, name) VALUES ($1,$2,$3)
-		RETURNING id, project_id, slug, name, created_at
-	`, projectID, slug, name).Scan(&e.ID, &e.ProjectID, &e.Slug, &e.Name, &e.CreatedAt)
+		INSERT INTO environments (project_id, slug, name, deploy_pipeline_slug) VALUES ($1,$2,$3,$4)
+		RETURNING id, project_id, slug, name, deploy_pipeline_slug, created_at
+	`, projectID, slug, name, deployPipelineSlug).Scan(&e.ID, &e.ProjectID, &e.Slug, &e.Name, &e.DeployPipelineSlug, &e.CreatedAt)
 	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
 		return Environment{}, identity.ErrConflict
 	}
@@ -69,7 +78,7 @@ func (s *Service) CreateEnvironment(ctx context.Context, projectID, slug, name s
 
 func (s *Service) ListEnvironments(ctx context.Context, projectID string) ([]Environment, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_id, slug, name, created_at FROM environments WHERE project_id = $1 ORDER BY slug
+		SELECT id, project_id, slug, name, deploy_pipeline_slug, created_at FROM environments WHERE project_id = $1 ORDER BY slug
 	`, projectID)
 	if err != nil {
 		return nil, err
@@ -78,7 +87,7 @@ func (s *Service) ListEnvironments(ctx context.Context, projectID string) ([]Env
 	var out []Environment
 	for rows.Next() {
 		var e Environment
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Slug, &e.Name, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Slug, &e.Name, &e.DeployPipelineSlug, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -96,6 +105,29 @@ func (s *Service) CreateRelease(ctx context.Context, orgID, projectID, actorID, 
 		return Release{}, err
 	}
 	defer tx.Rollback(ctx)
+
+	if runID != "" {
+		var found int
+		if err := tx.QueryRow(ctx, `
+			SELECT 1 FROM pipeline_runs WHERE id::text = $1 AND project_id = $2
+		`, runID, projectID).Scan(&found); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Release{}, fmt.Errorf("%w: run not found", identity.ErrInvalidInput)
+			}
+			return Release{}, err
+		}
+	}
+	if len(artifactIDs) > 0 {
+		var count int
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*) FROM artifacts WHERE id::text = ANY($1) AND project_id = $2
+		`, artifactIDs, projectID).Scan(&count); err != nil {
+			return Release{}, err
+		}
+		if count != len(artifactIDs) {
+			return Release{}, fmt.Errorf("%w: artifact not found", identity.ErrInvalidInput)
+		}
+	}
 
 	var rel Release
 	err = tx.QueryRow(ctx, `
@@ -143,20 +175,84 @@ func (s *Service) ListReleases(ctx context.Context, projectID string) ([]Release
 	return out, rows.Err()
 }
 
-func (s *Service) CreateDeployment(ctx context.Context, projectID, envID, releaseID, actorID string) (Deployment, error) {
+func (s *Service) CreateDeployment(ctx context.Context, projectID, envID, releaseID, actorID string) (Deployment, string, error) {
+	var deploySlug string
+	if err := s.pool.QueryRow(ctx, `
+		SELECT deploy_pipeline_slug FROM environments WHERE id::text = $1 AND project_id = $2
+	`, envID, projectID).Scan(&deploySlug); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Deployment{}, "", fmt.Errorf("%w: environment not found", identity.ErrInvalidInput)
+		}
+		return Deployment{}, "", err
+	}
+	var found int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT 1 FROM releases WHERE id::text = $1 AND project_id = $2
+	`, releaseID, projectID).Scan(&found); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Deployment{}, "", fmt.Errorf("%w: release not found", identity.ErrInvalidInput)
+		}
+		return Deployment{}, "", err
+	}
 	var d Deployment
+	if deploySlug == "" {
+		err := s.pool.QueryRow(ctx, `
+			INSERT INTO deployments (project_id, environment_id, release_id, status, created_by, finished_at)
+			VALUES ($1,$2,$3,'succeeded',$4,now())
+			RETURNING id, project_id, environment_id, release_id, status, COALESCE(run_id::text,''), created_at, finished_at
+		`, projectID, envID, releaseID, actorID).
+			Scan(&d.ID, &d.ProjectID, &d.EnvironmentID, &d.ReleaseID, &d.Status, &d.RunID, &d.CreatedAt, &d.FinishedAt)
+		return d, "", err
+	}
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO deployments (project_id, environment_id, release_id, status, created_by, finished_at)
-		VALUES ($1,$2,$3,'succeeded',$4,now())
-		RETURNING id, project_id, environment_id, release_id, status, created_at, finished_at
+		INSERT INTO deployments (project_id, environment_id, release_id, status, created_by)
+		VALUES ($1,$2,$3,'pending',$4)
+		RETURNING id, project_id, environment_id, release_id, status, COALESCE(run_id::text,''), created_at, finished_at
 	`, projectID, envID, releaseID, actorID).
-		Scan(&d.ID, &d.ProjectID, &d.EnvironmentID, &d.ReleaseID, &d.Status, &d.CreatedAt, &d.FinishedAt)
-	return d, err
+		Scan(&d.ID, &d.ProjectID, &d.EnvironmentID, &d.ReleaseID, &d.Status, &d.RunID, &d.CreatedAt, &d.FinishedAt)
+	if err != nil {
+		return Deployment{}, "", err
+	}
+	return d, deploySlug, nil
+}
+
+func (s *Service) AttachDeploymentRun(ctx context.Context, deploymentID, runID string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE deployments SET run_id = $2, status = 'running' WHERE id = $1 AND status = 'pending'
+	`, deploymentID, runID)
+	return err
+}
+
+func (s *Service) SyncDeploymentStatuses(ctx context.Context) ([]DeploymentChange, error) {
+	rows, err := s.pool.Query(ctx, `
+		UPDATE deployments d SET
+			status = CASE r.status WHEN 'succeeded' THEN 'succeeded' ELSE 'failed' END,
+			finished_at = now()
+		FROM pipeline_runs r
+		JOIN projects p ON p.id = r.project_id
+		WHERE d.run_id = r.id
+		  AND d.status IN ('pending','running')
+		  AND r.status IN ('succeeded','failed','canceled')
+		RETURNING d.project_id::text, p.organization_id::text, d.status
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeploymentChange
+	for rows.Next() {
+		var c DeploymentChange
+		if err := rows.Scan(&c.ProjectID, &c.OrganizationID, &c.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 func (s *Service) ListDeployments(ctx context.Context, projectID string) ([]Deployment, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_id, environment_id, release_id, status, created_at, finished_at
+		SELECT id, project_id, environment_id, release_id, status, COALESCE(run_id::text,''), created_at, finished_at
 		FROM deployments WHERE project_id = $1 ORDER BY created_at DESC LIMIT 100
 	`, projectID)
 	if err != nil {
@@ -166,7 +262,7 @@ func (s *Service) ListDeployments(ctx context.Context, projectID string) ([]Depl
 	var out []Deployment
 	for rows.Next() {
 		var d Deployment
-		if err := rows.Scan(&d.ID, &d.ProjectID, &d.EnvironmentID, &d.ReleaseID, &d.Status, &d.CreatedAt, &d.FinishedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.ProjectID, &d.EnvironmentID, &d.ReleaseID, &d.Status, &d.RunID, &d.CreatedAt, &d.FinishedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, d)

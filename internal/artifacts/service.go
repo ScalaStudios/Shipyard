@@ -58,6 +58,9 @@ func (s *Service) Put(ctx context.Context, orgID, projectID, actorID, name, cont
 		          name, digest, size_bytes, content_type, created_at
 	`, projectID, orgID, jobID, runID, name, info.Digest, info.Size, contentType, actorID).
 		Scan(&a.ID, &a.ProjectID, &a.OrganizationID, &a.JobID, &a.RunID, &a.Name, &a.Digest, &a.SizeBytes, &a.ContentType, &a.CreatedAt)
+	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
+		return Artifact{}, identity.ErrConflict
+	}
 	return a, err
 }
 

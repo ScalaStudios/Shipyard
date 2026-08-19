@@ -43,3 +43,50 @@ jobs:
 		t.Fatal("expected cycle error")
 	}
 }
+
+func TestMatchesEmptyOn(t *testing.T) {
+	t.Parallel()
+	doc := Document{}
+	if !doc.Matches("push", "refs/heads/anything") {
+		t.Fatal("expected empty on to match")
+	}
+	if !doc.Matches("pull_request", "feat") {
+		t.Fatal("expected empty on to match pull_request")
+	}
+}
+
+func TestMatchesPushBranches(t *testing.T) {
+	t.Parallel()
+	doc := Document{On: map[string]any{"push": map[string]any{"branches": []any{"main"}}}}
+	if !doc.Matches("push", "refs/heads/main") {
+		t.Fatal("expected main to match")
+	}
+	if doc.Matches("push", "refs/heads/dev") {
+		t.Fatal("expected dev not to match")
+	}
+	if doc.Matches("pull_request", "feat") {
+		t.Fatal("expected pull_request not to match")
+	}
+}
+
+func TestMatchesPushGlob(t *testing.T) {
+	t.Parallel()
+	doc := Document{On: map[string]any{"push": map[string]any{"branches": []any{"release/*"}}}}
+	if !doc.Matches("push", "refs/heads/release/1.2") {
+		t.Fatal("expected release/1.2 to match")
+	}
+	if doc.Matches("push", "refs/heads/main") {
+		t.Fatal("expected main not to match")
+	}
+}
+
+func TestMatchesPullRequestPresence(t *testing.T) {
+	t.Parallel()
+	doc := Document{On: map[string]any{"pull_request": nil}}
+	if !doc.Matches("pull_request", "feat") {
+		t.Fatal("expected pull_request to match")
+	}
+	if doc.Matches("push", "refs/heads/main") {
+		t.Fatal("expected push not to match")
+	}
+}

@@ -180,9 +180,18 @@ func (s *Service) IssueState(data string) (string, error) {
 		return "", err
 	}
 	s.mu.Lock()
+	s.sweepStates()
 	s.states[state] = stateRecord{Provider: "", Data: data, CreatedAt: time.Now().UTC()}
 	s.mu.Unlock()
 	return state, nil
+}
+
+func (s *Service) sweepStates() {
+	for key, rec := range s.states {
+		if time.Since(rec.CreatedAt) > 30*time.Minute {
+			delete(s.states, key)
+		}
+	}
 }
 
 func (s *Service) ConsumeState(state string) (string, bool) {
@@ -212,6 +221,7 @@ func (s *Service) AuthURLFor(provider, data string) (string, string, error) {
 		return "", "", err
 	}
 	s.mu.Lock()
+	s.sweepStates()
 	s.states[state] = stateRecord{Provider: provider, Data: data, CreatedAt: time.Now().UTC()}
 	s.mu.Unlock()
 
@@ -228,13 +238,14 @@ func (s *Service) AuthURLFor(provider, data string) (string, string, error) {
 }
 
 type TokenResult struct {
-	AccessToken string
-	IDToken     string
-	Email       string
-	Subject     string
-	Name        string
-	Username    string
-	StateData   string
+	AccessToken   string
+	IDToken       string
+	Email         string
+	Subject       string
+	Name          string
+	Username      string
+	EmailVerified bool
+	StateData     string
 }
 
 func (s *Service) Exchange(ctx context.Context, provider, code, state string) (TokenResult, error) {
@@ -288,12 +299,32 @@ func (s *Service) Exchange(ctx context.Context, provider, code, state string) (T
 			result.Subject, _ = claims["sub"].(string)
 			result.Name, _ = claims["name"].(string)
 			result.Username, _ = claims["preferred_username"].(string)
+			if claimBool(claims["email_verified"]) {
+				result.EmailVerified = true
+			}
 		}
 	}
 	if result.Email == "" || result.Username == "" {
 		_ = enrichFromUserInfo(ctx, p, result.AccessToken, &result)
 	}
+	if !result.EmailVerified && result.Email != "" {
+		switch p.Kind {
+		case KindGitHub, KindGitLab, KindForgejo, KindGitea, KindEntra, KindDiscord:
+			result.EmailVerified = true
+		}
+	}
 	return result, nil
+}
+
+func claimBool(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		return t == "true"
+	default:
+		return false
+	}
 }
 
 func enrichFromUserInfo(ctx context.Context, p ProviderConfig, accessToken string, result *TokenResult) error {
@@ -324,6 +355,9 @@ func enrichFromUserInfo(ctx context.Context, p ProviderConfig, accessToken strin
 			result.Email = email
 		}
 	}
+	if !result.EmailVerified && claimBool(info["email_verified"]) {
+		result.EmailVerified = true
+	}
 	if result.Name == "" {
 		if name, ok := info["name"].(string); ok {
 			result.Name = name
@@ -346,7 +380,10 @@ func enrichFromUserInfo(ctx context.Context, p ProviderConfig, accessToken strin
 		}
 	}
 	if result.Email == "" && p.Kind == KindGitHub {
-		result.Email = fetchGitHubPrimaryEmail(ctx, accessToken)
+		if email := fetchGitHubPrimaryEmail(ctx, accessToken); email != "" {
+			result.Email = email
+			result.EmailVerified = true
+		}
 	}
 	if result.Email == "" && p.Kind == KindDiscord {
 		if email, ok := info["email"].(string); ok {

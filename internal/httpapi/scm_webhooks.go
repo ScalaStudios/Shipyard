@@ -7,9 +7,11 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/notifications"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/scm"
 )
@@ -74,10 +76,14 @@ func (s *Server) handleCreateSCMConnection(w http.ResponseWriter, r *http.Reques
 		mapIdentityError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
+	out := map[string]any{
 		"connection":  conn,
-		"webhook_url": fmt.Sprintf("/api/v1/webhooks/%s?connection_id=%s", conn.Provider, conn.ID),
-	})
+		"webhook_url": fmt.Sprintf("%s/api/v1/webhooks/%s?connection_id=%s", s.apiBaseURL(r), conn.Provider, conn.ID),
+	}
+	if conn.WebhookSecret != "" {
+		out["webhook_secret"] = conn.WebhookSecret
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func (s *Server) handleDeleteSCMConnection(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +167,10 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if secret == "" {
 		secret = os.Getenv("SHIPYARD_WEBHOOK_SECRET")
 	}
+	if connErr == nil && secret == "" {
+		writeError(w, http.StatusUnauthorized, "webhook secret not configured for this connection")
+		return
+	}
 	if secret != "" && !scm.VerifyRequest(provider, secret, r.Header, body) {
 		writeError(w, http.StatusUnauthorized, "invalid signature")
 		return
@@ -190,17 +200,28 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !parsed.ShouldBuild {
+	switch {
+	case !conn.Enabled:
+		status = "ignored"
+		errMsg = "connection disabled"
+	case conn.RepoOwner != "" && conn.RepoName != "" && parsed.RepoOwner != "" && parsed.RepoName != "" &&
+		(!strings.EqualFold(conn.RepoOwner, parsed.RepoOwner) || !strings.EqualFold(conn.RepoName, parsed.RepoName)):
+		status = "ignored"
+		errMsg = "repository does not match connection"
+	case !parsed.ShouldBuild:
 		status = "ignored"
 		errMsg = parsed.IgnoreReason
 		if errMsg == "" {
 			errMsg = "event does not trigger a build"
 		}
-	} else {
+	default:
 		pipelineID, perr := s.resolvePipelineID(r, conn)
 		if perr != nil {
 			status = "failed"
 			errMsg = perr.Error()
+		} else if !s.pipelineMatchesEvent(r.Context(), conn.ProjectID, pipelineID, parsed) {
+			status = "ignored"
+			errMsg = "pipeline triggers do not match this event"
 		} else {
 			actor := ""
 			if conn.CreatedBy != "" {
@@ -228,6 +249,10 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					public := s.publicURL(r.Context())
 					runURL := fmt.Sprintf("%s/pipelines/runs/%s", public, run.ID)
 					_ = s.scm.AttachRunSCM(r.Context(), run.ID, conn.ID, parsed.PRNumber, "", runURL)
+					_ = scm.PostCommitStatus(r.Context(), scm.StatusInput{
+						Connection: conn, GitSHA: parsed.GitSHA, State: "pending", TargetURL: runURL,
+						Description: fmt.Sprintf("Run #%d started", run.Number),
+					})
 					if parsed.PRNumber > 0 {
 						bodyComment := scm.FormatStartedComment(conn.BotUsername, runURL, run.Number, parsed.GitRef, parsed.GitSHA)
 						if res, cerr := scm.PostStatusComment(r.Context(), scm.CommentInput{
@@ -259,6 +284,18 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		"run_id":      runID,
 		"error":       errMsg,
 	})
+}
+
+func (s *Server) pipelineMatchesEvent(ctx context.Context, projectID, pipelineID string, parsed scm.ParsedEvent) bool {
+	def, err := s.pipelines.GetDefinition(ctx, projectID, pipelineID)
+	if err != nil {
+		return true
+	}
+	doc, err := pipeline.Parse(def.YAML)
+	if err != nil {
+		return true
+	}
+	return doc.Matches(parsed.EventType, parsed.GitRef)
 }
 
 func (s *Server) resolvePipelineID(r *http.Request, conn scm.Connection) (string, error) {
@@ -301,11 +338,20 @@ func (s *Server) maybeNotifyRunFinished(runID string) {
 		"/pipelines/runs/"+info.RunID,
 		info.Number, info.Status, info.GitRef, info.GitSHA, "",
 	)
-	if info.ConnectionID == "" || info.PRNumber <= 0 {
+	if info.ConnectionID == "" {
 		return
 	}
 	conn, err := s.scm.GetByID(ctx, info.ConnectionID)
 	if err != nil {
+		return
+	}
+	if info.GitSHA != "" {
+		_ = scm.PostCommitStatus(ctx, scm.StatusInput{
+			Connection: conn, GitSHA: info.GitSHA, State: scm.StatusStateForRun(info.Status), TargetURL: runURL,
+			Description: fmt.Sprintf("Run #%d %s", info.Number, info.Status),
+		})
+	}
+	if info.PRNumber <= 0 {
 		return
 	}
 	body := scm.FormatFinishedComment(conn.BotUsername, runURL, info.Number, info.Status, info.GitRef)

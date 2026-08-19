@@ -40,8 +40,10 @@ func (s *Server) requireRegistryAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, err := s.authenticate(r)
 		if err != nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="shipyard-registry",service="shipyard"`)
-			writeError(w, http.StatusUnauthorized, "unauthorized")
+			base := s.apiBaseURL(r)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+base+`/auth/token",service="shipyard"`)
+			w.Header().Add("WWW-Authenticate", `Basic realm="shipyard-registry"`)
+			writeOCIError(w, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
