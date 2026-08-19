@@ -57,7 +57,7 @@ The demo uses a throwaway encryption key and a well-known password. Do not expos
 | **Forge import** | Bring a whole org in at once — PAT, user OAuth, or a GitHub App install |
 | **Artifacts** | Content-addressed storage on filesystem or S3 |
 | **Packages** | npm and Maven repositories, with `maven-metadata.xml` generation |
-| **Registry** | OCI `/v2` distribution with token auth — `docker push` works |
+| **Registry** | OCI `/v2` distribution with `docker login`/`push`/`pull` — images are named `<host>/<org>/<project>/<name>` |
 | **Delivery** | Releases, environments and deployments |
 | **Auth** | Local accounts, sessions, API tokens, and OIDC sign-in (GitHub, GitLab, Forgejo, Gitea, Entra, Discord) |
 | **Integrations** | Forge webhooks, PR/MR bot comments, commit statuses, Discord alerts |
