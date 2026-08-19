@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
@@ -83,6 +83,11 @@ export function RegistryPage() {
     }
   }
 
+  const distinctVersions = useMemo(() => {
+    const seen = new Set<string>();
+    return versions.filter((v) => !seen.has(v.version) && seen.add(v.version));
+  }, [versions]);
+
   return (
     <div className={table.stack}>
       <PageHeader
@@ -107,7 +112,7 @@ export function RegistryPage() {
             meta={<StatusBadge status="info">{packages.length}</StatusBadge>}
             actions={
               <form className={table.formRow} onSubmit={createPackage}>
-                <input className={table.input} placeholder="name" value={pkgName} onChange={(e) => setPkgName(e.target.value)} required />
+                <input className={table.input} placeholder="name" value={pkgName} onChange={(e) => setPkgName(e.target.value)} required aria-label="Repository name" />
                 <select
                   className={table.select}
                   value={pkgFormat}
@@ -153,20 +158,25 @@ export function RegistryPage() {
             {selectedPkg ? (
               <div className={table.toolbar}>
                 <strong>{selectedPkg.name}</strong>
-                <span className={table.muted}>{versions.length} versions</span>
-                {versions.map((v) => (
+                <span className={table.muted}>{distinctVersions.length} versions</span>
+                {distinctVersions.map((v) => (
                   <span key={v.id} className="mono">
                     {v.version}
                   </span>
                 ))}
-                {versions.length === 0 ? <span className={table.muted}>No versions published yet.</span> : null}
+                {distinctVersions.length === 0 ? (
+                  <span className={table.muted}>No versions published yet.</span>
+                ) : null}
               </div>
             ) : null}
           </Panel>
 
           <Panel title="OCI repositories" meta={<StatusBadge status="info">{oci.length}</StatusBadge>}>
             {oci.length === 0 ? (
-              <EmptyState title="No OCI repositories" description="Push images via the /v2 distribution API." />
+              <EmptyState
+                title="No OCI repositories"
+                description={`Push with docker push <host>/${org.slug}/${project.slug}/<name>:<tag> after docker login <host>.`}
+              />
             ) : (
               <DataTable>
                 <thead>

@@ -96,9 +96,10 @@ export function ProjectsPage() {
               value={orgSlug}
               onChange={(e) => setOrgSlug(e.target.value)}
               required
-              pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+              pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
+              aria-label="Organization slug"
             />
-            <input className={table.input} placeholder="name" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+            <input className={table.input} placeholder="name" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Organization name" />
             <Button type="submit" variant="primary" loading={busy}>
               Create org
             </Button>
@@ -148,7 +149,8 @@ export function ProjectsPage() {
               onChange={(e) => setProjectSlug(e.target.value)}
               required
               disabled={!org}
-              pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+              pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
+              aria-label="Project slug"
             />
             <input
               className={table.input}
@@ -156,6 +158,7 @@ export function ProjectsPage() {
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               disabled={!org}
+              aria-label="Project name"
             />
             <Button type="submit" variant="primary" loading={busy} disabled={!org}>
               Create project

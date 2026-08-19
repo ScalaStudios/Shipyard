@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
@@ -14,6 +15,7 @@ export function DeploymentsPage() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [envSlug, setEnvSlug] = useState("staging");
   const [envName, setEnvName] = useState("Staging");
+  const [deployPipelineSlug, setDeployPipelineSlug] = useState("");
   const [environmentID, setEnvironmentID] = useState("");
   const [releaseID, setReleaseID] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,11 +32,13 @@ export function DeploymentsPage() {
       api.listEnvironments(org.id, project.id),
       api.listReleases(org.id, project.id),
     ]);
+    const envList = e.environments ?? [];
+    const releaseList = r.releases ?? [];
     setDeployments(d.deployments ?? []);
-    setEnvironments(e.environments ?? []);
-    setReleases(r.releases ?? []);
-    setEnvironmentID((prev) => prev || e.environments?.[0]?.id || "");
-    setReleaseID((prev) => prev || r.releases?.[0]?.id || "");
+    setEnvironments(envList);
+    setReleases(releaseList);
+    setEnvironmentID((prev) => (envList.some((x) => x.id === prev) ? prev : (envList[0]?.id ?? "")));
+    setReleaseID((prev) => (releaseList.some((x) => x.id === prev) ? prev : (releaseList[0]?.id ?? "")));
   }
 
   useEffect(() => {
@@ -46,7 +50,7 @@ export function DeploymentsPage() {
     if (!org || !project) return;
     setBusy(true);
     try {
-      await api.createEnvironment(org.id, project.id, { slug: envSlug, name: envName });
+      await api.createEnvironment(org.id, project.id, { slug: envSlug, name: envName, deploy_pipeline_slug: deployPipelineSlug });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to create environment");
@@ -84,8 +88,9 @@ export function DeploymentsPage() {
             meta={<StatusBadge status="info">{environments.length}</StatusBadge>}
             actions={
               <form className={table.formRow} onSubmit={createEnv}>
-                <input className={table.input} value={envSlug} onChange={(e) => setEnvSlug(e.target.value)} required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" />
-                <input className={table.input} value={envName} onChange={(e) => setEnvName(e.target.value)} required />
+                <input className={table.input} value={envSlug} onChange={(e) => setEnvSlug(e.target.value)} required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" aria-label="Environment slug" />
+                <input className={table.input} value={envName} onChange={(e) => setEnvName(e.target.value)} required aria-label="Environment name" />
+                <input className={table.input} value={deployPipelineSlug} onChange={(e) => setDeployPipelineSlug(e.target.value)} aria-label="Deploy pipeline slug" placeholder="deploy pipeline slug" />
                 <Button type="submit" variant="secondary" loading={busy}>
                   Add environment
                 </Button>
@@ -121,14 +126,14 @@ export function DeploymentsPage() {
             meta={<StatusBadge status="info">{deployments.length}</StatusBadge>}
             actions={
               <form className={table.formRow} onSubmit={deploy}>
-                <select className={table.select} value={environmentID} onChange={(e) => setEnvironmentID(e.target.value)} required>
+                <select className={table.select} value={environmentID} onChange={(e) => setEnvironmentID(e.target.value)} required aria-label="Environment">
                   {environments.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.name}
                     </option>
                   ))}
                 </select>
-                <select className={table.select} value={releaseID} onChange={(e) => setReleaseID(e.target.value)} required>
+                <select className={table.select} value={releaseID} onChange={(e) => setReleaseID(e.target.value)} required aria-label="Release">
                   {releases.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.version}
@@ -150,6 +155,7 @@ export function DeploymentsPage() {
                     <th>Environment</th>
                     <th>Release</th>
                     <th>Status</th>
+                    <th>Run</th>
                     <th>Created</th>
                   </tr>
                 </thead>
@@ -161,6 +167,7 @@ export function DeploymentsPage() {
                       <td>
                         <StatusBadge status={runStatus(d.status)}>{d.status}</StatusBadge>
                       </td>
+                      <td>{d.run_id ? <Link to={`/pipelines/runs/${d.run_id}`}>Run</Link> : <span className={table.muted}>—</span>}</td>
                       <td className={table.muted}>{formatTime(d.created_at)}</td>
                     </tr>
                   ))}

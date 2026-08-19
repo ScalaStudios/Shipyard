@@ -258,7 +258,7 @@ export function RunnersPage() {
                     <td className="mono">{(r.labels ?? []).join(", ") || "—"}</td>
                     <td>{r.drained ? "yes" : "no"}</td>
                     <td>
-                      {alive ? null : (
+                      {alive || r.status === "busy" ? null : (
                         <Button type="button" variant="secondary" onClick={() => void removeRunner(r)}>
                           {confirmRemove === r.id ? "Confirm remove" : "Remove"}
                         </Button>
