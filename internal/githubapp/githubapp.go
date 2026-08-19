@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var client = &http.Client{Timeout: 20 * time.Second}
+
 type Config struct {
 	AppID         string
 	Slug          string
@@ -104,7 +106,7 @@ func InstallationToken(ctx context.Context, cfg Config, installationID string) (
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -137,7 +139,7 @@ func ListInstallations(ctx context.Context, cfg Config) ([]Installation, error) 
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

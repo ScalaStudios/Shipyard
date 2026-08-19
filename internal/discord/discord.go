@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -96,6 +97,16 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Integration, erro
 	}
 	if mode == "bot" && (strings.TrimSpace(in.BotToken) == "" || strings.TrimSpace(in.ChannelID) == "") {
 		return Integration{}, fmt.Errorf("%w: bot_token and channel_id required", identity.ErrInvalidInput)
+	}
+	if strings.TrimSpace(in.ProjectID) != "" {
+		var ok int
+		err := s.pool.QueryRow(ctx, `SELECT 1 FROM projects WHERE id::text = $1 AND organization_id = $2`, in.ProjectID, in.OrganizationID).Scan(&ok)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Integration{}, fmt.Errorf("%w: project not found", identity.ErrInvalidInput)
+		}
+		if err != nil {
+			return Integration{}, err
+		}
 	}
 	notifyOn := in.NotifyOn
 	if len(notifyOn) == 0 {

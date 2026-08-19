@@ -132,17 +132,68 @@ func (s *Service) FindUser(ctx context.Context, login string) (User, error) {
 	return u, err
 }
 
-func (s *Service) EnsureOIDCUser(ctx context.Context, username, email, displayName string) (User, error) {
+func (s *Service) EnsureOIDCUser(ctx context.Context, provider, subject, username, email, displayName string, emailVerified bool) (User, error) {
+	if subject != "" {
+		var u User
+		err := s.pool.QueryRow(ctx, `
+			SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
+			FROM user_identities i
+			JOIN users u ON u.id = i.user_id
+			WHERE i.provider = $1 AND i.subject = $2 AND u.is_active
+		`, provider, subject).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
+		if err == nil {
+			return u, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return User{}, err
+		}
+	}
+
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return User{}, fmt.Errorf("%w: username and email are required", ErrInvalidInput)
+	}
+
 	if existing, err := s.GetUserByEmail(ctx, email); err == nil {
+		if !emailVerified {
+			return User{}, fmt.Errorf("%w: this email is already registered; sign in with your password or a verified provider", ErrForbidden)
+		}
+		if subject != "" {
+			if err := s.linkIdentity(ctx, existing.ID, provider, subject); err != nil {
+				return User{}, err
+			}
+		}
 		return existing, nil
 	} else if !errors.Is(err, ErrNotFound) {
 		return User{}, err
+	}
+
+	if !emailVerified {
+		return User{}, fmt.Errorf("%w: your identity provider did not confirm your email address", ErrForbidden)
 	}
 	password, err := auth.NewToken(24)
 	if err != nil {
 		return User{}, err
 	}
-	return s.CreateUser(ctx, username, email, displayName, password)
+	u, err := s.CreateUser(ctx, username, email, displayName, password)
+	if err != nil {
+		return User{}, err
+	}
+	if subject != "" {
+		if err := s.linkIdentity(ctx, u.ID, provider, subject); err != nil {
+			return User{}, err
+		}
+	}
+	return u, nil
+}
+
+func (s *Service) linkIdentity(ctx context.Context, userID, provider, subject string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO user_identities (user_id, provider, subject)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (provider, subject) DO NOTHING
+	`, userID, provider, subject)
+	return err
 }
 
 func (s *Service) CreateSession(ctx context.Context, userID string, ttl time.Duration) (token string, expiresAt time.Time, err error) {

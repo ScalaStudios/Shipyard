@@ -26,8 +26,17 @@ func (s *Server) handleCreateSecret(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if req.OrganizationID != "" {
-		if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, req.OrganizationID, rbac.PermOrgUpdate); err != nil {
+	if req.OrganizationID == "" {
+		writeError(w, http.StatusBadRequest, "organization_id required")
+		return
+	}
+	org, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, req.OrganizationID, rbac.PermOrgUpdate)
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	if req.ProjectID != "" {
+		if _, err := s.orgs.GetProject(r.Context(), org.ID, req.ProjectID); err != nil {
 			mapIdentityError(w, err)
 			return
 		}
@@ -47,11 +56,13 @@ func (s *Server) handleListSecrets(w http.ResponseWriter, r *http.Request) {
 	}
 	orgID := r.URL.Query().Get("organization_id")
 	projectID := r.URL.Query().Get("project_id")
-	if orgID != "" {
-		if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgRead); err != nil {
-			mapIdentityError(w, err)
-			return
-		}
+	if orgID == "" {
+		writeError(w, http.StatusBadRequest, "organization_id required")
+		return
+	}
+	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgRead); err != nil {
+		mapIdentityError(w, err)
+		return
 	}
 	rows, err := s.pool.Query(r.Context(), `
 		SELECT id, name,
@@ -142,7 +153,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	if len(username) > 64 {
 		username = username[:64]
 	}
-	user, err := s.identity.EnsureOIDCUser(r.Context(), username, email, tok.Name)
+	user, err := s.identity.EnsureOIDCUser(r.Context(), provider, tok.Subject, username, email, tok.Name, tok.EmailVerified)
 	if err != nil {
 		mapIdentityError(w, err)
 		return
@@ -153,5 +164,5 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, r, session, expires)
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, s.publicURL(r.Context())+"/", http.StatusFound)
 }

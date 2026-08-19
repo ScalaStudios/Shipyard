@@ -3,6 +3,7 @@ package packages
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -11,19 +12,20 @@ import (
 )
 
 type NPMPublishRequest struct {
-	Name    string
-	Version string
-	Data    []byte
+	Name     string
+	Version  string
+	Data     []byte
+	Manifest json.RawMessage
 }
 
 type npmPublishBody struct {
-	Name        string                    `json:"name"`
-	Versions    map[string]map[string]any `json:"versions"`
-	DistTags    map[string]string         `json:"dist-tags"`
+	Name        string                     `json:"name"`
+	Versions    map[string]json.RawMessage `json:"versions"`
+	DistTags    map[string]string          `json:"dist-tags"`
 	Attachments map[string]struct {
-		ContentType   string `json:"content_type"`
-		Data          string `json:"data"`
-		Length        int    `json:"length"`
+		ContentType string `json:"content_type"`
+		Data        string `json:"data"`
+		Length      int    `json:"length"`
 	} `json:"_attachments"`
 }
 
@@ -64,7 +66,15 @@ func ParseNPMPublish(body []byte) (NPMPublishRequest, error) {
 	if len(data) == 0 {
 		return NPMPublishRequest{}, fmt.Errorf("%w: empty attachment", identity.ErrInvalidInput)
 	}
-	return NPMPublishRequest{Name: name, Version: version, Data: data}, nil
+	return NPMPublishRequest{Name: name, Version: version, Data: data, Manifest: req.Versions[version]}, nil
+}
+
+func NPMIntegrity(digest string) string {
+	b, err := hex.DecodeString(strings.TrimPrefix(digest, "sha256:"))
+	if err != nil {
+		return ""
+	}
+	return "sha256-" + base64.StdEncoding.EncodeToString(b)
 }
 
 func IsNPMPublishJSON(contentType string, body []byte) bool {

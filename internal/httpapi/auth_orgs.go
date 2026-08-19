@@ -32,6 +32,7 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 		"phase":          "hardening",
 		"started_at":     s.started.Format(time.RFC3339),
 		"allow_register": allowRegister,
+		"first_run":      count == 0,
 		"node_id":        s.cluster.NodeID(),
 		"oidc":           s.oidc != nil && s.oidc.Enabled(),
 		"secrets":        s.secrets != nil,
@@ -211,12 +212,13 @@ type memberRequest struct {
 }
 
 func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
-	org, ok := s.orgAccess(w, r, rbac.PermOrgManageMembers)
-	if !ok {
+	actor := currentUser(r)
+	org, callerRole, err := s.orgs.Require(r.Context(), actor.ID, r.PathValue("orgID"), rbac.PermOrgManageMembers)
+	if err != nil {
+		mapIdentityError(w, err)
 		return
 	}
 	orgID := org.ID
-	actor := currentUser(r)
 	var req memberRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -225,6 +227,10 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 	role, ok := rbac.ParseRole(req.Role)
 	if !ok {
 		role = rbac.RoleDeveloper
+	}
+	if role == rbac.RoleOwner && callerRole != rbac.RoleOwner {
+		writeError(w, http.StatusForbidden, "only owners can grant the owner role")
+		return
 	}
 	user, err := s.identity.FindUser(r.Context(), req.Login)
 	if err != nil {
@@ -246,6 +252,31 @@ func (s *Server) handleAddMember(w http.ResponseWriter, r *http.Request) {
 		Metadata:       map[string]any{"user_id": user.ID, "role": role},
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{"status": "ok", "user_id": user.ID, "role": role})
+}
+
+func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermOrgManageMembers)
+	if !ok {
+		return
+	}
+	orgID := org.ID
+	actor := currentUser(r)
+	userID := r.PathValue("userID")
+	if err := s.orgs.RemoveMember(r.Context(), orgID, userID); err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	_ = s.audit.Record(r.Context(), audit.Event{
+		ActorUserID:    &actor.ID,
+		Action:         "org.member_removed",
+		ResourceType:   "organization",
+		ResourceID:     orgID,
+		OrganizationID: &orgID,
+		IP:             clientIP(r),
+		UserAgent:      r.UserAgent(),
+		Metadata:       map[string]any{"user_id": userID},
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "removed", "user_id": userID})
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {

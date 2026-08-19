@@ -1,11 +1,14 @@
 package buildkit
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 )
 
 type BuildRequest struct {
@@ -31,7 +34,7 @@ func (c *Client) Available(ctx context.Context) bool {
 	return cmd.Run() == nil
 }
 
-func (c *Client) Build(ctx context.Context, req BuildRequest) (string, error) {
+func (c *Client) Build(ctx context.Context, req BuildRequest, onLine func(stream, line string)) error {
 	if req.Dockerfile == "" {
 		req.Dockerfile = "Dockerfile"
 	}
@@ -62,11 +65,45 @@ func (c *Client) Build(ctx context.Context, req BuildRequest) (string, error) {
 		}
 	}
 	cmd := exec.CommandContext(ctx, c.Buildctl, args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("buildctl failed: %w: %s", err, strings.TrimSpace(stderr.String()))
+	cmd.WaitDelay = 5 * time.Second
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
 	}
-	return stdout.String(), nil
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	var streams sync.WaitGroup
+	streams.Add(2)
+	go func() {
+		defer streams.Done()
+		forwardLines(stdout, "stdout", onLine)
+	}()
+	go func() {
+		defer streams.Done()
+		forwardLines(stderr, "stderr", onLine)
+	}()
+	streams.Wait()
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("buildctl failed: %w", err)
+	}
+	return nil
+}
+
+func forwardLines(r io.Reader, stream string, onLine func(stream, line string)) {
+	br := bufio.NewReader(r)
+	for {
+		chunk, err := br.ReadString('\n')
+		line := strings.TrimSuffix(chunk, "\n")
+		if line != "" && onLine != nil {
+			onLine(stream, line)
+		}
+		if err != nil {
+			return
+		}
+	}
 }

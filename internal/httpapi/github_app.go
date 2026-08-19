@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/githubapp"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
@@ -111,6 +112,10 @@ func (s *Server) handleGitHubAppLink(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "installation_id must be numeric")
 		return
 	}
+	if !currentUser(r).IsAdmin && !s.consumePendingInstall(currentUser(r).ID, installationID) {
+		writeError(w, http.StatusForbidden, "installation was not installed from this account; start the install from Shipyard or ask an instance admin")
+		return
+	}
 	cfg := s.githubAppConfig(r.Context())
 	if _, _, err := githubapp.InstallationToken(r.Context(), cfg, installationID); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
@@ -132,6 +137,31 @@ func (s *Server) handleGitHubAppLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"credential": cred})
 }
 
+const pendingInstallTTL = 30 * time.Minute
+
+func (s *Server) rememberPendingInstall(userID, installationID string) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	now := time.Now().UTC()
+	for id, pending := range s.pendingInstalls {
+		if now.Sub(pending.At) > pendingInstallTTL {
+			delete(s.pendingInstalls, id)
+		}
+	}
+	s.pendingInstalls[userID] = pendingInstall{InstallationID: installationID, At: now}
+}
+
+func (s *Server) consumePendingInstall(userID, installationID string) bool {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	pending, ok := s.pendingInstalls[userID]
+	if !ok || pending.InstallationID != installationID || time.Since(pending.At) > pendingInstallTTL {
+		return false
+	}
+	delete(s.pendingInstalls, userID)
+	return true
+}
+
 func (s *Server) redirectPendingInstall(w http.ResponseWriter, r *http.Request, installationID string) {
 	target := s.publicURL(r.Context()) + "/projects/import?github_installation=" + url.QueryEscape(installationID)
 	http.Redirect(w, r, target, http.StatusFound)
@@ -150,6 +180,7 @@ func (s *Server) handleGitHubAppCallback(w http.ResponseWriter, r *http.Request)
 	}
 	data, ok := s.forgeOAuth.ConsumeState(state)
 	if !ok {
+		s.rememberPendingInstall(currentUser(r).ID, installationID)
 		s.redirectPendingInstall(w, r, installationID)
 		return
 	}

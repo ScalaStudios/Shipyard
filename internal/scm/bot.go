@@ -44,12 +44,8 @@ func PostStatusComment(ctx context.Context, in CommentInput) (CommentResult, err
 }
 
 func postGitHubPRComment(ctx context.Context, client *http.Client, in CommentInput) (CommentResult, error) {
-	api := in.Connection.BaseURL
-	if strings.Contains(api, "github.com") && !strings.Contains(api, "api.github.com") {
-		api = "https://api.github.com"
-	}
 	path := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments",
-		strings.TrimRight(api, "/"), url.PathEscape(in.Connection.RepoOwner), url.PathEscape(in.Connection.RepoName), in.PRNumber)
+		githubAPIBase(in.Connection.BaseURL), url.PathEscape(in.Connection.RepoOwner), url.PathEscape(in.Connection.RepoName), in.PRNumber)
 	payload, _ := json.Marshal(map[string]string{"body": in.Body})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, path, bytes.NewReader(payload))
 	if err != nil {
