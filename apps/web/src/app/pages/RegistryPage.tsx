@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { CodeBlock } from "../components/CodeBlock";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
@@ -285,27 +286,21 @@ shipyardToken=${registryToken}`;
                     {copied === "gradle" ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <pre className="mono" style={{ overflowX: "auto" }}>
-                  {gradleBlock}
-                </pre>
+                <CodeBlock language="kotlin" code={gradleBlock} />
                 <div className={table.toolbar}>
                   <strong>~/.gradle/gradle.properties</strong>
                   <Button variant="secondary" onClick={() => void copy(gradleProps, "props")}>
                     {copied === "props" ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <pre className="mono" style={{ overflowX: "auto" }}>
-                  {gradleProps}
-                </pre>
+                <CodeBlock language="properties" code={gradleProps} />
                 <div className={table.toolbar}>
                   <strong>~/.m2/settings.xml</strong>
                   <Button variant="secondary" onClick={() => void copy(m2Settings, "m2")}>
                     {copied === "m2" ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <pre className="mono" style={{ overflowX: "auto" }}>
-                  {m2Settings}
-                </pre>
+                <CodeBlock language="markup" code={m2Settings} />
               </div>
             ) : (
               <EmptyState title="No token yet" description="Generate a registry token to see the global Gradle and Maven config." />
