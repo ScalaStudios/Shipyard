@@ -4,6 +4,7 @@ import { CodeBlock } from "./CodeBlock";
 import { DataTable } from "./DataTable";
 import table from "./DataTable.module.css";
 import styles from "./PackageBrowser.module.css";
+import { Tabs } from "./Tabs";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { formatBytes, formatTime } from "../lib/format";
 import type { PackageVersion } from "../api";
@@ -46,6 +47,7 @@ export function PackageBrowser({
   const [selectedName, setSelectedName] = useState("");
   const [selectedVersion, setSelectedVersion] = useState("");
   const [copied, setCopied] = useState("");
+  const [snippetTab, setSnippetTab] = useState(format === "npm" ? "npm" : "kts");
 
   const artifacts = useMemo<Artifact[]>(() => {
     const byName = new Map<string, Map<string, PackageVersion[]>>();
@@ -137,6 +139,24 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
         }
     }
 }`;
+
+  const snippets =
+    format === "npm"
+      ? [
+          { id: "npm", label: "npm", language: "bash", code: npmInstall },
+          { id: "npmrc", label: ".npmrc", language: "properties", code: npmrc },
+        ]
+      : [
+          ...(selected?.group
+            ? [
+                { id: "kts", label: "Gradle (Kotlin)", language: "kotlin", code: gradleKts },
+                { id: "groovy", label: "Gradle (Groovy)", language: "clike", code: gradleGroovy },
+                { id: "maven", label: "Maven", language: "markup", code: mavenXML },
+              ]
+            : []),
+          { id: "repo", label: "Repository", language: "kotlin", code: repoBlock },
+        ];
+  const snippet = snippets.find((s) => s.id === snippetTab) ?? snippets[0];
 
   if (artifacts.length === 0) {
     return (
@@ -254,70 +274,25 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
 
           <section className={styles.section}>
             <span className={styles.sectionLabel}>Add to your build</span>
-            {format === "npm" ? (
-              <>
-                <div className={styles.snippetHead}>
-                  <strong>npm</strong>
-                  <Button variant="secondary" onClick={() => void copy(npmInstall, "npm")}>
-                    {copied === "npm" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="bash" code={npmInstall} />
-                <div className={styles.snippetHead}>
-                  <strong>.npmrc</strong>
-                  <Button variant="secondary" onClick={() => void copy(npmrc, "npmrc")}>
-                    {copied === "npmrc" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="properties" code={npmrc} />
-              </>
-            ) : selected.group ? (
-              <>
-                <div className={styles.snippetHead}>
-                  <strong>Gradle (Kotlin DSL)</strong>
-                  <Button variant="secondary" onClick={() => void copy(gradleKts, "kts")}>
-                    {copied === "kts" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="kotlin" code={gradleKts} />
-                <div className={styles.snippetHead}>
-                  <strong>Gradle (Groovy)</strong>
-                  <Button variant="secondary" onClick={() => void copy(gradleGroovy, "groovy")}>
-                    {copied === "groovy" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="clike" code={gradleGroovy} />
-                <div className={styles.snippetHead}>
-                  <strong>Maven</strong>
-                  <Button variant="secondary" onClick={() => void copy(mavenXML, "maven")}>
-                    {copied === "maven" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="markup" code={mavenXML} />
-              </>
-            ) : (
+            <div className={styles.snippetHead}>
+              <Tabs tabs={snippets} active={snippet.id} onChange={setSnippetTab} />
+              <Button variant="secondary" onClick={() => void copy(snippet.code, `snippet:${snippet.id}`)}>
+                {copied === `snippet:${snippet.id}` ? "Copied" : "Copy"}
+              </Button>
+            </div>
+            <CodeBlock language={snippet.language} code={snippet.code} />
+            {format === "npm" || selected.group ? null : (
               <p className={styles.note}>
                 This repository stores files without Maven coordinates — use the file URLs above to download directly.
               </p>
             )}
-          </section>
-
-          {format === "npm" ? null : (
-            <section className={styles.section}>
-              <span className={styles.sectionLabel}>Repository</span>
-              <div className={styles.snippetHead}>
-                <strong>build.gradle.kts</strong>
-                <Button variant="secondary" onClick={() => void copy(repoBlock, "repo")}>
-                  {copied === "repo" ? "Copied" : "Copy"}
-                </Button>
-              </div>
-              <CodeBlock language="kotlin" code={repoBlock} />
+            {snippet.id === "repo" ? (
               <p className={styles.note}>
-                Generate the matching <code className="mono">shipyardUser</code> and <code className="mono">shipyardToken</code> values in
-                Publish &amp; consume below.
+                Generate the matching <code className="mono">shipyardUser</code> and <code className="mono">shipyardToken</code> values under
+                the Publish &amp; consume tab.
               </p>
-            </section>
-          )}
+            ) : null}
+          </section>
         </div>
       ) : (
         <EmptyState title="Select an artifact" description="Pick a coordinate on the left to see its files, checksums, and build snippets." />

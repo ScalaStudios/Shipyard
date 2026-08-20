@@ -141,7 +141,7 @@ func (s *Service) ListVersions(ctx context.Context, repoID string) ([]Version, e
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, repository_id, name, version, filename, digest, size_bytes, created_at
 		FROM package_versions WHERE repository_id = $1
-		ORDER BY created_at DESC LIMIT 200
+		ORDER BY created_at DESC LIMIT 50000
 	`, repoID)
 	if err != nil {
 		return nil, err

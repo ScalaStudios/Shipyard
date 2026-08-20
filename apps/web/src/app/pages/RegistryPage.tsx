@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { IconChevronLeft } from "@tabler/icons-react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { CodeBlock } from "../components/CodeBlock";
 import { DataTable } from "../components/DataTable";
@@ -7,8 +8,17 @@ import { FormField, formStyles as form } from "../components/FormField";
 import { PackageBrowser } from "../components/PackageBrowser";
 import { PageHeader } from "../components/PageHeader";
 import { TableSkeleton } from "../components/TableSkeleton";
+import { Tabs } from "../components/Tabs";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OCIRepo, PackageRepo, PackageVersion } from "../api";
+
+type Section = "packages" | "oci" | "publish";
+
+const SECTIONS = [
+  { id: "packages", label: "Packages" },
+  { id: "oci", label: "Containers" },
+  { id: "publish", label: "Publish & consume" },
+];
 
 function formatLabel(format: string): string {
   switch (format) {
@@ -25,6 +35,7 @@ function formatLabel(format: string): string {
 
 export function RegistryPage() {
   const { org, project, user, setError } = useWorkspace();
+  const [section, setSection] = useState<Section>("packages");
   const [packages, setPackages] = useState<PackageRepo[]>([]);
   const [oci, setOci] = useState<OCIRepo[]>([]);
   const [selectedPkg, setSelectedPkg] = useState<PackageRepo | null>(null);
@@ -60,6 +71,11 @@ export function RegistryPage() {
     setLoading(true);
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load registry"));
   }, [org?.id, project?.id]);
+
+  function changeSection(id: string) {
+    setSection(id as Section);
+    setSelectedPkg(null);
+  }
 
   async function openPackage(repo: PackageRepo) {
     if (!org || !project) return;
@@ -168,72 +184,22 @@ shipyardToken=${registryToken}`;
         <EmptyState title="Select a project" />
       ) : (
         <>
-          <Panel title="Package repositories" meta={<StatusBadge status="info">{packages.length}</StatusBadge>}>
-            <form className={form.row} onSubmit={createPackage}>
-              <FormField label="Repository name" htmlFor="pkg-name">
-                <input
-                  id="pkg-name"
-                  className={table.input}
-                  value={pkgName}
-                  onChange={(e) => setPkgName(e.target.value)}
-                  required
-                />
-              </FormField>
-              <FormField label="Format" htmlFor="pkg-format">
-                <select
-                  id="pkg-format"
-                  className={table.select}
-                  value={pkgFormat}
-                  onChange={(e) => setPkgFormat(e.target.value)}
+          <Tabs tabs={SECTIONS} active={section} onChange={changeSection} />
+
+          {section !== "packages" ? null : selectedPkg ? (
+            <div className={table.stackTight}>
+              <div className={table.backRow}>
+                <Button
+                  variant="secondary"
+                  icon={<IconChevronLeft size={16} stroke={1.75} />}
+                  onClick={() => setSelectedPkg(null)}
                 >
-                  <option value="maven">Maven / Gradle</option>
-                  <option value="npm">npm</option>
-                  <option value="generic">Generic</option>
-                </select>
-              </FormField>
-              <div className={form.action}>
-                <Button type="submit" variant="primary" loading={busy}>
-                  Create repository
+                  All repositories
                 </Button>
+                <strong>{selectedPkg.name}</strong>
+                <span className={table.muted}>{formatLabel(selectedPkg.format)}</span>
               </div>
-            </form>
-            {loading ? (
-              <TableSkeleton />
-            ) : packages.length === 0 ? (
-              <EmptyState
-                title="No package repositories"
-                description="Create one above to publish Maven, npm, or generic artifacts from this project."
-              />
-            ) : (
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Format</th>
-                    <th className={table.actionCol} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {packages.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td className={table.muted}>{formatLabel(p.format)}</td>
-                      <td className={table.actionCol}>
-                        <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
-                          Browse
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )}
-            {selectedPkg ? (
-              <>
-                <div className={table.toolbar}>
-                  <strong>{selectedPkg.name}</strong>
-                  <span className={table.muted}>{formatLabel(selectedPkg.format)}</span>
-                </div>
+              <Panel>
                 {versionsLoading ? (
                   <TableSkeleton />
                 ) : (
@@ -246,96 +212,162 @@ shipyardToken=${registryToken}`;
                     versions={versions}
                   />
                 )}
-              </>
-            ) : null}
-          </Panel>
-
-          <Panel title="OCI repositories" meta={<StatusBadge status="info">{oci.length}</StatusBadge>}>
-            {loading ? (
-              <TableSkeleton />
-            ) : oci.length === 0 ? (
-              <EmptyState
-                title="No OCI repositories"
-                description={`Push with docker push <host>/${org.slug}/${project.slug}/<name>:<tag> after docker login <host>.`}
-              />
-            ) : (
-              <DataTable>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th className={table.actionCol} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {oci.map((r) => (
-                    <tr key={r.id}>
-                      <td className="mono">{r.name}</td>
-                      <td className={table.actionCol}>
-                        <button type="button" className={table.rowButton} onClick={() => void openOci(r)}>
-                          Tags
-                        </button>
-                      </td>
+              </Panel>
+            </div>
+          ) : (
+            <Panel title="Package repositories" meta={<StatusBadge status="info">{packages.length}</StatusBadge>}>
+              <form className={form.row} onSubmit={createPackage}>
+                <FormField label="Repository name" htmlFor="pkg-name">
+                  <input
+                    id="pkg-name"
+                    className={table.input}
+                    value={pkgName}
+                    onChange={(e) => setPkgName(e.target.value)}
+                    required
+                  />
+                </FormField>
+                <FormField label="Format" htmlFor="pkg-format">
+                  <select
+                    id="pkg-format"
+                    className={table.select}
+                    value={pkgFormat}
+                    onChange={(e) => setPkgFormat(e.target.value)}
+                  >
+                    <option value="maven">Maven / Gradle</option>
+                    <option value="npm">npm</option>
+                    <option value="generic">Generic</option>
+                  </select>
+                </FormField>
+                <div className={form.action}>
+                  <Button type="submit" variant="primary" loading={busy}>
+                    Create repository
+                  </Button>
+                </div>
+              </form>
+              {loading ? (
+                <TableSkeleton />
+              ) : packages.length === 0 ? (
+                <EmptyState
+                  title="No package repositories"
+                  description="Create one above to publish Maven, npm, or generic artifacts from this project."
+                />
+              ) : (
+                <DataTable>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Format</th>
+                      <th className={table.actionCol} />
                     </tr>
-                  ))}
-                </tbody>
-              </DataTable>
-            )}
-            {selectedOci ? (
-              <div className={table.toolbar}>
-                <strong className="mono">{selectedOci.name}</strong>
-                {tags.length === 0 ? (
-                  <span className={table.muted}>No tags</span>
-                ) : (
-                  tags.map((t) => (
-                    <span key={t} className="mono">
-                      {t}
-                    </span>
-                  ))
-                )}
-              </div>
-            ) : null}
-          </Panel>
+                  </thead>
+                  <tbody>
+                    {packages.map((p) => (
+                      <tr key={p.id}>
+                        <td>{p.name}</td>
+                        <td className={table.muted}>{formatLabel(p.format)}</td>
+                        <td className={table.actionCol}>
+                          <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
+                            Browse
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              )}
+            </Panel>
+          )}
 
-          <Panel
-            title="Publish & consume"
-            actions={
-              <Button variant="primary" loading={tokenBusy} onClick={() => void generateRegistryToken()}>
-                Generate registry token
-              </Button>
-            }
-          >
-            <p className={table.muted}>
-              Generate a registry token, then drop it in your global <code className="mono">~/.gradle/gradle.properties</code> and{" "}
-              <code className="mono">~/.m2/settings.xml</code> — no passwords in project files.
-            </p>
-            {registryToken ? (
-              <div className={table.stack}>
+          {section !== "oci" ? null : (
+            <Panel title="OCI repositories" meta={<StatusBadge status="info">{oci.length}</StatusBadge>}>
+              {loading ? (
+                <TableSkeleton />
+              ) : oci.length === 0 ? (
+                <EmptyState
+                  title="No OCI repositories"
+                  description={`Push with docker push <host>/${org.slug}/${project.slug}/<name>:<tag> after docker login <host>.`}
+                />
+              ) : (
+                <DataTable>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th className={table.actionCol} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oci.map((r) => (
+                      <tr key={r.id}>
+                        <td className="mono">{r.name}</td>
+                        <td className={table.actionCol}>
+                          <button type="button" className={table.rowButton} onClick={() => void openOci(r)}>
+                            Tags
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              )}
+              {selectedOci ? (
                 <div className={table.toolbar}>
-                  <strong>build.gradle.kts</strong>
-                  <Button variant="secondary" onClick={() => void copy(gradleBlock, "gradle")}>
-                    {copied === "gradle" ? "Copied" : "Copy"}
-                  </Button>
+                  <strong className="mono">{selectedOci.name}</strong>
+                  {tags.length === 0 ? (
+                    <span className={table.muted}>No tags</span>
+                  ) : (
+                    tags.map((t) => (
+                      <span key={t} className="mono">
+                        {t}
+                      </span>
+                    ))
+                  )}
                 </div>
-                <CodeBlock language="kotlin" code={gradleBlock} />
-                <div className={table.toolbar}>
-                  <strong>~/.gradle/gradle.properties</strong>
-                  <Button variant="secondary" onClick={() => void copy(gradleProps, "props")}>
-                    {copied === "props" ? "Copied" : "Copy"}
-                  </Button>
+              ) : null}
+            </Panel>
+          )}
+
+          {section !== "publish" ? null : (
+            <Panel
+              title="Publish & consume"
+              actions={
+                <Button variant="primary" loading={tokenBusy} onClick={() => void generateRegistryToken()}>
+                  Generate registry token
+                </Button>
+              }
+            >
+              <p className={table.muted}>
+                Generate a registry token, then drop it in your global <code className="mono">~/.gradle/gradle.properties</code> and{" "}
+                <code className="mono">~/.m2/settings.xml</code> — no passwords in project files.
+              </p>
+              {registryToken ? (
+                <div className={table.stack}>
+                  <div className={table.toolbar}>
+                    <strong>build.gradle.kts</strong>
+                    <Button variant="secondary" onClick={() => void copy(gradleBlock, "gradle")}>
+                      {copied === "gradle" ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <CodeBlock language="kotlin" code={gradleBlock} />
+                  <div className={table.toolbar}>
+                    <strong>~/.gradle/gradle.properties</strong>
+                    <Button variant="secondary" onClick={() => void copy(gradleProps, "props")}>
+                      {copied === "props" ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <CodeBlock language="properties" code={gradleProps} />
+                  <div className={table.toolbar}>
+                    <strong>~/.m2/settings.xml</strong>
+                    <Button variant="secondary" onClick={() => void copy(m2Settings, "m2")}>
+                      {copied === "m2" ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                  <CodeBlock language="markup" code={m2Settings} />
                 </div>
-                <CodeBlock language="properties" code={gradleProps} />
-                <div className={table.toolbar}>
-                  <strong>~/.m2/settings.xml</strong>
-                  <Button variant="secondary" onClick={() => void copy(m2Settings, "m2")}>
-                    {copied === "m2" ? "Copied" : "Copy"}
-                  </Button>
-                </div>
-                <CodeBlock language="markup" code={m2Settings} />
-              </div>
-            ) : (
-              <EmptyState title="No token yet" description="Generate a registry token to see the global Gradle and Maven config." />
-            )}
-          </Panel>
+              ) : (
+                <EmptyState title="No token yet" description="Generate a registry token to see the global Gradle and Maven config." />
+              )}
+            </Panel>
+          )}
         </>
       )}
     </div>
