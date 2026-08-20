@@ -1,0 +1,87 @@
+name: shipyard
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shipyard
+      POSTGRES_USER: shipyard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - shipyard_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shipyard -d shipyard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  shipyard-server:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.server
+    restart: unless-stopped
+    environment:
+      SHIPYARD_HTTP_ADDR: ":8080"
+      SHIPYARD_DATABASE_URL: postgres://shipyard:${POSTGRES_PASSWORD}@postgres:5432/shipyard?sslmode=disable
+      SHIPYARD_MIGRATIONS_DIR: /app/migrations
+      SHIPYARD_STORAGE_BACKEND: filesystem
+      SHIPYARD_STORAGE_DIR: /data/blobs
+      SHIPYARD_LOG_LEVEL: info
+      SHIPYARD_ALLOW_REGISTER: ${SHIPYARD_ALLOW_REGISTER:-false}
+      SHIPYARD_SESSION_TTL: 168h
+      SHIPYARD_NODE_ID: flagship-01
+      SHIPYARD_PUBLIC_URL: https://${SHIPYARD_DOMAIN}
+      SHIPYARD_API_URL: https://${SHIPYARD_DOMAIN}
+      SHIPYARD_SECRETS_KEY: ${SHIPYARD_SECRETS_KEY:?generate a base64 32-byte key}
+      SHIPYARD_WEBHOOK_SECRET: ${SHIPYARD_WEBHOOK_SECRET:-}
+    volumes:
+      - shipyard_blobs:/data/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.web
+    restart: unless-stopped
+    environment:
+      SHIPYARD_DOMAIN: ":80"
+      SHIPYARD_UPSTREAM: shipyard-server:8080
+    ports:
+      - "127.0.0.1:8090:80"
+    depends_on:
+      - shipyard-server
+
+  buildkitd:
+    image: moby/buildkit:v0.16.0
+    restart: unless-stopped
+    privileged: true
+    command: ["--addr", "tcp://0.0.0.0:1234"]
+
+  shipyard-runner:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile.runner.jdk21
+    restart: unless-stopped
+    environment:
+      SHIPYARD_URL: http://shipyard-server:8080
+      SHIPYARD_REGISTRATION_TOKEN: ${SHIPYARD_REGISTRATION_TOKEN:-}
+      SHIPYARD_RUNNER_TOKEN: ${SHIPYARD_RUNNER_TOKEN:-}
+      SHIPYARD_RUNNER_NAME: flagship-jdk21
+      SHIPYARD_RUNNER_LABELS: jdk21,gradle
+      SHIPYARD_RUNNER_TOKEN_FILE: /var/lib/shipyard/runner.token
+      SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
+      SHIPYARD_WORKDIR: /var/lib/shipyard/work
+    volumes:
+      - shipyard_runner:/var/lib/shipyard
+    depends_on:
+      - shipyard-server
+      - buildkitd
+    profiles: ["runner"]
+
+volumes:
+  shipyard_pg:
+  shipyard_blobs:
+  shipyard_runner:

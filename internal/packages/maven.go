@@ -3,7 +3,8 @@ package packages
 import (
 	"encoding/xml"
 	"fmt"
-	"sort"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,16 +14,16 @@ type mavenMetadata struct {
 	GroupID    string   `xml:"groupId"`
 	ArtifactID string   `xml:"artifactId"`
 	Versioning struct {
-		Latest      string `xml:"latest"`
-		Release     string `xml:"release"`
-		Versions    struct {
+		Latest   string `xml:"latest"`
+		Release  string `xml:"release"`
+		Versions struct {
 			Version []string `xml:"version"`
 		} `xml:"versions"`
 		LastUpdated string `xml:"lastUpdated"`
 	} `xml:"versioning"`
 }
 
-func BuildMavenMetadata(groupID, artifactID string, versions []string) ([]byte, error) {
+func BuildMavenMetadata(groupID, artifactID string, versions []string, updatedAt time.Time) ([]byte, error) {
 	versions = uniqueSorted(versions)
 	meta := mavenMetadata{
 		GroupID:    groupID,
@@ -30,16 +31,85 @@ func BuildMavenMetadata(groupID, artifactID string, versions []string) ([]byte, 
 	}
 	meta.Versioning.Versions.Version = versions
 	if len(versions) > 0 {
-		latest := versions[len(versions)-1]
-		meta.Versioning.Latest = latest
-		meta.Versioning.Release = latest
+		meta.Versioning.Latest = versions[len(versions)-1]
+		for i := len(versions) - 1; i >= 0; i-- {
+			if !strings.HasSuffix(strings.ToUpper(versions[i]), "-SNAPSHOT") {
+				meta.Versioning.Release = versions[i]
+				break
+			}
+		}
 	}
-	meta.Versioning.LastUpdated = time.Now().UTC().Format("20060102150405")
+	meta.Versioning.LastUpdated = updatedAt.UTC().Format("20060102150405")
 	out, err := xml.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return nil, err
 	}
 	return append([]byte(xml.Header), out...), nil
+}
+
+func CompareVersions(a, b string) int {
+	baseA, snapA := trimSnapshot(a)
+	baseB, snapB := trimSnapshot(b)
+	if c := compareVersionBase(baseA, baseB); c != 0 {
+		return c
+	}
+	if snapA == snapB {
+		return 0
+	}
+	if snapA {
+		return -1
+	}
+	return 1
+}
+
+func trimSnapshot(v string) (string, bool) {
+	const suffix = "-SNAPSHOT"
+	if len(v) >= len(suffix) && strings.EqualFold(v[len(v)-len(suffix):], suffix) {
+		return v[:len(v)-len(suffix)], true
+	}
+	return v, false
+}
+
+func compareVersionBase(a, b string) int {
+	sa := splitVersion(a)
+	sb := splitVersion(b)
+	n := len(sa)
+	if len(sb) > n {
+		n = len(sb)
+	}
+	for i := 0; i < n; i++ {
+		x, y := "0", "0"
+		if i < len(sa) {
+			x = sa[i]
+		}
+		if i < len(sb) {
+			y = sb[i]
+		}
+		xi, xErr := strconv.Atoi(x)
+		yi, yErr := strconv.Atoi(y)
+		if xErr == nil && yErr == nil {
+			if xi != yi {
+				if xi < yi {
+					return -1
+				}
+				return 1
+			}
+			continue
+		}
+		lx := strings.ToLower(x)
+		ly := strings.ToLower(y)
+		if lx != ly {
+			if lx < ly {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+func splitVersion(v string) []string {
+	return strings.FieldsFunc(v, func(r rune) bool { return r == '.' || r == '-' })
 }
 
 func SplitMavenName(name string) (groupID, artifactID string, ok bool) {
@@ -81,7 +151,7 @@ func uniqueSorted(in []string) []string {
 		seen[v] = struct{}{}
 		out = append(out, v)
 	}
-	sort.Strings(out)
+	slices.SortFunc(out, CompareVersions)
 	return out
 }
 

@@ -210,6 +210,9 @@
 }
 
 .signOut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: transparent;
   color: var(--sy-color-text-muted);
@@ -483,7 +486,8 @@
 
 @media (max-width: 640px) {
   .brandName,
-  .menuLabel {
+  .menuLabel,
+  .signOutLabel {
     display: none;
   }
 

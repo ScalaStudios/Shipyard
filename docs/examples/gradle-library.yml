@@ -1,0 +1,57 @@
+pipeline:
+  name: gradle library
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runner:
+      os: linux
+      labels:
+        - jdk21
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs=--enable-native-access=ALL-UNNAMED"
+    steps:
+      - uses: shipyard/checkout@v1
+
+      - name: configure credentials
+        run: |
+          mkdir -p "$HOME/.gradle" "$HOME/.m2"
+          cat > "$HOME/.gradle/gradle.properties" <<EOF
+          artifactory_contextUrl=${ARTIFACTORY_URL}
+          artifactory_user=${ARTIFACTORY_USER}
+          artifactory_password=${ARTIFACTORY_PASSWORD}
+          EOF
+          cat > "$HOME/.m2/settings.xml" <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>shipyard</id>
+                <username>${ARTIFACTORY_USER}</username>
+                <password>${ARTIFACTORY_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: gradle build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --build-cache --stacktrace
+
+      - name: publish release
+        run: |
+          case "$SHIPYARD_GIT_REF" in
+            refs/heads/master|refs/heads/main) ;;
+            *) echo "ref $SHIPYARD_GIT_REF is not a release branch; skipping publish"; exit 0 ;;
+          esac
+          if [ -z "${ARTIFACTORY_USER:-}" ] || [ -z "${ARTIFACTORY_PASSWORD:-}" ]; then
+            echo "artifactory credentials not set; skipping publish"
+            exit 0
+          fi
+          ./gradlew publish --no-daemon --build-cache

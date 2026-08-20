@@ -26,11 +26,11 @@ type Repository struct {
 }
 
 type Manifest struct {
-	ID         string    `json:"id"`
-	Digest     string    `json:"digest"`
-	MediaType  string    `json:"media_type"`
-	SizeBytes  int64     `json:"size_bytes"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID        string    `json:"id"`
+	Digest    string    `json:"digest"`
+	MediaType string    `json:"media_type"`
+	SizeBytes int64     `json:"size_bytes"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Service struct {
@@ -102,10 +102,10 @@ func (s *Service) PutManifest(ctx context.Context, repoID, mediaType, tag string
 	var m Manifest
 	err = tx.QueryRow(ctx, `
 		INSERT INTO oci_manifests (repository_id, digest, media_type, raw, size_bytes)
-		VALUES ($1,$2,$3,$4::jsonb,$5)
+		VALUES ($1,$2,$3,$4,$5)
 		ON CONFLICT (repository_id, digest) DO UPDATE SET media_type = EXCLUDED.media_type
 		RETURNING id, digest, media_type, size_bytes, created_at
-	`, repoID, digest, mediaType, string(raw), len(raw)).
+	`, repoID, digest, mediaType, raw, len(raw)).
 		Scan(&m.ID, &m.Digest, &m.MediaType, &m.SizeBytes, &m.CreatedAt)
 	if err != nil {
 		return Manifest{}, err
@@ -128,15 +128,36 @@ func (s *Service) PutManifest(ctx context.Context, repoID, mediaType, tag string
 	return m, nil
 }
 
-func (s *Service) GetManifestByTag(ctx context.Context, repoID, tag string) (Manifest, []byte, error) {
+func (s *Service) GetRepository(ctx context.Context, projectID, name string) (Repository, error) {
+	name = strings.TrimSpace(strings.ToLower(name))
+	var r Repository
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, project_id, name, created_at FROM oci_repositories WHERE project_id = $1 AND name = $2
+	`, projectID, name).Scan(&r.ID, &r.ProjectID, &r.Name, &r.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Repository{}, identity.ErrNotFound
+	}
+	return r, err
+}
+
+func (s *Service) GetManifest(ctx context.Context, repoID, ref string) (Manifest, []byte, error) {
 	var m Manifest
 	var raw []byte
-	err := s.pool.QueryRow(ctx, `
-		SELECT m.id, m.digest, m.media_type, m.size_bytes, m.created_at, m.raw
-		FROM oci_tags t
-		JOIN oci_manifests m ON m.id = t.manifest_id
-		WHERE t.repository_id = $1 AND t.name = $2
-	`, repoID, tag).Scan(&m.ID, &m.Digest, &m.MediaType, &m.SizeBytes, &m.CreatedAt, &raw)
+	var err error
+	if strings.HasPrefix(ref, "sha256:") {
+		err = s.pool.QueryRow(ctx, `
+			SELECT id, digest, media_type, size_bytes, created_at, raw
+			FROM oci_manifests
+			WHERE repository_id = $1 AND digest = $2
+		`, repoID, ref).Scan(&m.ID, &m.Digest, &m.MediaType, &m.SizeBytes, &m.CreatedAt, &raw)
+	} else {
+		err = s.pool.QueryRow(ctx, `
+			SELECT m.id, m.digest, m.media_type, m.size_bytes, m.created_at, m.raw
+			FROM oci_tags t
+			JOIN oci_manifests m ON m.id = t.manifest_id
+			WHERE t.repository_id = $1 AND t.name = $2
+		`, repoID, ref).Scan(&m.ID, &m.Digest, &m.MediaType, &m.SizeBytes, &m.CreatedAt, &raw)
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Manifest{}, nil, identity.ErrNotFound
 	}

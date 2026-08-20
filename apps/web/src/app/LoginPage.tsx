@@ -5,12 +5,14 @@ import { api, OIDCProvider } from "./api";
 
 export function LoginPage({
   allowRegister,
+  firstRun,
   onAuthed,
 }: {
   allowRegister: boolean;
+  firstRun: boolean;
   onAuthed: () => void;
 }) {
-  const [mode, setMode] = useState<"login" | "register">(allowRegister ? "register" : "login");
+  const [mode, setMode] = useState<"login" | "register">(firstRun ? "register" : "login");
   const [login, setLogin] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -82,13 +84,15 @@ export function LoginPage({
             <img src="/shipyard-mark.svg" width={28} height={28} alt="" />
             <div>
               <div className={styles.brand}>Shipyard</div>
-              <h1>{mode === "login" ? "Sign in" : "Create first account"}</h1>
+              <h1>{mode === "login" ? "Sign in" : firstRun ? "Create first account" : "Create an account"}</h1>
             </div>
           </div>
           <p className={styles.copy}>
             {mode === "login"
               ? "Access the delivery control plane with your local account."
-              : "Bootstrap the first operator account for this Shipyard instance."}
+              : firstRun
+                ? "Bootstrap the first operator account for this Shipyard instance."
+                : "Registration is open on this instance."}
           </p>
 
           {mode === "register" ? (

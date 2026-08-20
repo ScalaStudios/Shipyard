@@ -73,6 +73,7 @@ echo "==> oidc providers endpoint"
 curl -fsS "$URL/api/v1/auth/oidc/providers" | grep -q providers
 
 echo "==> oci api version"
-curl -fsS "$URL/v2/" >/dev/null
+curl -fsS -b "$COOKIE" "$URL/v2/" >/dev/null
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v2/")" = "401" ] || { echo "unauthenticated /v2/ must be 401" >&2; exit 1; }
 
 echo "OK smoke against $URL"

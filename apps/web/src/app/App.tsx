@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Button } from "@shipyard/ui";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { AppShell } from "../shell/AppShell";
-import { api, User } from "./api";
+import { api, setUnauthorizedHandler, User } from "./api";
 import bootStyles from "./BootScreen.module.css";
 import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { LoginPage } from "./LoginPage";
@@ -105,12 +105,14 @@ export function App() {
   const [boot, setBoot] = useState<BootState>("loading");
   const [user, setUser] = useState<User | null>(null);
   const [allowRegister, setAllowRegister] = useState(false);
+  const [firstRun, setFirstRun] = useState(false);
 
   async function bootstrap() {
     setBoot("loading");
     try {
       const info = await api.systemInfo();
       setAllowRegister(Boolean(info.allow_register));
+      setFirstRun(Boolean(info.first_run));
       try {
         const me = await api.me();
         setUser(me.user);
@@ -129,10 +131,21 @@ export function App() {
     void bootstrap();
   }, []);
 
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null);
+      setBoot("anon");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   async function logout() {
-    await api.logout();
-    setUser(null);
-    setBoot("anon");
+    try {
+      await api.logout();
+    } finally {
+      setUser(null);
+      setBoot("anon");
+    }
   }
 
   if (boot === "loading") {
@@ -171,6 +184,7 @@ export function App() {
     return (
       <LoginPage
         allowRegister={allowRegister}
+        firstRun={firstRun}
         onAuthed={() => {
           void bootstrap();
         }}

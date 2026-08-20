@@ -67,8 +67,8 @@ export function SecretsSettingsPage() {
         meta={<StatusBadge status={unavailable ? "warning" : "info"}>{unavailable ? "unavailable" : secrets.length}</StatusBadge>}
         actions={
           <form className={table.formRow} onSubmit={createSecret}>
-            <input className={table.input} placeholder="name" value={secretName} onChange={(e) => setSecretName(e.target.value)} required disabled={!org || unavailable} />
-            <input className={table.input} type="password" placeholder="value" value={secretValue} onChange={(e) => setSecretValue(e.target.value)} required disabled={!org || unavailable} />
+            <input className={table.input} placeholder="name" value={secretName} onChange={(e) => setSecretName(e.target.value)} required disabled={!org || unavailable} aria-label="Secret name" />
+            <input className={table.input} type="password" placeholder="value" value={secretValue} onChange={(e) => setSecretValue(e.target.value)} required disabled={!org || unavailable} aria-label="Secret value" />
             <Button type="submit" variant="primary" loading={busy} disabled={!org || unavailable}>
               Store
             </Button>

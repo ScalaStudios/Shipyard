@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 )
 
@@ -139,8 +141,11 @@ func (s *Service) GetCredential(ctx context.Context, orgID, id string) (ForgeCre
 	`, orgID, id).Scan(
 		&c.ID, &c.OrganizationID, &c.Provider, &c.Kind, &c.Name, &c.BaseURL, &c.AccessToken, &c.InstallationID, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.CreatedBy,
 	)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ForgeCredential{}, identity.ErrNotFound
+	}
+	if err != nil {
+		return ForgeCredential{}, err
 	}
 	if c.Kind == KindGitHubApp && c.InstallationID != "" {
 		if s.installationToken == nil {

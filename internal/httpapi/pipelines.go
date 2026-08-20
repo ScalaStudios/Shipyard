@@ -6,8 +6,10 @@ import (
 	"net/url"
 	"time"
 
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/pipeline"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
 )
 
 type pipelineRequest struct {
@@ -67,6 +69,16 @@ func (s *Server) handleStartRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.pipelines.AdvanceRunGraph(r.Context(), run.ID)
+	pipelineSlugOrID := r.PathValue("pipelineID")
+	if def, derr := s.pipelines.GetDefinition(r.Context(), project.ID, run.PipelineID); derr == nil && def.Slug != "" {
+		pipelineSlugOrID = def.Slug
+	}
+	s.fanoutNotify(r.Context(), org.ID, project.ID, "run.started",
+		fmt.Sprintf("Build started · #%d", run.Number),
+		fmt.Sprintf("%s started a run of %s", currentUser(r).Username, pipelineSlugOrID),
+		"/pipelines/runs/"+run.ID,
+		run.Number, "started", run.GitRef, run.GitSHA, project.Slug,
+	)
 	writeJSON(w, http.StatusCreated, map[string]any{"run": run})
 }
 
@@ -116,6 +128,7 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		mapIdentityError(w, err)
 		return
 	}
+	go s.maybeNotifyRunFinished(r.PathValue("runID"))
 	writeJSON(w, http.StatusOK, map[string]any{"status": "canceled"})
 }
 
@@ -141,10 +154,11 @@ func (s *Server) handleListRunJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleJobLogs(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := s.projectAccess(w, r, rbac.PermProjectRead); !ok {
+	_, project, ok := s.projectAccess(w, r, rbac.PermProjectRead)
+	if !ok {
 		return
 	}
-	logs, err := s.runners.ListLogs(r.Context(), r.PathValue("jobID"), queryInt64(r, "after", 0))
+	logs, err := s.runners.ListLogs(r.Context(), project.ID, r.PathValue("jobID"), queryInt64(r, "after", 0))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -156,7 +170,22 @@ func (s *Server) handleJobLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListRunners(w http.ResponseWriter, r *http.Request) {
-	list, err := s.runners.List(r.Context())
+	user := currentUser(r)
+	var list []runners.Runner
+	var err error
+	if user.IsAdmin {
+		list, err = s.runners.List(r.Context())
+	} else {
+		var orgIDs []string
+		var memberships []orgs.Organization
+		memberships, err = s.orgs.ListOrganizations(r.Context(), user.ID)
+		if err == nil {
+			for _, org := range memberships {
+				orgIDs = append(orgIDs, org.ID)
+			}
+			list, err = s.runners.ListForOrgs(r.Context(), orgIDs)
+		}
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -178,11 +207,8 @@ func (s *Server) handleCreateRunnerRegToken(w http.ResponseWriter, r *http.Reque
 			ttl = d
 		}
 	}
-	if req.OrganizationID != "" {
-		if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, req.OrganizationID, rbac.PermOrgUpdate); err != nil {
-			mapIdentityError(w, err)
-			return
-		}
+	if !s.requireRunnerScope(w, r, req.OrganizationID) {
+		return
 	}
 	token, expires, err := s.runners.CreateRegistrationToken(r.Context(), req.OrganizationID, currentUser(r).ID, ttl)
 	if err != nil {

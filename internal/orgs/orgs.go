@@ -173,12 +173,59 @@ func (s *Service) ListMembers(ctx context.Context, orgID string) ([]Member, erro
 }
 
 func (s *Service) AddMember(ctx context.Context, orgID, userID string, role rbac.Role) error {
+	if role != rbac.RoleOwner {
+		if err := s.ensureNotLastOwner(ctx, orgID, userID); err != nil {
+			return err
+		}
+	}
 	_, err := s.pool.Exec(ctx, `
 		INSERT INTO organization_members (organization_id, user_id, role)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role
 	`, orgID, userID, role)
 	return err
+}
+
+func (s *Service) RemoveMember(ctx context.Context, orgID, userID string) error {
+	if err := s.ensureNotLastOwner(ctx, orgID, userID); err != nil {
+		return err
+	}
+	ct, err := s.pool.Exec(ctx, `
+		DELETE FROM organization_members WHERE organization_id = $1 AND user_id::text = $2
+	`, orgID, userID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return identity.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Service) ensureNotLastOwner(ctx context.Context, orgID, userID string) error {
+	var others int
+	if err := s.pool.QueryRow(ctx, `
+		SELECT count(*) FROM organization_members
+		WHERE organization_id = $1 AND role = $2 AND user_id::text <> $3
+	`, orgID, rbac.RoleOwner, userID).Scan(&others); err != nil {
+		return err
+	}
+	if others > 0 {
+		return nil
+	}
+	var isOwner bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM organization_members
+			WHERE organization_id = $1 AND user_id::text = $2 AND role = $3
+		)
+	`, orgID, userID, rbac.RoleOwner).Scan(&isOwner); err != nil {
+		return err
+	}
+	if isOwner {
+		return fmt.Errorf("%w: organization needs at least one owner", identity.ErrInvalidInput)
+	}
+	return nil
 }
 
 func (s *Service) CreateProject(ctx context.Context, actorID, orgID, slug, name, description string) (Project, error) {

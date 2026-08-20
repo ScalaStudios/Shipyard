@@ -4,6 +4,7 @@ export type User = {
   email: string;
   display_name: string;
   is_active: boolean;
+  is_admin: boolean;
   created_at: string;
 };
 
@@ -16,6 +17,7 @@ export type SystemInfo = {
   product: string;
   phase: string;
   allow_register: boolean;
+  first_run?: boolean;
   started_at?: string;
   node_id?: string;
   oidc?: boolean;
@@ -132,6 +134,7 @@ export type PackageRepo = {
 export type PackageVersion = {
   id: string;
   version: string;
+  filename?: string;
   digest?: string;
   created_at?: string;
 };
@@ -155,6 +158,7 @@ export type Environment = {
   project_id: string;
   slug: string;
   name: string;
+  deploy_pipeline_slug?: string;
   created_at: string;
 };
 
@@ -164,6 +168,7 @@ export type Deployment = {
   environment_id: string;
   release_id: string;
   status: string;
+  run_id?: string;
   created_at: string;
   finished_at?: string;
 };
@@ -173,6 +178,16 @@ export type SecretMeta = {
   name: string;
   scope: string;
 };
+
+export class UnauthorizedError extends Error {}
+
+const ANONYMOUS_PATHS = ["/api/v1/me", "/api/v1/auth/login", "/api/v1/auth/register"];
+
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -194,6 +209,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         : typeof body.message === "string"
           ? body.message
           : `${init?.method ?? "GET"} ${path}`;
+    if (res.status === 401) {
+      if (onUnauthorized && !ANONYMOUS_PATHS.includes(path)) onUnauthorized();
+      throw new UnauthorizedError(`${detail} (401)`);
+    }
     throw new Error(`${detail} (${res.status})`);
   }
   return body as T;
@@ -208,8 +227,8 @@ export const api = {
   login: (payload: { login: string; password: string }) =>
     request<{ user: User }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   logout: () => request<{ status: string }>("/api/v1/auth/logout", { method: "POST", body: "{}" }),
-  createToken: (payload: { name: string; ttl?: string }) =>
-    request<{ token: string; prefix: string; expires_at?: string }>("/api/v1/me/tokens", {
+  createToken: (payload: { name: string; ttl?: string; scopes?: string[] }) =>
+    request<{ token: string; prefix: string; expires_at?: string; scopes?: string[] }>("/api/v1/me/tokens", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -219,7 +238,10 @@ export const api = {
     request<{ organization: Organization }>("/api/v1/orgs", { method: "POST", body: JSON.stringify(payload) }),
   listMembers: (orgID: string) => request<{ members: Member[] }>(`/api/v1/orgs/${orgID}/members`),
   addMember: (orgID: string, payload: { login: string; role: string }) =>
-    request<{ member: Member }>(`/api/v1/orgs/${orgID}/members`, { method: "POST", body: JSON.stringify(payload) }),
+    request<{ status: string; user_id: string; role: string }>(`/api/v1/orgs/${orgID}/members`, { method: "POST", body: JSON.stringify(payload) }),
+
+  removeMember: (orgID: string, userID: string) =>
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/members/${userID}`, { method: "DELETE" }),
 
   listProjects: (orgID: string) => request<{ projects: Project[] }>(`/api/v1/orgs/${orgID}/projects`),
   createProject: (orgID: string, payload: { slug: string; name: string; description?: string }) =>
@@ -245,12 +267,16 @@ export const api = {
   getRun: (orgID: string, projectID: string, runID: string) =>
     request<{ run: PipelineRun; jobs: Job[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs/${runID}`),
   cancelRun: (orgID: string, projectID: string, runID: string) =>
-    request<{ run: PipelineRun }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs/${runID}/cancel`, {
+    request<{ status: string }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs/${runID}/cancel`, {
       method: "POST",
       body: "{}",
     }),
-  jobLogs: (orgID: string, projectID: string, jobID: string) =>
-    request<{ logs: LogLine[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/jobs/${jobID}/logs`),
+  jobLogs: (orgID: string, projectID: string, jobID: string, after?: number) =>
+    request<{ logs: LogLine[] }>(
+      `/api/v1/orgs/${orgID}/projects/${projectID}/jobs/${jobID}/logs${
+        typeof after === "number" && after > 0 ? `?after=${after}` : ""
+      }`,
+    ),
 
   listRunners: () => request<{ runners: Runner[] }>("/api/v1/runners"),
   deleteRunner: (runnerID: string) =>
@@ -301,7 +327,7 @@ export const api = {
     }),
   listEnvironments: (orgID: string, projectID: string) =>
     request<{ environments: Environment[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/environments`),
-  createEnvironment: (orgID: string, projectID: string, payload: { slug: string; name: string }) =>
+  createEnvironment: (orgID: string, projectID: string, payload: { slug: string; name: string; deploy_pipeline_slug?: string }) =>
     request<{ environment: Environment }>(`/api/v1/orgs/${orgID}/projects/${projectID}/environments`, {
       method: "POST",
       body: JSON.stringify(payload),

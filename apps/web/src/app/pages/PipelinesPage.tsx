@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
@@ -15,6 +15,7 @@ export function PipelinesPage() {
   const [slug, setSlug] = useState("hello");
   const [yaml, setYaml] = useState(defaultPipelineYAML);
   const [busy, setBusy] = useState(false);
+  const yamlRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function refresh() {
     if (!org || !project) {
@@ -43,6 +44,12 @@ export function PipelinesPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function editPipeline(pipeline: Pipeline) {
+    setSlug(pipeline.slug);
+    setYaml(pipeline.yaml_source);
+    yamlRef.current?.focus();
   }
 
   async function runPipeline(pipelineID: string) {
@@ -89,9 +96,14 @@ export function PipelinesPage() {
                       <td className="mono">{p.slug}</td>
                       <td className={table.muted}>{formatTime(p.created_at)}</td>
                       <td>
-                        <Button variant="secondary" disabled={busy} onClick={() => void runPipeline(p.id)}>
-                          Run
-                        </Button>
+                        <div className={table.formRow}>
+                          <Button variant="secondary" disabled={busy} onClick={() => void runPipeline(p.id)}>
+                            Run
+                          </Button>
+                          <Button variant="secondary" disabled={busy} onClick={() => editPipeline(p)}>
+                            Edit
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -104,15 +116,23 @@ export function PipelinesPage() {
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
                 required
-                pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
                 placeholder="slug"
+                aria-label="Pipeline slug"
               />
               <Button type="submit" variant="primary" loading={busy}>
-                Save pipeline
+                {pipelines.some((p) => p.slug === slug) ? "Update pipeline" : "Save pipeline"}
               </Button>
             </form>
             <div style={{ padding: "0 16px 16px" }}>
-              <textarea className={table.textarea} value={yaml} onChange={(e) => setYaml(e.target.value)} rows={10} />
+              <textarea
+                className={table.textarea}
+                ref={yamlRef}
+                value={yaml}
+                onChange={(e) => setYaml(e.target.value)}
+                rows={10}
+                aria-label="Pipeline YAML"
+              />
             </div>
           </Panel>
 
@@ -125,6 +145,8 @@ export function PipelinesPage() {
                   <tr>
                     <th>Run</th>
                     <th>Status</th>
+                    <th>Trigger</th>
+                    <th>Ref</th>
                     <th>Created</th>
                   </tr>
                 </thead>
@@ -137,6 +159,8 @@ export function PipelinesPage() {
                       <td>
                         <StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>
                       </td>
+                      <td className={table.muted}>{run.trigger_type ?? "manual"}</td>
+                      <td className="mono">{run.git_ref || "—"}</td>
                       <td className={table.muted}>{formatTime(run.created_at)}</td>
                     </tr>
                   ))}

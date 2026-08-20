@@ -32,7 +32,7 @@ func (s *Service) SeedProvidersFromEnv(ctx context.Context, login, forge []oidc.
 				RedirectURL:  cfg.RedirectURL,
 				Scopes:       cfg.Scopes,
 				Enabled:      true,
-			}, ""); err != nil {
+			}, nil, ""); err != nil {
 				return seeded, err
 			}
 			seeded++
