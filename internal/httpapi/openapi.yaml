@@ -1,0 +1,471 @@
+openapi: 3.1.0
+info:
+  title: Shipyard API
+  version: 0.1.0
+  description: |
+    REST API for the Shipyard control plane. Automation authenticates with a
+    Bearer API token. Tokens carrying registry scopes are rejected on the
+    general API; use an unscoped token for API and MCP automation.
+servers:
+  - url: https://shipyard.scala.gg
+    description: production
+  - url: /
+    description: relative
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+  - name: auth
+  - name: orgs
+  - name: projects
+  - name: pipelines
+  - name: runs
+  - name: runners
+paths:
+  /api/v1/system/info:
+    get:
+      tags:
+        - system
+      summary: Instance information
+      security: []
+      responses:
+        "200":
+          description: instance information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInfo"
+  /api/v1/me:
+    get:
+      tags:
+        - auth
+      summary: Current user
+      responses:
+        "200":
+          description: authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs:
+    get:
+      tags:
+        - orgs
+      summary: List organizations
+      responses:
+        "200":
+          description: organizations the user belongs to
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Organization"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects:
+    get:
+      tags:
+        - projects
+      summary: List projects
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: projects in the organization
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects/{projectID}/pipelines:
+    get:
+      tags:
+        - pipelines
+      summary: List pipeline definitions
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: pipeline definitions in the project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pipelines:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Pipeline"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects/{projectID}/pipelines/{pipelineID}/runs:
+    post:
+      tags:
+        - runs
+      summary: Start a run
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/ProjectID"
+        - name: pipelineID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRunRequest"
+      responses:
+        "201":
+          description: run created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects/{projectID}/runs:
+    get:
+      tags:
+        - runs
+      summary: List runs
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: runs in the project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects/{projectID}/runs/{runID}:
+    get:
+      tags:
+        - runs
+      summary: Get a run
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/ProjectID"
+        - name: runID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: run with its jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: "#/components/schemas/Run"
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{orgID}/projects/{projectID}/runs/{runID}/cancel:
+    post:
+      tags:
+        - runs
+      summary: Cancel a run
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/ProjectID"
+        - name: runID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: run canceled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/runners:
+    get:
+      tags:
+        - runners
+      summary: List runners
+      responses:
+        "200":
+          description: runners visible to the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runners:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Runner"
+        "401":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+  parameters:
+    OrgID:
+      name: orgID
+      in: path
+      required: true
+      schema:
+        type: string
+    ProjectID:
+      name: projectID
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+    SystemInfo:
+      type: object
+      properties:
+        product:
+          type: string
+        phase:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        allow_register:
+          type: boolean
+        first_run:
+          type: boolean
+        node_id:
+          type: string
+        oidc:
+          type: boolean
+        secrets:
+          type: boolean
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        display_name:
+          type: string
+        is_active:
+          type: boolean
+        is_admin:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        role:
+          type: string
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Pipeline:
+      type: object
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        yaml_source:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    StartRunRequest:
+      type: object
+      properties:
+        git_ref:
+          type: string
+        git_sha:
+          type: string
+    Run:
+      type: object
+      properties:
+        id:
+          type: string
+        pipeline_id:
+          type: string
+        project_id:
+          type: string
+        organization_id:
+          type: string
+        number:
+          type: integer
+          format: int64
+        status:
+          type: string
+        trigger_type:
+          type: string
+        git_ref:
+          type: string
+        git_sha:
+          type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+        run_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        needs:
+          type: array
+          items:
+            type: string
+        runner_labels:
+          type: array
+          items:
+            type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+    Runner:
+      type: object
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        name:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        last_heartbeat_at:
+          type: string
+          format: date-time
+        drained:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
