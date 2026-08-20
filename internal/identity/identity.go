@@ -21,6 +21,40 @@ var (
 	ErrForbidden      = errors.New("forbidden")
 )
 
+const (
+	ScopeRegistryRead  = "registry:read"
+	ScopeRegistryWrite = "registry:write"
+)
+
+func ScopeAllows(tokenScopes []string, required string) bool {
+	if len(tokenScopes) == 0 {
+		return true
+	}
+	for _, sc := range tokenScopes {
+		if sc == required {
+			return true
+		}
+		if required == ScopeRegistryRead && sc == ScopeRegistryWrite {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeScopes(scopes []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, sc := range scopes {
+		sc = strings.TrimSpace(sc)
+		if sc == "" || seen[sc] {
+			continue
+		}
+		seen[sc] = true
+		out = append(out, sc)
+	}
+	return out
+}
+
 type User struct {
 	ID          string    `json:"id"`
 	Username    string    `json:"username"`
@@ -237,7 +271,7 @@ func (s *Service) RevokeSession(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *time.Duration) (plain string, prefix string, expiresAt *time.Time, err error) {
+func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *time.Duration, scopes []string) (plain string, prefix string, expiresAt *time.Time, err error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", "", nil, fmt.Errorf("%w: name is required", ErrInvalidInput)
@@ -254,34 +288,35 @@ func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *
 		exp = t
 	}
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO api_tokens (user_id, name, token_prefix, token_hash, expires_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, userID, name, prefix, auth.HashToken(plain), exp)
+		INSERT INTO api_tokens (user_id, name, token_prefix, token_hash, expires_at, scopes)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, userID, name, prefix, auth.HashToken(plain), exp, normalizeScopes(scopes))
 	return plain, prefix, expiresAt, err
 }
 
-func (s *Service) UserFromAPIToken(ctx context.Context, token string) (User, error) {
+func (s *Service) UserFromAPIToken(ctx context.Context, token string) (User, []string, error) {
 	if token == "" {
-		return User{}, ErrUnauthorized
+		return User{}, nil, ErrUnauthorized
 	}
 	var u User
+	var scopes []string
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
+		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at, t.scopes
 		FROM api_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.token_hash = $1
 		  AND t.revoked_at IS NULL
 		  AND (t.expires_at IS NULL OR t.expires_at > now())
 		  AND u.is_active = TRUE
-	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
+	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt, &scopes)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrUnauthorized
+		return User{}, nil, ErrUnauthorized
 	}
 	if err != nil {
-		return User{}, err
+		return User{}, nil, err
 	}
 	_, _ = s.pool.Exec(ctx, `UPDATE api_tokens SET last_used_at = now() WHERE token_hash = $1`, auth.HashToken(token))
-	return u, nil
+	return u, scopes, nil
 }
 
 func isUniqueViolation(err error) bool {

@@ -115,6 +115,10 @@ func parseOCIRest(rest string) (kind, name, arg string) {
 }
 
 func (s *Server) ociRepo(w http.ResponseWriter, r *http.Request, name string, perm rbac.Permission) (projectID, repoID string, ok bool) {
+	if !registryScopeOK(r, perm) {
+		writeOCIError(w, http.StatusForbidden, "DENIED", "token missing registry scope")
+		return "", "", false
+	}
 	parts := strings.SplitN(name, "/", 3)
 	if len(parts) < 3 {
 		writeOCIError(w, http.StatusBadRequest, "NAME_INVALID", "repository name must be org/project/name")

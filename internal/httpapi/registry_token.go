@@ -3,10 +3,12 @@ package httpapi
 import (
 	"net/http"
 	"time"
+
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 )
 
 func (s *Server) handleRegistryToken(w http.ResponseWriter, r *http.Request) {
-	user, err := s.authenticate(r)
+	user, _, err := s.authenticate(r)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="shipyard-registry"`)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -20,13 +22,13 @@ func (s *Server) handleRegistryToken(w http.ResponseWriter, r *http.Request) {
 	}
 	token := ""
 	if cred != "" {
-		if _, err := s.identity.UserFromAPIToken(r.Context(), cred); err == nil {
+		if _, _, err := s.identity.UserFromAPIToken(r.Context(), cred); err == nil {
 			token = cred
 		}
 	}
 	if token == "" {
 		ttl := 12 * time.Hour
-		plain, _, _, err := s.identity.CreateAPIToken(r.Context(), user.ID, "registry", &ttl)
+		plain, _, _, err := s.identity.CreateAPIToken(r.Context(), user.ID, "registry", &ttl, []string{identity.ScopeRegistryRead, identity.ScopeRegistryWrite})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return

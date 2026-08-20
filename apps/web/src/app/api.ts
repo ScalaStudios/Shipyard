@@ -227,8 +227,8 @@ export const api = {
   login: (payload: { login: string; password: string }) =>
     request<{ user: User }>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   logout: () => request<{ status: string }>("/api/v1/auth/logout", { method: "POST", body: "{}" }),
-  createToken: (payload: { name: string; ttl?: string }) =>
-    request<{ token: string; prefix: string; expires_at?: string }>("/api/v1/me/tokens", {
+  createToken: (payload: { name: string; ttl?: string; scopes?: string[] }) =>
+    request<{ token: string; prefix: string; expires_at?: string; scopes?: string[] }>("/api/v1/me/tokens", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

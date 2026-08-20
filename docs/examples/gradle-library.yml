@@ -19,6 +19,26 @@ jobs:
     steps:
       - uses: shipyard/checkout@v1
 
+      - name: configure credentials
+        run: |
+          mkdir -p "$HOME/.gradle" "$HOME/.m2"
+          cat > "$HOME/.gradle/gradle.properties" <<EOF
+          artifactory_contextUrl=${ARTIFACTORY_URL}
+          artifactory_user=${ARTIFACTORY_USER}
+          artifactory_password=${ARTIFACTORY_PASSWORD}
+          EOF
+          cat > "$HOME/.m2/settings.xml" <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>shipyard</id>
+                <username>${ARTIFACTORY_USER}</username>
+                <password>${ARTIFACTORY_PASSWORD}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
       - name: gradle build
         run: |
           chmod +x gradlew
@@ -34,7 +54,4 @@ jobs:
             echo "artifactory credentials not set; skipping publish"
             exit 0
           fi
-          ./gradlew publish --no-daemon --build-cache \
-            -Partifactory_contextUrl="$ARTIFACTORY_URL" \
-            -Partifactory_user="$ARTIFACTORY_USER" \
-            -Partifactory_password="$ARTIFACTORY_PASSWORD"
+          ./gradlew publish --no-daemon --build-cache

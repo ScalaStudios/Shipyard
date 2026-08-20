@@ -13,14 +13,23 @@ import (
 	"strings"
 	"time"
 
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 )
 
 func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, format string, perm rbac.Permission) (repoID string, ok bool) {
-	user, err := s.authenticate(r)
+	user, scopes, err := s.authenticate(r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return "", false
+	}
+	required := identity.ScopeRegistryRead
+	if perm != rbac.PermProjectRead {
+		required = identity.ScopeRegistryWrite
+	}
+	if !identity.ScopeAllows(scopes, required) {
+		writeError(w, http.StatusForbidden, "token missing "+required+" scope")
 		return "", false
 	}
 	_, project, err := s.orgs.RequireBySlug(r.Context(), user.ID, r.PathValue("org"), r.PathValue("project"), perm)
