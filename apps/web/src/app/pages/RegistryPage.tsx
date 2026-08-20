@@ -20,7 +20,7 @@ function formatLabel(format: string): string {
 }
 
 export function RegistryPage() {
-  const { org, project, setError } = useWorkspace();
+  const { org, project, user, setError } = useWorkspace();
   const [packages, setPackages] = useState<PackageRepo[]>([]);
   const [oci, setOci] = useState<OCIRepo[]>([]);
   const [selectedPkg, setSelectedPkg] = useState<PackageRepo | null>(null);
@@ -30,6 +30,9 @@ export function RegistryPage() {
   const [pkgName, setPkgName] = useState("");
   const [pkgFormat, setPkgFormat] = useState("maven");
   const [busy, setBusy] = useState(false);
+  const [registryToken, setRegistryToken] = useState("");
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [copied, setCopied] = useState("");
 
   async function refresh() {
     if (!org || !project) {
@@ -83,10 +86,57 @@ export function RegistryPage() {
     }
   }
 
+  async function generateRegistryToken() {
+    if (!project) return;
+    setTokenBusy(true);
+    setCopied("");
+    try {
+      const res = await api.createToken({ name: `${project.slug}-registry`, scopes: ["registry:read", "registry:write"] });
+      setRegistryToken(res.token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to generate registry token");
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function copy(text: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      window.setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("clipboard unavailable — select the text and copy manually");
+    }
+  }
+
   const distinctVersions = useMemo(() => {
     const seen = new Set<string>();
     return versions.filter((v) => !seen.has(v.version) && seen.add(v.version));
   }, [versions]);
+
+  const mavenRepo = packages.find((p) => p.format === "maven")?.name ?? "<repo>";
+  const apiBase = window.location.origin;
+  const gradleBlock = `repositories {
+    maven {
+        url = uri("${apiBase}/repository/maven/${org?.slug}/${project?.slug}/${mavenRepo}")
+        credentials {
+            username = providers.gradleProperty("shipyardUser").get()
+            password = providers.gradleProperty("shipyardToken").get()
+        }
+    }
+}`;
+  const gradleProps = `shipyardUser=${user.username}
+shipyardToken=${registryToken}`;
+  const m2Settings = `<settings>
+  <servers>
+    <server>
+      <id>shipyard-${mavenRepo}</id>
+      <username>${user.username}</username>
+      <password>${registryToken}</password>
+    </server>
+  </servers>
+</settings>`;
 
   return (
     <div className={table.stack}>
@@ -213,6 +263,53 @@ export function RegistryPage() {
                 )}
               </div>
             ) : null}
+          </Panel>
+
+          <Panel
+            title="Publish & consume"
+            actions={
+              <Button variant="primary" loading={tokenBusy} onClick={() => void generateRegistryToken()}>
+                Generate registry token
+              </Button>
+            }
+          >
+            <p className={table.muted}>
+              Generate a registry token, then drop it in your global <code className="mono">~/.gradle/gradle.properties</code> and{" "}
+              <code className="mono">~/.m2/settings.xml</code> — no passwords in project files.
+            </p>
+            {registryToken ? (
+              <div className={table.stack}>
+                <div className={table.toolbar}>
+                  <strong>build.gradle.kts</strong>
+                  <Button variant="secondary" onClick={() => void copy(gradleBlock, "gradle")}>
+                    {copied === "gradle" ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <pre className="mono" style={{ overflowX: "auto" }}>
+                  {gradleBlock}
+                </pre>
+                <div className={table.toolbar}>
+                  <strong>~/.gradle/gradle.properties</strong>
+                  <Button variant="secondary" onClick={() => void copy(gradleProps, "props")}>
+                    {copied === "props" ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <pre className="mono" style={{ overflowX: "auto" }}>
+                  {gradleProps}
+                </pre>
+                <div className={table.toolbar}>
+                  <strong>~/.m2/settings.xml</strong>
+                  <Button variant="secondary" onClick={() => void copy(m2Settings, "m2")}>
+                    {copied === "m2" ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <pre className="mono" style={{ overflowX: "auto" }}>
+                  {m2Settings}
+                </pre>
+              </div>
+            ) : (
+              <EmptyState title="No token yet" description="Generate a registry token to see the global Gradle and Maven config." />
+            )}
           </Panel>
         </>
       )}

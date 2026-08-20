@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/audit"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/orgs"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 )
@@ -118,8 +119,9 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 type createTokenRequest struct {
-	Name string `json:"name"`
-	TTL  string `json:"ttl"`
+	Name   string   `json:"name"`
+	TTL    string   `json:"ttl"`
+	Scopes []string `json:"scopes"`
 }
 
 func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
@@ -138,13 +140,19 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		}
 		ttl = &d
 	}
-	plain, prefix, expires, err := s.identity.CreateAPIToken(r.Context(), user.ID, req.Name, ttl)
+	for _, sc := range req.Scopes {
+		if sc != identity.ScopeRegistryRead && sc != identity.ScopeRegistryWrite {
+			writeError(w, http.StatusBadRequest, "unknown scope: "+sc)
+			return
+		}
+	}
+	plain, prefix, expires, err := s.identity.CreateAPIToken(r.Context(), user.ID, req.Name, ttl, req.Scopes)
 	if err != nil {
 		mapIdentityError(w, err)
 		return
 	}
-	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "token.created", ResourceType: "api_token", ResourceID: prefix, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"name": req.Name}})
-	writeJSON(w, http.StatusCreated, map[string]any{"token": plain, "prefix": prefix, "expires_at": expires})
+	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "token.created", ResourceType: "api_token", ResourceID: prefix, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"name": req.Name, "scopes": req.Scopes}})
+	writeJSON(w, http.StatusCreated, map[string]any{"token": plain, "prefix": prefix, "expires_at": expires, "scopes": req.Scopes})
 }
 
 func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
