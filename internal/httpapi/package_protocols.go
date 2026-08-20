@@ -21,6 +21,7 @@ import (
 func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, format string, perm rbac.Permission) (repoID string, ok bool) {
 	user, scopes, err := s.authenticate(r)
 	if err != nil {
+		w.Header().Set("WWW-Authenticate", `Basic realm="shipyard-registry"`)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return "", false
 	}
