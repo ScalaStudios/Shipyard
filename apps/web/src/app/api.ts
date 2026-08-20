@@ -133,9 +133,12 @@ export type PackageRepo = {
 
 export type PackageVersion = {
   id: string;
+  repository_id?: string;
+  name?: string;
   version: string;
   filename?: string;
   digest?: string;
+  size_bytes?: number;
   created_at?: string;
 };
 

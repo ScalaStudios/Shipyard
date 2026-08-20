@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { CodeBlock } from "../components/CodeBlock";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { PackageBrowser } from "../components/PackageBrowser";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OCIRepo, PackageRepo, PackageVersion } from "../api";
@@ -26,6 +27,7 @@ export function RegistryPage() {
   const [oci, setOci] = useState<OCIRepo[]>([]);
   const [selectedPkg, setSelectedPkg] = useState<PackageRepo | null>(null);
   const [versions, setVersions] = useState<PackageVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
   const [selectedOci, setSelectedOci] = useState<OCIRepo | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [pkgName, setPkgName] = useState("");
@@ -53,11 +55,15 @@ export function RegistryPage() {
   async function openPackage(repo: PackageRepo) {
     if (!org || !project) return;
     setSelectedPkg(repo);
+    setVersions([]);
+    setVersionsLoading(true);
     try {
       const res = await api.listPackageVersions(org.id, project.id, repo.id);
       setVersions(res.versions ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load package versions");
+    } finally {
+      setVersionsLoading(false);
     }
   }
 
@@ -110,11 +116,6 @@ export function RegistryPage() {
       setError("clipboard unavailable — select the text and copy manually");
     }
   }
-
-  const distinctVersions = useMemo(() => {
-    const seen = new Set<string>();
-    return versions.filter((v) => !seen.has(v.version) && seen.add(v.version));
-  }, [versions]);
 
   const mavenRepo = packages.find((p) => p.format === "maven")?.name ?? "<repo>";
   const apiBase = window.location.origin;
@@ -198,7 +199,7 @@ shipyardToken=${registryToken}`;
                       <td className="mono">{formatLabel(p.format)}</td>
                       <td>
                         <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
-                          Versions
+                          Browse
                         </button>
                       </td>
                     </tr>
@@ -207,18 +208,24 @@ shipyardToken=${registryToken}`;
               </DataTable>
             )}
             {selectedPkg ? (
-              <div className={table.toolbar}>
-                <strong>{selectedPkg.name}</strong>
-                <span className={table.muted}>{distinctVersions.length} versions</span>
-                {distinctVersions.map((v) => (
-                  <span key={v.id} className="mono">
-                    {v.version}
-                  </span>
-                ))}
-                {distinctVersions.length === 0 ? (
-                  <span className={table.muted}>No versions published yet.</span>
-                ) : null}
-              </div>
+              <>
+                <div className={table.toolbar}>
+                  <strong>{selectedPkg.name}</strong>
+                  <span className={table.muted}>{formatLabel(selectedPkg.format)}</span>
+                </div>
+                {versionsLoading ? (
+                  <EmptyState title="Loading artifacts…" />
+                ) : (
+                  <PackageBrowser
+                    key={selectedPkg.id}
+                    orgSlug={org.slug}
+                    projectSlug={project.slug}
+                    repoName={selectedPkg.name}
+                    format={selectedPkg.format}
+                    versions={versions}
+                  />
+                )}
+              </>
             ) : null}
           </Panel>
 
