@@ -2,9 +2,11 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,8 +54,11 @@ func (s *Service) AcquireLease(ctx context.Context, name string, ttl time.Durati
 		return false, 0, tx.Commit(ctx)
 	}
 
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, 0, err
+	}
 	next := token + 1
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		next = 1
 	}
 	_, err = tx.Exec(ctx, `

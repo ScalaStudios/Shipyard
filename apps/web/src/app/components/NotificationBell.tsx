@@ -78,7 +78,10 @@ export function NotificationBell() {
                     to={n.href || "/settings/notifications"}
                     className={styles.item}
                     onClick={() => {
-                      void api.markNotificationRead(n.id);
+                      void api
+                        .markNotificationRead(n.id)
+                        .then(() => refresh())
+                        .catch(() => undefined);
                       setOpen(false);
                     }}
                   >

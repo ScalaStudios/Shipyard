@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"io"
+	"mime"
 	"net/http"
 	"strconv"
 
@@ -60,13 +61,15 @@ func (s *Server) handleDownloadArtifact(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", a.ContentType)
 	w.Header().Set("Digest", a.Digest)
 	w.Header().Set("Content-Length", strconv.FormatInt(a.SizeBytes, 10))
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": a.Name}))
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, rc)
 }
 
 type envRequest struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	Slug               string `json:"slug"`
+	Name               string `json:"name"`
+	DeployPipelineSlug string `json:"deploy_pipeline_slug"`
 }
 
 func (s *Server) handleListEnvironments(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +98,7 @@ func (s *Server) handleCreateEnvironment(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	env, err := s.releases.CreateEnvironment(r.Context(), project.ID, req.Slug, req.Name)
+	env, err := s.releases.CreateEnvironment(r.Context(), project.ID, req.Slug, req.Name, req.DeployPipelineSlug)
 	if err != nil {
 		mapIdentityError(w, err)
 		return
@@ -167,7 +170,7 @@ func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) {
-	_, project, ok := s.projectAccess(w, r, rbac.PermProjectUpdate)
+	org, project, ok := s.projectAccess(w, r, rbac.PermProjectUpdate)
 	if !ok {
 		return
 	}
@@ -176,11 +179,32 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	dep, err := s.releases.CreateDeployment(r.Context(), project.ID, req.EnvironmentID, req.ReleaseID, currentUser(r).ID)
+	dep, slug, err := s.releases.CreateDeployment(r.Context(), project.ID, req.EnvironmentID, req.ReleaseID, currentUser(r).ID)
 	if err != nil {
 		mapIdentityError(w, err)
 		return
 	}
+	if slug == "" {
+		writeJSON(w, http.StatusCreated, map[string]any{"deployment": dep})
+		return
+	}
+	def, err := s.pipelines.GetDefinitionBySlug(r.Context(), project.ID, slug)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "environment deploy pipeline not found")
+		return
+	}
+	run, err := s.pipelines.StartRun(r.Context(), org.ID, project.ID, def.ID, currentUser(r).ID, "deployment", "", "")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	_ = s.pipelines.AdvanceRunGraph(r.Context(), run.ID)
+	if err := s.releases.AttachDeploymentRun(r.Context(), dep.ID, run.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	dep.RunID = run.ID
+	dep.Status = "running"
 	writeJSON(w, http.StatusCreated, map[string]any{"deployment": dep})
 }
 
@@ -224,10 +248,16 @@ func (s *Server) handleCreatePackageRepo(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleListPackageVersions(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := s.projectAccess(w, r, rbac.PermProjectRead); !ok {
+	_, project, ok := s.projectAccess(w, r, rbac.PermProjectRead)
+	if !ok {
 		return
 	}
-	list, err := s.packages.ListVersions(r.Context(), r.PathValue("repoID"))
+	repo, err := s.packages.GetRepository(r.Context(), project.ID, r.PathValue("repoID"))
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	list, err := s.packages.ListVersions(r.Context(), repo.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -239,7 +269,13 @@ func (s *Server) handleListPackageVersions(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) handlePublishPackage(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := s.projectAccess(w, r, rbac.PermProjectUpdate); !ok {
+	_, project, ok := s.projectAccess(w, r, rbac.PermProjectUpdate)
+	if !ok {
+		return
+	}
+	repo, err := s.packages.GetRepository(r.Context(), project.ID, r.PathValue("repoID"))
+	if err != nil {
+		mapIdentityError(w, err)
 		return
 	}
 	name := r.URL.Query().Get("name")
@@ -248,7 +284,7 @@ func (s *Server) handlePublishPackage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		size = -1
 	}
-	v, err := s.packages.Publish(r.Context(), r.PathValue("repoID"), name, version, r.Body, size)
+	v, err := s.packages.Publish(r.Context(), repo.ID, name, version, "", r.Body, size, nil)
 	if err != nil {
 		mapIdentityError(w, err)
 		return

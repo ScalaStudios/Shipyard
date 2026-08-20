@@ -10,7 +10,7 @@ import { formatTime, isRunnerAlive, runStatus } from "../lib/format";
 import onboarding from "./OnboardingPage.module.css";
 
 export function OverviewPage() {
-  const { org, project } = useWorkspace();
+  const { org, project, user, setError } = useWorkspace();
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [runners, setRunners] = useState<Runner[]>([]);
   const [runs, setRuns] = useState<PipelineRun[]>([]);
@@ -38,11 +38,12 @@ export function OverviewPage() {
         setInfo(sys);
         setRunners(runnerRes.runners ?? []);
         setRuns(runRes.runs ?? []);
-      } catch {
+      } catch (err) {
         if (!cancelled) {
           setInfo(null);
           setRunners([]);
           setRuns([]);
+          setError(err instanceof Error ? err.message : "failed to load overview");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -55,12 +56,12 @@ export function OverviewPage() {
 
   const online = runners.filter((r) => isRunnerAlive(r)).length;
   const failed = runs.filter((r) => r.status === "failed").length;
-  const running = runs.filter((r) => r.status === "running" || r.status === "queued").length;
-  const attention = runs.filter((r) => r.status === "failed" || r.status === "cancelled").slice(0, 8);
+  const running = runs.filter((r) => r.status === "running" || r.status === "queued" || r.status === "pending").length;
+  const attention = runs.filter((r) => r.status === "failed" || r.status === "canceled").slice(0, 8);
 
   return (
     <div className={table.stack}>
-      {setup && !setup.complete ? (
+      {user.is_admin && setup && !setup.complete ? (
         <div className={onboarding.banner}>
           <span className={onboarding.bannerCopy}>
             {setup.remaining} setup {setup.remaining === 1 ? "step" : "steps"} left before this instance can ship anything.

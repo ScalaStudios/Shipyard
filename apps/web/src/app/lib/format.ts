@@ -11,7 +11,6 @@ export function heartbeatAgeMs(iso?: string, now = Date.now()): number | null {
 }
 
 export function isRunnerAlive(runner: Runner, now = Date.now()): boolean {
-  if (runner.status === "offline") return false;
   const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
   if (age == null) return false;
   return age <= ALIVE_MS;
@@ -24,18 +23,24 @@ export function runStatus(status: string): Status {
     case "created":
     case "online":
     case "ready":
+    case "idle":
+    case "busy":
       return "success";
     case "failed":
-    case "cancelled":
     case "offline":
       return "danger";
     case "running":
     case "queued":
     case "pending":
     case "leasing":
+    case "leased":
       return "info";
     case "warning":
     case "drained":
+    case "draining":
+    case "canceled":
+    case "cancelled":
+    case "skipped":
     case "skipped_exists":
       return "warning";
     default:

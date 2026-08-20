@@ -58,7 +58,7 @@ func (s *Server) handleSetInstanceAdmin(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "you cannot remove your own admin access")
 		return
 	}
-	tag, err := s.pool.Exec(r.Context(), `UPDATE users SET is_admin = $2 WHERE id = $1`, target, req.IsAdmin)
+	tag, err := s.pool.Exec(r.Context(), `UPDATE users SET is_admin = $2 WHERE id::text = $1`, target, req.IsAdmin)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -120,7 +120,7 @@ type authProviderRequest struct {
 	ClientSecret string   `json:"client_secret"`
 	RedirectURL  string   `json:"redirect_url"`
 	Scopes       []string `json:"scopes"`
-	Enabled      bool     `json:"enabled"`
+	Enabled      *bool    `json:"enabled"`
 }
 
 func (s *Server) handleUpsertAuthProvider(w http.ResponseWriter, r *http.Request) {
@@ -138,8 +138,7 @@ func (s *Server) handleUpsertAuthProvider(w http.ResponseWriter, r *http.Request
 		ClientSecret: req.ClientSecret,
 		RedirectURL:  req.RedirectURL,
 		Scopes:       req.Scopes,
-		Enabled:      req.Enabled,
-	}, currentUser(r).ID)
+	}, req.Enabled, currentUser(r).ID)
 	if err != nil {
 		mapIdentityError(w, err)
 		return

@@ -130,7 +130,7 @@ func loadOIDCProviders(cfg Config) []oidc.ProviderConfig {
 		out = append(out, oidc.ProviderConfig{
 			Name:         "forgejo",
 			Kind:         oidc.KindForgejo,
-			Issuer:       envOr("SHIPYARD_OIDC_FORGEJO_ISSUER", "https://git.lunarlabs.dev"),
+			Issuer:       os.Getenv("SHIPYARD_OIDC_FORGEJO_ISSUER"),
 			ClientID:     id,
 			ClientSecret: os.Getenv("SHIPYARD_OIDC_FORGEJO_CLIENT_SECRET"),
 			RedirectURL:  envOr("SHIPYARD_OIDC_FORGEJO_REDIRECT_URL", baseRedirect+"/forgejo/callback"),
@@ -187,7 +187,7 @@ func loadForgeOAuthProviders(cfg Config) []oidc.ProviderConfig {
 		out = append(out, oidc.ProviderConfig{
 			Name:         "forgejo",
 			Kind:         oidc.KindForgejo,
-			Issuer:       envOr("SHIPYARD_FORGE_OAUTH_FORGEJO_ISSUER", "https://git.lunarlabs.dev"),
+			Issuer:       os.Getenv("SHIPYARD_FORGE_OAUTH_FORGEJO_ISSUER"),
 			ClientID:     id,
 			ClientSecret: os.Getenv("SHIPYARD_FORGE_OAUTH_FORGEJO_CLIENT_SECRET"),
 			RedirectURL:  envOr("SHIPYARD_FORGE_OAUTH_FORGEJO_REDIRECT_URL", base+"/forgejo/callback"),

@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,8 @@ const (
 )
 
 var SecretKeys = map[string]bool{KeyWebhookSecret: true}
+
+var settingKeyPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9_.]{0,78}[a-z0-9])?$`)
 
 type Provider struct {
 	ID           string    `json:"id"`
@@ -183,6 +186,10 @@ func (s *Service) Set(ctx context.Context, key, value string, isSecret bool, act
 	if key == "" {
 		return fmt.Errorf("%w: key required", identity.ErrInvalidInput)
 	}
+	if !settingKeyPattern.MatchString(key) {
+		return fmt.Errorf("%w: invalid key", identity.ErrInvalidInput)
+	}
+	isSecret = isSecret || SecretKeys[key]
 	stored := value
 	if isSecret {
 		sealed, err := s.secrets.SealString(value)
@@ -229,7 +236,7 @@ func (s *Service) ListProviders(ctx context.Context, purpose string) ([]Provider
 	return out, rows.Err()
 }
 
-func (s *Service) UpsertProvider(ctx context.Context, p Provider, actorID string) (Provider, error) {
+func (s *Service) UpsertProvider(ctx context.Context, p Provider, enabled *bool, actorID string) (Provider, error) {
 	p.Purpose = strings.ToLower(strings.TrimSpace(p.Purpose))
 	if p.Purpose != PurposeLogin && p.Purpose != PurposeForge {
 		return Provider{}, fmt.Errorf("%w: purpose must be login or forge", identity.ErrInvalidInput)
@@ -254,7 +261,7 @@ func (s *Service) UpsertProvider(ctx context.Context, p Provider, actorID string
 	var out Provider
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO auth_providers (purpose, name, kind, issuer, client_id, client_secret, redirect_url, scopes, enabled, updated_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,'')::uuid)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9, TRUE),NULLIF($10,'')::uuid)
 		ON CONFLICT (purpose, name) DO UPDATE SET
 			kind = EXCLUDED.kind,
 			issuer = EXCLUDED.issuer,
@@ -262,12 +269,12 @@ func (s *Service) UpsertProvider(ctx context.Context, p Provider, actorID string
 			client_secret = CASE WHEN EXCLUDED.client_secret = '' THEN auth_providers.client_secret ELSE EXCLUDED.client_secret END,
 			redirect_url = EXCLUDED.redirect_url,
 			scopes = EXCLUDED.scopes,
-			enabled = EXCLUDED.enabled,
+			enabled = COALESCE($9, auth_providers.enabled),
 			updated_by = EXCLUDED.updated_by,
 			updated_at = now()
 		RETURNING id, purpose, name, kind, issuer, client_id, client_secret <> '', redirect_url, scopes, enabled, updated_at
 	`, p.Purpose, p.Name, strings.ToLower(strings.TrimSpace(p.Kind)), strings.TrimRight(strings.TrimSpace(p.Issuer), "/"),
-		strings.TrimSpace(p.ClientID), sealed, strings.TrimSpace(p.RedirectURL), normalizeScopes(p.Scopes), p.Enabled, actorID,
+		strings.TrimSpace(p.ClientID), sealed, strings.TrimSpace(p.RedirectURL), normalizeScopes(p.Scopes), enabled, actorID,
 	).Scan(&out.ID, &out.Purpose, &out.Name, &out.Kind, &out.Issuer, &out.ClientID, &out.HasSecret,
 		&out.RedirectURL, &out.Scopes, &out.Enabled, &out.UpdatedAt)
 	if err != nil {

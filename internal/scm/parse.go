@@ -166,7 +166,7 @@ func parseGitHubFamily(out ParsedEvent, raw map[string]any, eventType string) Pa
 		}
 		out.Title = stringField(pr, "title")
 		action := out.Action
-		out.ShouldBuild = action == "" || action == "opened" || action == "synchronize" || action == "reopened" || action == "edited"
+		out.ShouldBuild = action == "" || action == "opened" || action == "synchronize" || action == "synchronized" || action == "reopened"
 		if action == "closed" || action == "labeled" || action == "unlabeled" || action == "assigned" {
 			out.ShouldBuild = false
 			out.IgnoreReason = "pull_request action " + action
@@ -199,7 +199,7 @@ func parseGitLab(out ParsedEvent, raw map[string]any) ParsedEvent {
 		if out.GitSHA == "" {
 			out.GitSHA = stringField(raw, "after")
 		}
-		out.ShouldBuild = out.GitSHA != ""
+		out.ShouldBuild = out.GitSHA != "" && out.GitSHA != strings.Repeat("0", 40)
 		out.Title = "push " + out.GitRef
 	case "merge_request":
 		attrs, _ := raw["object_attributes"].(map[string]any)

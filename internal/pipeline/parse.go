@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -126,5 +127,61 @@ func (j JobSpec) Labels() []string {
 	if len(labels) == 0 {
 		labels = []string{"linux"}
 	}
+	for i, l := range labels {
+		labels[i] = strings.ToLower(l)
+	}
 	return labels
+}
+
+func (d Document) Matches(eventType, gitRef string) bool {
+	if len(d.On) == 0 {
+		return true
+	}
+	switch eventType {
+	case "push":
+		raw, ok := d.On["push"]
+		if !ok {
+			return false
+		}
+		spec, ok := raw.(map[string]any)
+		if !ok {
+			return true
+		}
+		patterns, ok := spec["branches"].([]any)
+		if !ok {
+			return true
+		}
+		branch := strings.TrimPrefix(gitRef, "refs/heads/")
+		if branch == gitRef {
+			return false
+		}
+		for _, p := range patterns {
+			pattern, ok := p.(string)
+			if !ok {
+				continue
+			}
+			if matchBranch(pattern, branch) {
+				return true
+			}
+		}
+		return false
+	case "pull_request", "pull_request_sync", "merge_request":
+		if _, ok := d.On["pull_request"]; ok {
+			return true
+		}
+		_, ok := d.On["merge_request"]
+		return ok
+	}
+	return true
+}
+
+func matchBranch(pattern, branch string) bool {
+	if pattern == branch || pattern == "**" {
+		return true
+	}
+	if strings.HasSuffix(pattern, "/**") && strings.HasPrefix(branch, strings.TrimSuffix(pattern, "**")) {
+		return true
+	}
+	ok, err := path.Match(pattern, branch)
+	return err == nil && ok
 }

@@ -30,7 +30,7 @@ type ProviderInfo struct {
 var Catalog = []ProviderInfo{
 	{ID: ProviderGitHub, Label: "GitHub", DefaultURL: "https://api.github.com", Family: "github", Description: "GitHub.com or GitHub Enterprise"},
 	{ID: ProviderGitea, Label: "Gitea", DefaultURL: "", Family: "gitea", Description: "Self-hosted Gitea"},
-	{ID: ProviderForgejo, Label: "Forgejo", DefaultURL: "https://git.lunarlabs.dev", Family: "gitea", Description: "Forgejo / Codeberg-compatible"},
+	{ID: ProviderForgejo, Label: "Forgejo", DefaultURL: "", Family: "gitea", Description: "Forgejo / Codeberg-compatible"},
 	{ID: ProviderGitLab, Label: "GitLab", DefaultURL: "https://gitlab.com", Family: "gitlab", Description: "GitLab.com or self-hosted"},
 	{ID: ProviderGogs, Label: "Gogs", DefaultURL: "", Family: "gitea", Description: "Gogs (Gitea-like API)"},
 	{ID: ProviderOneDev, Label: "OneDev", DefaultURL: "", Family: "generic", Description: "OneDev (webhook + generic status)"},

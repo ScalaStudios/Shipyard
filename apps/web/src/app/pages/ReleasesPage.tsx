@@ -54,8 +54,8 @@ export function ReleasesPage() {
           meta={<StatusBadge status="info">{releases.length}</StatusBadge>}
           actions={
             <form className={table.formRow} onSubmit={createRelease}>
-              <input className={table.input} placeholder="version" value={version} onChange={(e) => setVersion(e.target.value)} required />
-              <input className={table.input} placeholder="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className={table.input} placeholder="version" value={version} onChange={(e) => setVersion(e.target.value)} required aria-label="Version" />
+              <input className={table.input} placeholder="title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
               <Button type="submit" variant="primary" loading={busy}>
                 Create release
               </Button>

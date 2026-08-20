@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -34,7 +35,7 @@ func registerGiteaHook(ctx context.Context, cred ForgeCredential, owner, repo, h
 		"active": true,
 	}
 	body, _ := json.Marshal(payload)
-	endpoint := forgeAPIBase(cred) + "/repos/" + owner + "/" + repo + "/hooks"
+	endpoint := forgeAPIBase(cred) + "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/hooks"
 	return postJSON(ctx, endpoint, cred.AccessToken, body)
 }
 
@@ -51,7 +52,7 @@ func registerGitHubHook(ctx context.Context, cred ForgeCredential, owner, repo, 
 		},
 	}
 	body, _ := json.Marshal(payload)
-	endpoint := forgeAPIBase(cred) + "/repos/" + owner + "/" + repo + "/hooks"
+	endpoint := forgeAPIBase(cred) + "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/hooks"
 	return postJSON(ctx, endpoint, cred.AccessToken, body)
 }
 
@@ -63,7 +64,7 @@ func postJSON(ctx context.Context, endpoint, token string, body []byte) error {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := forgeClient.Do(req)
 	if err != nil {
 		return err
 	}

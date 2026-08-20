@@ -166,18 +166,18 @@ export function IntegrationsSettingsPage() {
                     </option>
                   ))}
                 </select>
-                <input className={table.input} placeholder="connection name" value={name} onChange={(e) => setName(e.target.value)} required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" />
-                <input className={table.input} placeholder="base URL" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} required />
+                <input className={table.input} placeholder="connection name" value={name} onChange={(e) => setName(e.target.value)} required pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?" aria-label="Connection name" />
+                <input className={table.input} placeholder="base URL" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} required aria-label="Base URL" />
               </div>
               <div className={table.formRow}>
-                <input className={table.input} placeholder="owner / group" value={repoOwner} onChange={(e) => setRepoOwner(e.target.value)} required />
-                <input className={table.input} placeholder="repository" value={repoName} onChange={(e) => setRepoName(e.target.value)} required />
-                <input className={table.input} placeholder="pipeline slug (optional)" value={pipelineSlug} onChange={(e) => setPipelineSlug(e.target.value)} />
+                <input className={table.input} placeholder="owner / group" value={repoOwner} onChange={(e) => setRepoOwner(e.target.value)} required aria-label="Repository owner or group" />
+                <input className={table.input} placeholder="repository" value={repoName} onChange={(e) => setRepoName(e.target.value)} required aria-label="Repository" />
+                <input className={table.input} placeholder="pipeline slug (optional)" value={pipelineSlug} onChange={(e) => setPipelineSlug(e.target.value)} aria-label="Pipeline slug" />
               </div>
               <div className={table.formRow}>
-                <input className={table.input} type="password" placeholder="bot access token" value={token} onChange={(e) => setToken(e.target.value)} />
-                <input className={table.input} type="password" placeholder="webhook secret" value={secret} onChange={(e) => setSecret(e.target.value)} />
-                <input className={table.input} placeholder="bot display name" value={bot} onChange={(e) => setBot(e.target.value)} />
+                <input className={table.input} type="password" placeholder="bot access token" value={token} onChange={(e) => setToken(e.target.value)} aria-label="Bot access token" />
+                <input className={table.input} type="password" placeholder="webhook secret" value={secret} onChange={(e) => setSecret(e.target.value)} aria-label="Webhook secret" />
+                <input className={table.input} placeholder="bot display name" value={bot} onChange={(e) => setBot(e.target.value)} aria-label="Bot display name" />
                 <Button type="submit" variant="primary" loading={busy}>
                   Connect
                 </Button>

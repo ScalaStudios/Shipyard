@@ -40,6 +40,21 @@ func (s *Server) apiBaseURL(r *http.Request) string {
 	return "http://127.0.0.1:8080"
 }
 
+func (s *Server) requireRunnerScope(w http.ResponseWriter, r *http.Request, orgID string) bool {
+	if orgID == "" {
+		if !currentUser(r).IsAdmin {
+			writeError(w, http.StatusForbidden, "organization_id required")
+			return false
+		}
+		return true
+	}
+	if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, orgID, rbac.PermOrgUpdate); err != nil {
+		mapIdentityError(w, err)
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleCreateRunnerInstall(w http.ResponseWriter, r *http.Request) {
 	var req runnerInstallRequest
 	_ = decodeJSON(r, &req)
@@ -49,11 +64,8 @@ func (s *Server) handleCreateRunnerInstall(w http.ResponseWriter, r *http.Reques
 			ttl = d
 		}
 	}
-	if req.OrganizationID != "" {
-		if _, _, err := s.orgs.Require(r.Context(), currentUser(r).ID, req.OrganizationID, rbac.PermOrgUpdate); err != nil {
-			mapIdentityError(w, err)
-			return
-		}
+	if !s.requireRunnerScope(w, r, req.OrganizationID) {
+		return
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -62,6 +74,10 @@ func (s *Server) handleCreateRunnerInstall(w http.ResponseWriter, r *http.Reques
 	labels := strings.TrimSpace(req.Labels)
 	if labels == "" {
 		labels = "linux"
+	}
+	if !safeInstallParam(name) || !safeInstallParam(labels) {
+		writeError(w, http.StatusBadRequest, "invalid characters")
+		return
 	}
 
 	token, expires, err := s.runners.CreateRegistrationToken(r.Context(), req.OrganizationID, currentUser(r).ID, ttl)
@@ -121,11 +137,27 @@ func (s *Server) handleRunnerInstallScript(w http.ResponseWriter, r *http.Reques
 		labels = "linux"
 	}
 	method := r.URL.Query().Get("method") // docker|binary|auto
+	if !safeInstallParam(apiURL) || !safeInstallParam(name) || !safeInstallParam(labels) || !safeInstallParam(method) {
+		http.Error(w, "invalid characters", http.StatusBadRequest)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 	w.Header().Set("Content-Disposition", `inline; filename="shipyard-runner-install.sh"`)
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write([]byte(renderRunnerInstallScript(apiURL, token, name, labels, method)))
+}
+
+func safeInstallParam(v string) bool {
+	for _, c := range v {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '.', c == '_', c == ':', c == '/', c == ',', c == '@', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func runnerDockerCommand(apiURL, token, name, labels string) string {
@@ -205,7 +237,7 @@ install_docker() {
 }
 
 install_binary() {
-  have go || die "Go toolchain not found (install Go 1.22+ or use Docker)"
+  have go || die "Go toolchain not found (install Go 1.25+ or use Docker)"
   log "Installing shipyard-runner with go install"
   GOBIN="$BIN_DIR" go install git.lunarlabs.dev/Shipyard/shipyard/cmd/shipyard-runner@master
   export PATH="$BIN_DIR:$PATH"

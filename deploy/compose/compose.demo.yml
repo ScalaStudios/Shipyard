@@ -58,6 +58,7 @@ services:
       SHIPYARD_URL: http://shipyard-server:8080
       SHIPYARD_RUNNER_NAME: demo-runner-1
       SHIPYARD_RUNNER_LABELS: linux,demo
+      SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
     volumes:
       - demo_shared:/shared
     entrypoint: ["bash", "-lc"]
@@ -71,6 +72,12 @@ services:
     restart: unless-stopped
     depends_on:
       - shipyard-server
+      - buildkitd
+
+  buildkitd:
+    image: moby/buildkit:v0.16.0
+    privileged: true
+    command: ["--addr", "tcp://0.0.0.0:1234"]
 
   seed:
     image: alpine:3

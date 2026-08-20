@@ -100,6 +100,21 @@ func (s *FilesystemStore) Get(ctx context.Context, digest string) (io.ReadCloser
 	return f, BlobInfo{Digest: digest, Size: st.Size()}, nil
 }
 
+func (s *FilesystemStore) Stat(ctx context.Context, digest string) (BlobInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return BlobInfo{}, err
+	}
+	path, err := s.pathFor(digest)
+	if err != nil {
+		return BlobInfo{}, err
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return BlobInfo{}, err
+	}
+	return BlobInfo{Digest: digest, Size: st.Size()}, nil
+}
+
 func (s *FilesystemStore) Exists(ctx context.Context, digest string) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err

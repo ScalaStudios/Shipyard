@@ -9,7 +9,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
+
+var forgeClient = &http.Client{Timeout: 30 * time.Second}
 
 type RemoteOrg struct {
 	Login       string `json:"login"`
@@ -93,7 +96,7 @@ func doJSON(ctx context.Context, method, endpoint, token string, out any) error 
 	if strings.Contains(endpoint, "api.github.com") || strings.Contains(endpoint, "/api/v3/") {
 		req.Header.Set("Accept", "application/vnd.github+json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := forgeClient.Do(req)
 	if err != nil {
 		return err
 	}

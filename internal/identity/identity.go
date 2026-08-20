@@ -21,6 +21,40 @@ var (
 	ErrForbidden      = errors.New("forbidden")
 )
 
+const (
+	ScopeRegistryRead  = "registry:read"
+	ScopeRegistryWrite = "registry:write"
+)
+
+func ScopeAllows(tokenScopes []string, required string) bool {
+	if len(tokenScopes) == 0 {
+		return true
+	}
+	for _, sc := range tokenScopes {
+		if sc == required {
+			return true
+		}
+		if required == ScopeRegistryRead && sc == ScopeRegistryWrite {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeScopes(scopes []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, sc := range scopes {
+		sc = strings.TrimSpace(sc)
+		if sc == "" || seen[sc] {
+			continue
+		}
+		seen[sc] = true
+		out = append(out, sc)
+	}
+	return out
+}
+
 type User struct {
 	ID          string    `json:"id"`
 	Username    string    `json:"username"`
@@ -132,17 +166,68 @@ func (s *Service) FindUser(ctx context.Context, login string) (User, error) {
 	return u, err
 }
 
-func (s *Service) EnsureOIDCUser(ctx context.Context, username, email, displayName string) (User, error) {
+func (s *Service) EnsureOIDCUser(ctx context.Context, provider, subject, username, email, displayName string, emailVerified bool) (User, error) {
+	if subject != "" {
+		var u User
+		err := s.pool.QueryRow(ctx, `
+			SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
+			FROM user_identities i
+			JOIN users u ON u.id = i.user_id
+			WHERE i.provider = $1 AND i.subject = $2 AND u.is_active
+		`, provider, subject).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
+		if err == nil {
+			return u, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return User{}, err
+		}
+	}
+
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return User{}, fmt.Errorf("%w: username and email are required", ErrInvalidInput)
+	}
+
 	if existing, err := s.GetUserByEmail(ctx, email); err == nil {
+		if !emailVerified {
+			return User{}, fmt.Errorf("%w: this email is already registered; sign in with your password or a verified provider", ErrForbidden)
+		}
+		if subject != "" {
+			if err := s.linkIdentity(ctx, existing.ID, provider, subject); err != nil {
+				return User{}, err
+			}
+		}
 		return existing, nil
 	} else if !errors.Is(err, ErrNotFound) {
 		return User{}, err
+	}
+
+	if !emailVerified {
+		return User{}, fmt.Errorf("%w: your identity provider did not confirm your email address", ErrForbidden)
 	}
 	password, err := auth.NewToken(24)
 	if err != nil {
 		return User{}, err
 	}
-	return s.CreateUser(ctx, username, email, displayName, password)
+	u, err := s.CreateUser(ctx, username, email, displayName, password)
+	if err != nil {
+		return User{}, err
+	}
+	if subject != "" {
+		if err := s.linkIdentity(ctx, u.ID, provider, subject); err != nil {
+			return User{}, err
+		}
+	}
+	return u, nil
+}
+
+func (s *Service) linkIdentity(ctx context.Context, userID, provider, subject string) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO user_identities (user_id, provider, subject)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (provider, subject) DO NOTHING
+	`, userID, provider, subject)
+	return err
 }
 
 func (s *Service) CreateSession(ctx context.Context, userID string, ttl time.Duration) (token string, expiresAt time.Time, err error) {
@@ -186,7 +271,7 @@ func (s *Service) RevokeSession(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *time.Duration) (plain string, prefix string, expiresAt *time.Time, err error) {
+func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *time.Duration, scopes []string) (plain string, prefix string, expiresAt *time.Time, err error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", "", nil, fmt.Errorf("%w: name is required", ErrInvalidInput)
@@ -203,34 +288,35 @@ func (s *Service) CreateAPIToken(ctx context.Context, userID, name string, ttl *
 		exp = t
 	}
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO api_tokens (user_id, name, token_prefix, token_hash, expires_at)
-		VALUES ($1, $2, $3, $4, $5)
-	`, userID, name, prefix, auth.HashToken(plain), exp)
+		INSERT INTO api_tokens (user_id, name, token_prefix, token_hash, expires_at, scopes)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, userID, name, prefix, auth.HashToken(plain), exp, normalizeScopes(scopes))
 	return plain, prefix, expiresAt, err
 }
 
-func (s *Service) UserFromAPIToken(ctx context.Context, token string) (User, error) {
+func (s *Service) UserFromAPIToken(ctx context.Context, token string) (User, []string, error) {
 	if token == "" {
-		return User{}, ErrUnauthorized
+		return User{}, nil, ErrUnauthorized
 	}
 	var u User
+	var scopes []string
 	err := s.pool.QueryRow(ctx, `
-		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at
+		SELECT u.id, u.username, u.email, u.display_name, u.is_active, u.is_admin, u.created_at, t.scopes
 		FROM api_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.token_hash = $1
 		  AND t.revoked_at IS NULL
 		  AND (t.expires_at IS NULL OR t.expires_at > now())
 		  AND u.is_active = TRUE
-	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt)
+	`, auth.HashToken(token)).Scan(&u.ID, &u.Username, &u.Email, &u.DisplayName, &u.IsActive, &u.IsAdmin, &u.CreatedAt, &scopes)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrUnauthorized
+		return User{}, nil, ErrUnauthorized
 	}
 	if err != nil {
-		return User{}, err
+		return User{}, nil, err
 	}
 	_, _ = s.pool.Exec(ctx, `UPDATE api_tokens SET last_used_at = now() WHERE token_hash = $1`, auth.HashToken(token))
-	return u, nil
+	return u, scopes, nil
 }
 
 func isUniqueViolation(err error) bool {

@@ -12,6 +12,7 @@ import (
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/auth"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/runners"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/secrets"
 )
@@ -23,28 +24,39 @@ type ctxKey int
 const (
 	userKey   ctxKey = 1
 	runnerKey ctxKey = 2
+	scopesKey ctxKey = 3
 )
 
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, err := s.authenticate(r)
+		user, scopes, err := s.authenticate(r)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
+		if len(scopes) > 0 {
+			writeError(w, http.StatusForbidden, "this token is scoped to the package registry")
+			return
+		}
+		ctx := context.WithValue(r.Context(), userKey, user)
+		ctx = context.WithValue(ctx, scopesKey, scopes)
+		next(w, r.WithContext(ctx))
 	}
 }
 
 func (s *Server) requireRegistryAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, err := s.authenticate(r)
+		user, scopes, err := s.authenticate(r)
 		if err != nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="shipyard-registry",service="shipyard"`)
-			writeError(w, http.StatusUnauthorized, "unauthorized")
+			base := s.apiBaseURL(r)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="`+base+`/auth/token",service="shipyard"`)
+			w.Header().Add("WWW-Authenticate", `Basic realm="shipyard-registry"`)
+			writeOCIError(w, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
+		ctx := context.WithValue(r.Context(), userKey, user)
+		ctx = context.WithValue(ctx, scopesKey, scopes)
+		next(w, r.WithContext(ctx))
 	}
 }
 
@@ -65,34 +77,48 @@ func currentUser(r *http.Request) identity.User {
 	return u
 }
 
+func currentScopes(r *http.Request) []string {
+	s, _ := r.Context().Value(scopesKey).([]string)
+	return s
+}
+
+func registryScopeOK(r *http.Request, perm rbac.Permission) bool {
+	required := identity.ScopeRegistryRead
+	if perm != rbac.PermProjectRead {
+		required = identity.ScopeRegistryWrite
+	}
+	return identity.ScopeAllows(currentScopes(r), required)
+}
+
 func currentRunner(r *http.Request) runners.Runner {
 	runner, _ := r.Context().Value(runnerKey).(runners.Runner)
 	return runner
 }
 
-func (s *Server) authenticate(r *http.Request) (identity.User, error) {
+func (s *Server) authenticate(r *http.Request) (identity.User, []string, error) {
 	if token := bearerToken(r); token != "" {
-		if user, err := s.identity.UserFromAPIToken(r.Context(), token); err == nil {
-			return user, nil
+		if user, scopes, err := s.identity.UserFromAPIToken(r.Context(), token); err == nil {
+			return user, scopes, nil
 		}
 	}
 	if user, pass, ok := basicAuth(r); ok {
 		if pass != "" {
-			if u, err := s.identity.UserFromAPIToken(r.Context(), pass); err == nil {
-				return u, nil
+			if u, scopes, err := s.identity.UserFromAPIToken(r.Context(), pass); err == nil {
+				return u, scopes, nil
 			}
 		}
 		if user != "" && pass != "" {
 			if u, err := s.identity.Authenticate(r.Context(), user, pass); err == nil {
-				return u, nil
+				return u, nil, nil
 			}
 		}
 	}
 	c, err := r.Cookie(sessionCookie)
 	if err != nil || c.Value == "" {
-		return identity.User{}, identity.ErrUnauthorized
+		return identity.User{}, nil, identity.ErrUnauthorized
 	}
-	return s.identity.UserFromSession(r.Context(), c.Value)
+	u, err := s.identity.UserFromSession(r.Context(), c.Value)
+	return u, nil, err
 }
 
 func bearerToken(r *http.Request) string {

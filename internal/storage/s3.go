@@ -2,11 +2,11 @@ package storage
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -58,72 +58,49 @@ func (s *S3Store) objectKey(digest string) (string, error) {
 }
 
 func (s *S3Store) Put(ctx context.Context, digest string, r io.Reader, size int64) (BlobInfo, error) {
-	hasher := sha256.New()
-	pr, pw := io.Pipe()
-	errCh := make(chan error, 1)
-	go func() {
-		defer pw.Close()
-		written, err := io.Copy(io.MultiWriter(pw, hasher), r)
-		if err != nil {
-			_ = pw.CloseWithError(err)
-			errCh <- err
-			return
-		}
-		if size >= 0 && written != size {
-			err = fmt.Errorf("blob size mismatch: expected %d got %d", size, written)
-			_ = pw.CloseWithError(err)
-			errCh <- err
-			return
-		}
-		errCh <- nil
+	tmp, err := os.CreateTemp("", "shipyard-s3-*")
+	if err != nil {
+		return BlobInfo{}, fmt.Errorf("create temp blob: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		tmp.Close()
+		os.Remove(tmpName)
 	}()
 
-	tmp := make([]byte, 16)
-	_, _ = rand.Read(tmp)
-	tmpKey := "uploads/" + hex.EncodeToString(tmp)
-
-	_, putErr := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.cfg.Bucket),
-		Key:    aws.String(tmpKey),
-		Body:   pr,
-	})
-	copyErr := <-errCh
-	if putErr != nil {
-		return BlobInfo{}, fmt.Errorf("s3 put: %w", putErr)
+	hasher := sha256.New()
+	written, err := io.Copy(io.MultiWriter(tmp, hasher), r)
+	if err != nil {
+		return BlobInfo{}, fmt.Errorf("write blob: %w", err)
 	}
-	if copyErr != nil {
-		_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(tmpKey)})
-		return BlobInfo{}, copyErr
+	if size >= 0 && written != size {
+		return BlobInfo{}, fmt.Errorf("blob size mismatch: expected %d got %d", size, written)
 	}
 
 	computed := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
 	if digest != "" && digest != computed {
-		_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(tmpKey)})
 		return BlobInfo{}, fmt.Errorf("digest mismatch: expected %s got %s", digest, computed)
 	}
 	finalKey, err := s.objectKey(computed)
 	if err != nil {
 		return BlobInfo{}, err
 	}
-	_, err = s.client.CopyObject(ctx, &s3.CopyObjectInput{
-		Bucket:     aws.String(s.cfg.Bucket),
-		CopySource: aws.String(s.cfg.Bucket + "/" + tmpKey),
-		Key:        aws.String(finalKey),
+	if _, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(finalKey)}); err == nil {
+		return BlobInfo{Digest: computed, Size: written}, nil
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return BlobInfo{}, err
+	}
+	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(s.cfg.Bucket),
+		Key:           aws.String(finalKey),
+		Body:          tmp,
+		ContentLength: aws.Int64(written),
 	})
 	if err != nil {
-		return BlobInfo{}, fmt.Errorf("s3 finalize: %w", err)
+		return BlobInfo{}, fmt.Errorf("s3 put: %w", err)
 	}
-	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(tmpKey)})
-
-	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(finalKey)})
-	if err != nil {
-		return BlobInfo{Digest: computed}, nil
-	}
-	var outSize int64
-	if head.ContentLength != nil {
-		outSize = *head.ContentLength
-	}
-	return BlobInfo{Digest: computed, Size: outSize}, nil
+	return BlobInfo{Digest: computed, Size: written}, nil
 }
 
 func (s *S3Store) Get(ctx context.Context, digest string) (io.ReadCloser, BlobInfo, error) {
@@ -143,6 +120,26 @@ func (s *S3Store) Get(ctx context.Context, digest string) (io.ReadCloser, BlobIn
 		size = *out.ContentLength
 	}
 	return out.Body, BlobInfo{Digest: digest, Size: size}, nil
+}
+
+func (s *S3Store) Stat(ctx context.Context, digest string) (BlobInfo, error) {
+	key, err := s.objectKey(digest)
+	if err != nil {
+		return BlobInfo{}, err
+	}
+	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.cfg.Bucket), Key: aws.String(key)})
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "NotFound") || strings.Contains(msg, "404") || strings.Contains(msg, "NoSuchKey") {
+			return BlobInfo{}, fmt.Errorf("%w", os.ErrNotExist)
+		}
+		return BlobInfo{}, err
+	}
+	var size int64
+	if head.ContentLength != nil {
+		size = *head.ContentLength
+	}
+	return BlobInfo{Digest: digest, Size: size}, nil
 }
 
 func (s *S3Store) Exists(ctx context.Context, digest string) (bool, error) {

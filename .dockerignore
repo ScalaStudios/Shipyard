@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+!.env.prod.example
+node_modules
+**/node_modules
+apps/web/dist
+packages/*/dist
+data
+.tmp
+docs
+*.pem
+*.key

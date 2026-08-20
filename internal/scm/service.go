@@ -81,11 +81,19 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Connection, error
 	if bot == "" {
 		bot = "shipyard[bot]"
 	}
+	webhookSecret := strings.TrimSpace(in.WebhookSecret)
+	if webhookSecret == "" {
+		generated, err := randomSecret(24)
+		if err != nil {
+			return Connection{}, err
+		}
+		webhookSecret = generated
+	}
 	sealedToken, err := s.secrets.SealString(in.AccessToken)
 	if err != nil {
 		return Connection{}, err
 	}
-	sealedSecret, err := s.secrets.SealString(in.WebhookSecret)
+	sealedSecret, err := s.secrets.SealString(webhookSecret)
 	if err != nil {
 		return Connection{}, err
 	}
@@ -108,7 +116,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Connection, error
 	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
 		return Connection{}, identity.ErrConflict
 	}
-	return c, err
+	if err != nil {
+		return Connection{}, err
+	}
+	c.WebhookSecret = webhookSecret
+	return c, nil
 }
 
 func (s *Service) List(ctx context.Context, projectID string) ([]Connection, error) {
@@ -128,6 +140,7 @@ func (s *Service) List(ctx context.Context, projectID string) ([]Connection, err
 		if err := rows.Scan(
 			&c.ID, &c.OrganizationID, &c.ProjectID, &c.Provider, &c.Name, &c.BaseURL, &c.RepoOwner, &c.RepoName,
 			&c.BotUsername, &c.PipelineSlug, &c.Enabled, &c.CreatedAt, &c.UpdatedAt, &c.HasToken, &c.HasSecret,
+			&c.InstallationID,
 		); err != nil {
 			return nil, err
 		}

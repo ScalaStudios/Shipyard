@@ -23,6 +23,24 @@ func TestParseGitLabMR(t *testing.T) {
 	}
 }
 
+func TestParseGiteaPullRequestSynchronized(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"action":"synchronized","number":7,"pull_request":{"number":7,"title":"feat","head":{"ref":"feat","sha":"abc123"}},"repository":{"name":"repo","owner":{"username":"org"}}}`)
+	ev := ParseEvent("gitea", "pull_request", body)
+	if !ev.ShouldBuild || ev.PRNumber != 7 || ev.GitSHA != "abc123" {
+		t.Fatalf("unexpected event: %+v", ev)
+	}
+}
+
+func TestParseGitLabPushDeleteBranch(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"object_kind":"push","ref":"refs/heads/gone","checkout_sha":null,"after":"0000000000000000000000000000000000000000","project":{"path_with_namespace":"org/repo","name":"repo"}}`)
+	ev := ParseEvent("gitlab", "Push Hook", body)
+	if ev.ShouldBuild {
+		t.Fatalf("expected no build for branch delete: %+v", ev)
+	}
+}
+
 func TestVerifyGitLabToken(t *testing.T) {
 	t.Parallel()
 	h := http.Header{}
