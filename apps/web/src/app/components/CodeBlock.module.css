@@ -1,0 +1,16 @@
+.block {
+  margin: 0;
+  padding: var(--sy-space-3, 12px);
+  overflow-x: auto;
+  font-family: var(--sy-font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: var(--sy-radius-control, 8px);
+  border: 1px solid var(--sy-color-border-default);
+  background: var(--sy-color-bg-subtle);
+}
+
+.line {
+  display: block;
+  white-space: pre;
+}
