@@ -109,6 +109,12 @@ That brings up Postgres, the control plane, and Caddy serving the built UI with 
 
 Full guide, including nginx and forge webhook setup: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
+## AI agents & API
+
+The control plane serves an OpenAPI 3.1 spec at `/api/v1/openapi.json` (and `.yaml`), with a rendered reference at `/api/docs`. A stdio MCP server in `cmd/shipyard-mcp` lets AI agents drive builds, runs and runners over the same API.
+
+Setup and the full tool list: **[docs/mcp.md](docs/mcp.md)**.
+
 ## Repository layout
 
 | Path | Purpose |
@@ -116,6 +122,7 @@ Full guide, including nginx and forge webhook setup: **[docs/DEPLOY.md](docs/DEP
 | `cmd/shipyard-server` | Control plane |
 | `cmd/shipyard-runner` | Job executor |
 | `cmd/shipyard` | CLI |
+| `cmd/shipyard-mcp` | MCP server for AI agents |
 | `internal/` | Pipelines, runners, packages, registry, scm, secrets, settings |
 | `apps/web` | Operator UI (React + TypeScript) |
 | `packages/ui` | `@shipyard/ui` design system |
