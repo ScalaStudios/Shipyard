@@ -80,7 +80,7 @@ services:
     command: ["--addr", "tcp://0.0.0.0:1234"]
 
   seed:
-    image: alpine:3
+    image: alpine:20190228
     environment:
       SHIPYARD_URL: http://shipyard-server:8080
       DEMO_PUBLIC_URL: http://localhost:${SHIPYARD_DEMO_PORT:-8088}
