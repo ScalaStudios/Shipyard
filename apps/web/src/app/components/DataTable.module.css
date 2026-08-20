@@ -157,6 +157,19 @@
   gap: var(--sy-space-6);
 }
 
+.stackTight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-4);
+}
+
+.backRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sy-space-4);
+}
+
 .split {
   display: grid;
   grid-template-columns: minmax(220px, 280px) 1fr;
