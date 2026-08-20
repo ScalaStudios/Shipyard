@@ -131,7 +131,7 @@ export function OverviewPage() {
               action={
                 <Link to={org ? "/projects/import" : "/projects"}>
                   <Button type="button" variant="primary">
-                    {org ? "Import from forge" : "Get started"}
+                    {org ? "Import repositories" : "Get started"}
                   </Button>
                 </Link>
               }

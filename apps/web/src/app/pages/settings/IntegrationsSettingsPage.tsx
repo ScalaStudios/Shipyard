@@ -172,7 +172,7 @@ export function IntegrationsSettingsPage() {
               <div className={table.formRow}>
                 <input className={table.input} placeholder="owner / group" value={repoOwner} onChange={(e) => setRepoOwner(e.target.value)} required aria-label="Repository owner or group" />
                 <input className={table.input} placeholder="repository" value={repoName} onChange={(e) => setRepoName(e.target.value)} required aria-label="Repository" />
-                <input className={table.input} placeholder="pipeline slug (optional)" value={pipelineSlug} onChange={(e) => setPipelineSlug(e.target.value)} aria-label="Pipeline slug" />
+                <input className={table.input} placeholder="Pipeline (optional)" value={pipelineSlug} onChange={(e) => setPipelineSlug(e.target.value)} aria-label="Pipeline (optional)" />
               </div>
               <div className={table.formRow}>
                 <input className={table.input} type="password" placeholder="bot access token" value={token} onChange={(e) => setToken(e.target.value)} aria-label="Bot access token" />

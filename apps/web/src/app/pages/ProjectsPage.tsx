@@ -3,21 +3,23 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, type Project } from "../api";
-import { formatTime } from "../lib/format";
+import { formatTime, slugify } from "../lib/format";
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { orgs, projects, org, project, setOrgID, setProjectID, refreshOrgs, refreshProjects, setError } =
+  const { orgs, projects, org, project, loading, setOrgID, setProjectID, refreshOrgs, refreshProjects, setError } =
     useWorkspace();
-  const [orgSlug, setOrgSlug] = useState("");
   const [orgName, setOrgName] = useState("");
-  const [projectSlug, setProjectSlug] = useState("");
   const [projectName, setProjectName] = useState("");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const orgURLName = slugify(orgName);
+  const projectURLName = slugify(projectName);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -35,8 +37,7 @@ export function ProjectsPage() {
     event.preventDefault();
     setBusy(true);
     try {
-      const res = await api.createOrg({ slug: orgSlug, name: orgName || orgSlug });
-      setOrgSlug("");
+      const res = await api.createOrg({ slug: orgURLName, name: orgName });
       setOrgName("");
       await refreshOrgs();
       setOrgID(res.organization.id);
@@ -52,8 +53,7 @@ export function ProjectsPage() {
     if (!org) return;
     setBusy(true);
     try {
-      const res = await api.createProject(org.id, { slug: projectSlug, name: projectName || projectSlug });
-      setProjectSlug("");
+      const res = await api.createProject(org.id, { slug: projectURLName, name: projectName });
       setProjectName("");
       await refreshProjects();
       openProject(res.project);
@@ -78,42 +78,47 @@ export function ProjectsPage() {
           org ? (
             <Link to="/projects/import">
               <Button type="button" variant="secondary">
-                Import from forge
+                Import repositories
               </Button>
             </Link>
           ) : null
         }
       />
 
-      <Panel
-        title="Organizations"
-        meta={<StatusBadge status="info">{orgs.length}</StatusBadge>}
-        actions={
-          <form className={table.formRow} onSubmit={createOrg}>
+      <Panel title="Organizations" meta={<StatusBadge status="info">{orgs.length}</StatusBadge>}>
+        <form className={form.row} onSubmit={createOrg}>
+          <FormField
+            label="Name"
+            htmlFor="org-name"
+            hint={orgURLName ? <>URL name: <span className="mono">{orgURLName}</span></> : null}
+          >
             <input
+              id="org-name"
               className={table.input}
-              placeholder="slug"
-              value={orgSlug}
-              onChange={(e) => setOrgSlug(e.target.value)}
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
               required
-              pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
-              aria-label="Organization slug"
             />
-            <input className={table.input} placeholder="name" value={orgName} onChange={(e) => setOrgName(e.target.value)} aria-label="Organization name" />
-            <Button type="submit" variant="primary" loading={busy}>
-              Create org
+          </FormField>
+          <div className={form.action}>
+            <Button type="submit" variant="primary" loading={busy} disabled={!orgURLName}>
+              Create organization
             </Button>
-          </form>
-        }
-      >
-        {orgs.length === 0 ? (
-          <EmptyState title="No organizations" description="Create an organization to begin, then import repos from Forgejo or GitHub." />
+          </div>
+        </form>
+        {loading ? (
+          <TableSkeleton />
+        ) : orgs.length === 0 ? (
+          <EmptyState
+            title="No organizations yet"
+            description="Create an organization above, then import repositories from Forgejo or GitHub into it."
+          />
         ) : (
           <DataTable>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Slug</th>
+                <th>URL name</th>
                 <th>Role</th>
                 <th>Created</th>
               </tr>
@@ -127,7 +132,7 @@ export function ProjectsPage() {
                     </button>
                     {org?.id === o.id ? <span className={table.muted}> · selected</span> : null}
                   </td>
-                  <td className="mono">{o.slug}</td>
+                  <td className={`mono ${table.muted}`}>{o.slug}</td>
                   <td>{o.role ?? "—"}</td>
                   <td className={table.muted}>{formatTime(o.created_at)}</td>
                 </tr>
@@ -138,44 +143,45 @@ export function ProjectsPage() {
       </Panel>
 
       <Panel
-        title={org ? `Projects · ${org.slug}` : "Projects"}
+        title={org ? `Projects · ${org.name}` : "Projects"}
         meta={<StatusBadge status={org ? "success" : "neutral"}>{projects.length}</StatusBadge>}
-        actions={
-          <form className={table.formRow} onSubmit={createProject}>
+      >
+        <form className={form.row} onSubmit={createProject}>
+          <FormField
+            label="Name"
+            htmlFor="project-name"
+            hint={projectURLName ? <>URL name: <span className="mono">{projectURLName}</span></> : null}
+          >
             <input
+              id="project-name"
               className={table.input}
-              placeholder="slug"
-              value={projectSlug}
-              onChange={(e) => setProjectSlug(e.target.value)}
-              required
-              disabled={!org}
-              pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
-              aria-label="Project slug"
-            />
-            <input
-              className={table.input}
-              placeholder="name"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
+              required
               disabled={!org}
-              aria-label="Project name"
             />
-            <Button type="submit" variant="primary" loading={busy} disabled={!org}>
+          </FormField>
+          <div className={form.action}>
+            <Button type="submit" variant="primary" loading={busy} disabled={!org || !projectURLName}>
               Create project
             </Button>
-          </form>
-        }
-      >
-        {!org ? (
-          <EmptyState title="Select an organization" />
+          </div>
+        </form>
+        {loading ? (
+          <TableSkeleton />
+        ) : !org ? (
+          <EmptyState
+            title="Select an organization"
+            description="Pick an organization above to see and create its projects."
+          />
         ) : projects.length === 0 ? (
           <EmptyState
-            title="No projects"
-            description="Create one manually, or import an existing forge organization."
+            title="No projects yet"
+            description="Create one above, or import every repository from a connected forge organization in one pass."
             action={
               <Link to="/projects/import">
                 <Button type="button" variant="primary">
-                  Import from forge
+                  Import repositories
                 </Button>
               </Link>
             }
@@ -197,16 +203,16 @@ export function ProjectsPage() {
               </span>
             </div>
             {filtered.length === 0 ? (
-              <EmptyState title="No matches" description="Try a different search." />
+              <EmptyState title="No matching projects" description="No project name or description matches that search." />
             ) : (
               <DataTable>
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Slug</th>
+                    <th>URL name</th>
                     <th>Description</th>
                     <th>Created</th>
-                    <th>Open</th>
+                    <th className={table.actionCol}>Open</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -220,10 +226,10 @@ export function ProjectsPage() {
                           </button>
                           {selected ? <span className={table.muted}> · selected</span> : null}
                         </td>
-                        <td className="mono">{p.slug}</td>
+                        <td className={`mono ${table.muted}`}>{p.slug}</td>
                         <td className={table.muted}>{p.description || "—"}</td>
                         <td className={table.muted}>{formatTime(p.created_at)}</td>
-                        <td>
+                        <td className={table.actionCol}>
                           <div className={table.formRow}>
                             <Button type="button" variant="secondary" onClick={() => openProject(p, "/")}>
                               Overview

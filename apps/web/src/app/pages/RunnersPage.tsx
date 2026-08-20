@@ -3,7 +3,9 @@ import { Heart } from "lucide-react";
 import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Runner, RunnerInstall } from "../api";
 import { formatTime, heartbeatAgeMs, isRunnerAlive, runStatus } from "../lib/format";
@@ -54,13 +56,18 @@ export function RunnersPage() {
   const [copied, setCopied] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [apiPingMs, setApiPingMs] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     const started = performance.now();
-    const res = await api.listRunners();
-    setApiPingMs(Math.round(performance.now() - started));
-    setRunners(res.runners ?? []);
-    setNow(Date.now());
+    try {
+      const res = await api.listRunners();
+      setApiPingMs(Math.round(performance.now() - started));
+      setRunners(res.runners ?? []);
+      setNow(Date.now());
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function removeRunner(runner: Runner) {
@@ -127,12 +134,18 @@ export function RunnersPage() {
       />
 
       <Panel title="New runner" meta={<StatusBadge status="info">auto · docker · binary</StatusBadge>}>
-        <form className={table.toolbar} onSubmit={(e) => void createInstall(e)}>
-          <input className={table.input} value={name} onChange={(e) => setName(e.target.value)} placeholder="runner name" required aria-label="Runner name" />
-          <input className={table.input} value={labels} onChange={(e) => setLabels(e.target.value)} placeholder="labels (comma-separated)" aria-label="Labels" />
-          <Button type="submit" variant="primary" loading={busy}>
-            Generate install command
-          </Button>
+        <form className={form.row} onSubmit={(e) => void createInstall(e)}>
+          <FormField label="Runner name" htmlFor="runner-name">
+            <input id="runner-name" className={table.input} value={name} onChange={(e) => setName(e.target.value)} required />
+          </FormField>
+          <FormField label="Labels" htmlFor="runner-labels" hint="Comma-separated, matched against pipeline runner requirements.">
+            <input id="runner-labels" className={table.input} value={labels} onChange={(e) => setLabels(e.target.value)} />
+          </FormField>
+          <div className={form.action}>
+            <Button type="submit" variant="primary" loading={busy}>
+              Generate install command
+            </Button>
+          </div>
         </form>
 
         {install ? (
@@ -206,7 +219,9 @@ export function RunnersPage() {
           </div>
         }
       >
-        {runners.length === 0 ? (
+        {loading ? (
+          <TableSkeleton />
+        ) : runners.length === 0 ? (
           <EmptyState title="No runners online" description="After install, this table shows heartbeat and alive/dead state." />
         ) : (
           <DataTable>
@@ -217,7 +232,7 @@ export function RunnersPage() {
                 <th>Status</th>
                 <th>Labels</th>
                 <th>Drained</th>
-                <th />
+                <th className={table.actionCol} />
               </tr>
             </thead>
             <tbody>
@@ -248,7 +263,7 @@ export function RunnersPage() {
                     </td>
                     <td className="mono">{(r.labels ?? []).join(", ") || "—"}</td>
                     <td>{r.drained ? "yes" : "no"}</td>
-                    <td>
+                    <td className={table.actionCol}>
                       {alive || r.status === "busy" ? null : (
                         <HoldToConfirm size="sm" doneLabel="Removed" onConfirm={() => void removeRunner(r)}>
                           Hold to remove

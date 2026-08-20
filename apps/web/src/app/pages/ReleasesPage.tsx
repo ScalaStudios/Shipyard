@@ -2,7 +2,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Release } from "../api";
 import { formatTime } from "../lib/format";
@@ -13,17 +15,24 @@ export function ReleasesPage() {
   const [version, setVersion] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     if (!org || !project) {
       setReleases([]);
+      setLoading(false);
       return;
     }
-    const res = await api.listReleases(org.id, project.id);
-    setReleases(res.releases ?? []);
+    try {
+      const res = await api.listReleases(org.id, project.id);
+      setReleases(res.releases ?? []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
+    setLoading(true);
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load releases"));
   }, [org?.id, project?.id]);
 
@@ -47,23 +56,38 @@ export function ReleasesPage() {
     <div className={table.stack}>
       <PageHeader title="Releases" description="Versioned release records that can be deployed to environments." />
       {!org || !project ? (
-        <EmptyState title="Select a project" />
+        <EmptyState title="Select a project" description="Releases are scoped to a project." />
       ) : (
-        <Panel
-          title="Releases"
-          meta={<StatusBadge status="info">{releases.length}</StatusBadge>}
-          actions={
-            <form className={table.formRow} onSubmit={createRelease}>
-              <input className={table.input} placeholder="version" value={version} onChange={(e) => setVersion(e.target.value)} required aria-label="Version" />
-              <input className={table.input} placeholder="title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
+        <Panel title="Releases" meta={<StatusBadge status="info">{releases.length}</StatusBadge>}>
+          <form className={form.row} onSubmit={createRelease}>
+            <FormField label="Version" htmlFor="release-version">
+              <input
+                id="release-version"
+                className={table.input}
+                placeholder="1.4.0"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="Title" htmlFor="release-title">
+              <input
+                id="release-title"
+                className={table.input}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </FormField>
+            <div className={form.action}>
               <Button type="submit" variant="primary" loading={busy}>
                 Create release
               </Button>
-            </form>
-          }
-        >
-          {releases.length === 0 ? (
-            <EmptyState title="No releases" />
+            </div>
+          </form>
+          {loading ? (
+            <TableSkeleton />
+          ) : releases.length === 0 ? (
+            <EmptyState title="No releases yet" description="Create one above to make a version deployable." />
           ) : (
             <DataTable>
               <thead>
