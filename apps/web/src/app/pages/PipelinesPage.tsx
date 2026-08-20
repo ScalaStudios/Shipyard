@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../components/FormField";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Pipeline, PipelineRun } from "../api";
 import { defaultPipelineYAML, formatTime, runStatus } from "../lib/format";
@@ -15,20 +17,27 @@ export function PipelinesPage() {
   const [slug, setSlug] = useState("hello");
   const [yaml, setYaml] = useState(defaultPipelineYAML);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const yamlRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function refresh() {
     if (!org || !project) {
       setPipelines([]);
       setRuns([]);
+      setLoading(false);
       return;
     }
-    const [p, r] = await Promise.all([api.listPipelines(org.id, project.id), api.listRuns(org.id, project.id)]);
-    setPipelines(p.pipelines ?? []);
-    setRuns(r.runs ?? []);
+    try {
+      const [p, r] = await Promise.all([api.listPipelines(org.id, project.id), api.listRuns(org.id, project.id)]);
+      setPipelines(p.pipelines ?? []);
+      setRuns(r.runs ?? []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
+    setLoading(true);
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load pipelines"));
   }, [org?.id, project?.id]);
 
@@ -69,7 +78,7 @@ export function PipelinesPage() {
     <div className={table.stack}>
       <PageHeader
         title="Pipelines"
-        description="Define pipeline YAML, trigger runs, and open Jenkins-style run detail with jobs and logs."
+        description="Define pipeline YAML, trigger runs, and open a run to follow its jobs and logs."
       />
 
       {!org || !project ? (
@@ -77,25 +86,58 @@ export function PipelinesPage() {
       ) : (
         <>
           <Panel title="Definitions" meta={<StatusBadge status="info">{pipelines.length}</StatusBadge>}>
-            {pipelines.length === 0 ? (
-              <EmptyState title="No pipelines" description="Save a definition below." />
+            <form onSubmit={savePipeline}>
+              <div className={form.row}>
+                <FormField label="Name" htmlFor="pipeline-name" hint="Lowercase letters, numbers, and dashes.">
+                  <input
+                    id="pipeline-name"
+                    className={table.input}
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    required
+                    pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
+                  />
+                </FormField>
+                <div className={form.action}>
+                  <Button type="submit" variant="primary" loading={busy}>
+                    {pipelines.some((p) => p.slug === slug) ? "Update pipeline" : "Save pipeline"}
+                  </Button>
+                </div>
+              </div>
+              <div className={form.row}>
+                <FormField label="Pipeline YAML" htmlFor="pipeline-yaml">
+                  <textarea
+                    id="pipeline-yaml"
+                    className={table.textarea}
+                    ref={yamlRef}
+                    value={yaml}
+                    onChange={(e) => setYaml(e.target.value)}
+                    rows={10}
+                  />
+                </FormField>
+              </div>
+            </form>
+            {loading ? (
+              <TableSkeleton />
+            ) : pipelines.length === 0 ? (
+              <EmptyState title="No pipelines yet" description="Name a pipeline above, paste its YAML, and save it." />
             ) : (
               <DataTable>
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Slug</th>
+                    <th>Display name</th>
                     <th>Created</th>
-                    <th />
+                    <th className={table.actionCol} />
                   </tr>
                 </thead>
                 <tbody>
                   {pipelines.map((p) => (
                     <tr key={p.id}>
-                      <td>{p.name}</td>
                       <td className="mono">{p.slug}</td>
+                      <td>{p.name}</td>
                       <td className={table.muted}>{formatTime(p.created_at)}</td>
-                      <td>
+                      <td className={table.actionCol}>
                         <div className={table.formRow}>
                           <Button variant="secondary" disabled={busy} onClick={() => void runPipeline(p.id)}>
                             Run
@@ -110,35 +152,13 @@ export function PipelinesPage() {
                 </tbody>
               </DataTable>
             )}
-            <form className={table.toolbar} onSubmit={savePipeline}>
-              <input
-                className={table.input}
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
-                pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
-                placeholder="slug"
-                aria-label="Pipeline slug"
-              />
-              <Button type="submit" variant="primary" loading={busy}>
-                {pipelines.some((p) => p.slug === slug) ? "Update pipeline" : "Save pipeline"}
-              </Button>
-            </form>
-            <div style={{ padding: "0 16px 16px" }}>
-              <textarea
-                className={table.textarea}
-                ref={yamlRef}
-                value={yaml}
-                onChange={(e) => setYaml(e.target.value)}
-                rows={10}
-                aria-label="Pipeline YAML"
-              />
-            </div>
           </Panel>
 
           <Panel title="Recent runs" meta={<StatusBadge status="info">{runs.length}</StatusBadge>}>
-            {runs.length === 0 ? (
-              <EmptyState title="No runs" />
+            {loading ? (
+              <TableSkeleton />
+            ) : runs.length === 0 ? (
+              <EmptyState title="No runs yet" description="Run a pipeline from the table above to see it here." />
             ) : (
               <DataTable>
                 <thead>

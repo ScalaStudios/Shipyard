@@ -1,15 +1,30 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { IconLogout, IconMenu2 } from "@tabler/icons-react";
 import { NotificationBell } from "../app/components/NotificationBell";
 import { useWorkspace } from "../app/context/WorkspaceContext";
-import { NAV_ITEMS } from "./nav";
+import { NAV_GROUPS, SETTINGS_ITEM, type NavItem } from "./nav";
 import { buildPathSegments } from "./path";
 import styles from "./AppShell.module.css";
 
 const MENU_BREAKPOINT = 960;
+
+function NavRow({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === "/"}
+      className={({ isActive }) => (isActive ? styles.navActive : styles.navItem)}
+      onClick={onNavigate}
+    >
+      <Icon size={16} stroke={1.5} />
+      <span className={styles.navLabel}>{item.label}</span>
+    </NavLink>
+  );
+}
 
 export function AppShell({
   children,
@@ -21,9 +36,7 @@ export function AppShell({
   onLogout: () => void;
 }) {
   const location = useLocation();
-  const chromeRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuTop, setMenuTop] = useState(56);
   const { user, orgs, projects, org, project, setOrgID, setProjectID, error, clearError } = useWorkspace();
   const segments = buildPathSegments({
     orgSlug: org?.slug,
@@ -31,18 +44,8 @@ export function AppShell({
     pathname: location.pathname,
   });
 
-  function syncMenuTop() {
-    const bottom = chromeRef.current?.getBoundingClientRect().bottom ?? 56;
-    setMenuTop(Math.round(bottom + 8));
-  }
-
   function closeMenu() {
     setMenuOpen(false);
-  }
-
-  function openMenu() {
-    syncMenuTop();
-    setMenuOpen(true);
   }
 
   useEffect(() => {
@@ -52,7 +55,6 @@ export function AppShell({
   useEffect(() => {
     function onResize() {
       if (window.innerWidth > MENU_BREAKPOINT) closeMenu();
-      else if (menuOpen) syncMenuTop();
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") closeMenu();
@@ -65,89 +67,66 @@ export function AppShell({
     };
   }, [menuOpen]);
 
-  const menuPortal =
+  const displayName = user.display_name || user.username;
+  const initial = displayName.trim().slice(0, 1).toUpperCase() || "?";
+
+  const scrimPortal =
     menuOpen && typeof document !== "undefined"
       ? createPortal(
-          <>
-            <button type="button" className={styles.menuScrim} aria-label="Close navigation menu" onClick={closeMenu} />
-            <div className={styles.menuPanel} role="menu" style={{ top: menuTop }}>
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.id}
-                    to={item.to}
-                    end={item.to === "/"}
-                    role="menuitem"
-                    className={({ isActive }) => (isActive ? styles.menuActive : styles.menuItem)}
-                    onClick={closeMenu}
-                  >
-                    <Icon size={16} stroke={1.5} />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          </>,
+          <button type="button" className={styles.scrim} aria-label="Close navigation menu" onClick={closeMenu} />,
           document.body,
         )
       : null;
 
   return (
     <div className={styles.shell}>
-      <div className={styles.chrome} ref={chromeRef}>
-        <header className={styles.topbar}>
-          <div className={styles.brand}>
-            <img className={styles.markImg} src="/shipyard-mark.svg" width={28} height={28} alt="" />
-            <strong className={styles.brandName}>Shipyard</strong>
-          </div>
+      <aside className={menuOpen ? styles.sidebarOpen : styles.sidebar}>
+        <div className={styles.brand}>
+          <img className={styles.markImg} src="/shipyard-mark.svg" width={28} height={28} alt="" />
+          <strong className={styles.brandName}>Shipyard</strong>
+        </div>
 
-          <div className={styles.navCluster}>
-            <nav className={styles.navList} aria-label="Primary">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.id}
-                    to={item.to}
-                    end={item.to === "/"}
-                    className={({ isActive }) => (isActive ? styles.navActive : styles.navItem)}
-                    title={item.label}
-                  >
-                    <Icon size={16} stroke={1.5} />
-                    <span className={styles.navLabel}>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </nav>
-          </div>
-
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.menuButton}
-              aria-label="Open navigation menu"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => (menuOpen ? closeMenu() : openMenu())}
-            >
-              <IconMenu2 size={16} stroke={1.5} />
-              <span className={styles.menuLabel}>Menu</span>
-            </button>
-            {menuPortal}
-            <NotificationBell />
-            <div className={styles.themeToggle}>{themeToggle}</div>
-            <div className={styles.account}>
-              <span className={styles.accountName}>{user.display_name || user.username}</span>
-              <button type="button" className={styles.signOut} onClick={onLogout} aria-label="Sign out">
-                <IconLogout size={16} stroke={1.75} aria-hidden="true" />
-                <span className={styles.signOutLabel}>Sign out</span>
-              </button>
+        <nav className={styles.nav} aria-label="Primary">
+          {NAV_GROUPS.map((group, index) => (
+            <div key={group.label ?? `group-${index}`} className={styles.navGroup}>
+              {group.label ? <span className={styles.navGroupLabel}>{group.label}</span> : null}
+              {group.items.map((item) => (
+                <NavRow key={item.id} item={item} onNavigate={closeMenu} />
+              ))}
             </div>
-          </div>
-        </header>
+          ))}
+        </nav>
 
-        <div className={styles.pathbar}>
+        <div className={styles.sidebarFoot}>
+          <div className={styles.navGroup}>
+            <NavRow item={SETTINGS_ITEM} onNavigate={closeMenu} />
+          </div>
+          <div className={styles.account}>
+            <span className={styles.avatar} aria-hidden="true">
+              {initial}
+            </span>
+            <span className={styles.accountName}>{displayName}</span>
+            <button type="button" className={styles.signOut} onClick={onLogout} aria-label="Sign out">
+              <IconLogout size={16} stroke={1.75} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {scrimPortal}
+
+      <div className={styles.main}>
+        <header className={styles.topbar}>
+          <button
+            type="button"
+            className={styles.menuButton}
+            aria-label="Open navigation menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <IconMenu2 size={16} stroke={1.5} />
+          </button>
+
           <nav className={styles.path} aria-label="Location">
             <span className={styles.pathRoot}>/</span>
             {segments.map((segment, index) => (
@@ -183,7 +162,7 @@ export function AppShell({
             )}
             {orgs.length > 0 && projects.length === 0 ? (
               <Link className={styles.contextCta} to="/projects/import">
-                Import from forge
+                Import repositories
               </Link>
             ) : null}
             {projects.length > 0 ? (
@@ -203,23 +182,25 @@ export function AppShell({
                 </select>
               </label>
             ) : null}
+            <NotificationBell />
+            <div className={styles.themeToggle}>{themeToggle}</div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <main className={styles.content}>
-        {error ? (
-          <div className={styles.banner} role="alert">
-            <span>{error}</span>
-            <button type="button" className={styles.signOut} onClick={clearError}>
-              Dismiss
-            </button>
+        <main className={styles.content}>
+          {error ? (
+            <div className={styles.banner} role="alert">
+              <span>{error}</span>
+              <button type="button" className={styles.bannerDismiss} onClick={clearError}>
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+          <div key={location.pathname} className={styles.route}>
+            {children}
           </div>
-        ) : null}
-        <div key={location.pathname} className={styles.route}>
-          {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

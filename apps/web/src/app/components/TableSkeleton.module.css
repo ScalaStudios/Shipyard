@@ -1,0 +1,33 @@
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sy-space-4);
+  padding: var(--sy-space-4);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--sy-space-4);
+  align-items: center;
+}
+
+.bar {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--sy-color-bg-subtle) 0%,
+    var(--sy-color-border-default) 50%,
+    var(--sy-color-bg-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: sy-shimmer 1.4s linear infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+    background: var(--sy-color-bg-subtle);
+  }
+}

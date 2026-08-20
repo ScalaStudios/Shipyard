@@ -323,9 +323,9 @@ function GitHubAppPanel() {
               spellCheck={false}
             />
           </FormField>
-          <FormField label="App slug" hint="The name in the app's URL, e.g. github.com/apps/shipyard-ci." htmlFor="gh-app-slug">
+          <FormField label="App URL name" hint="The name in the app's URL, e.g. github.com/apps/shipyard-ci." htmlFor="gh-app-url-name">
             <input
-              id="gh-app-slug"
+              id="gh-app-url-name"
               className={table.input}
               placeholder="shipyard-ci"
               value={slug}

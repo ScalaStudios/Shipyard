@@ -6,13 +6,13 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--sy-text-md-size);
+  line-height: var(--sy-text-md-leading);
 }
 
 .table th,
 .table td {
-  padding: 8px 12px;
+  padding: var(--sy-space-3) var(--sy-space-4);
   text-align: left;
   border-bottom: 1px solid var(--sy-color-border-default);
   vertical-align: middle;
@@ -20,10 +20,12 @@
 
 .table th {
   color: var(--sy-color-text-muted);
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 16px;
-  background: linear-gradient(180deg, var(--sy-color-bg-subtle), color-mix(in srgb, var(--sy-color-bg-subtle) 70%, transparent));
+  font-weight: 600;
+  font-size: var(--sy-text-xs-size);
+  line-height: var(--sy-text-xs-leading);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--sy-color-bg-subtle);
   white-space: nowrap;
 }
 
@@ -32,13 +34,24 @@
 }
 
 .table tbody tr:hover td {
-  background: color-mix(in srgb, var(--sy-color-action-primary) 7%, transparent);
+  background: var(--sy-color-bg-subtle);
 }
 
 .table td.mono,
 .table th.mono {
   font-family: var(--sy-font-mono);
-  font-size: 12px;
+  font-size: var(--sy-text-sm-size);
+}
+
+.actionCol {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+td.actionCol > div {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .table a {
@@ -94,7 +107,8 @@
   background: var(--sy-color-bg-surface);
   color: var(--sy-color-text-primary);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--sy-text-md-size);
+  line-height: var(--sy-text-md-leading);
 }
 
 .textarea {
@@ -103,6 +117,8 @@
   min-height: 120px;
   padding: var(--sy-space-2) var(--sy-space-3);
   font-family: var(--sy-font-mono);
+  font-size: var(--sy-text-sm-size);
+  line-height: var(--sy-text-sm-leading);
   resize: vertical;
 }
 
@@ -127,7 +143,7 @@
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--sy-space-4);
+  gap: var(--sy-space-6);
   animation: sy-rise var(--sy-duration-slow) var(--sy-ease-out);
 }
 

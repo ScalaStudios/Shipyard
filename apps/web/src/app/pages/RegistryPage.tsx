@@ -3,8 +3,10 @@ import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { CodeBlock } from "../components/CodeBlock";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../components/FormField";
 import { PackageBrowser } from "../components/PackageBrowser";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OCIRepo, PackageRepo, PackageVersion } from "../api";
 
@@ -15,7 +17,7 @@ function formatLabel(format: string): string {
     case "npm":
       return "npm";
     case "generic":
-      return "generic";
+      return "Generic";
     default:
       return format;
   }
@@ -36,19 +38,26 @@ export function RegistryPage() {
   const [registryToken, setRegistryToken] = useState("");
   const [tokenBusy, setTokenBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     if (!org || !project) {
       setPackages([]);
       setOci([]);
+      setLoading(false);
       return;
     }
-    const [p, o] = await Promise.all([api.listPackages(org.id, project.id), api.listOCI(org.id, project.id)]);
-    setPackages(p.repositories ?? []);
-    setOci(o.repositories ?? []);
+    try {
+      const [p, o] = await Promise.all([api.listPackages(org.id, project.id), api.listOCI(org.id, project.id)]);
+      setPackages(p.repositories ?? []);
+      setOci(o.repositories ?? []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
+    setLoading(true);
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load registry"));
   }, [org?.id, project?.id]);
 
@@ -159,45 +168,57 @@ shipyardToken=${registryToken}`;
         <EmptyState title="Select a project" />
       ) : (
         <>
-          <Panel
-            title="Package repositories"
-            meta={<StatusBadge status="info">{packages.length}</StatusBadge>}
-            actions={
-              <form className={table.formRow} onSubmit={createPackage}>
-                <input className={table.input} placeholder="name" value={pkgName} onChange={(e) => setPkgName(e.target.value)} required aria-label="Repository name" />
+          <Panel title="Package repositories" meta={<StatusBadge status="info">{packages.length}</StatusBadge>}>
+            <form className={form.row} onSubmit={createPackage}>
+              <FormField label="Repository name" htmlFor="pkg-name">
+                <input
+                  id="pkg-name"
+                  className={table.input}
+                  value={pkgName}
+                  onChange={(e) => setPkgName(e.target.value)}
+                  required
+                />
+              </FormField>
+              <FormField label="Format" htmlFor="pkg-format">
                 <select
+                  id="pkg-format"
                   className={table.select}
                   value={pkgFormat}
                   onChange={(e) => setPkgFormat(e.target.value)}
-                  aria-label="Package format"
                 >
                   <option value="maven">Maven / Gradle</option>
                   <option value="npm">npm</option>
-                  <option value="generic">generic</option>
+                  <option value="generic">Generic</option>
                 </select>
+              </FormField>
+              <div className={form.action}>
                 <Button type="submit" variant="primary" loading={busy}>
-                  Create
+                  Create repository
                 </Button>
-              </form>
-            }
-          >
-            {packages.length === 0 ? (
-              <EmptyState title="No package repositories" />
+              </div>
+            </form>
+            {loading ? (
+              <TableSkeleton />
+            ) : packages.length === 0 ? (
+              <EmptyState
+                title="No package repositories"
+                description="Create one above to publish Maven, npm, or generic artifacts from this project."
+              />
             ) : (
               <DataTable>
                 <thead>
                   <tr>
                     <th>Name</th>
                     <th>Format</th>
-                    <th />
+                    <th className={table.actionCol} />
                   </tr>
                 </thead>
                 <tbody>
                   {packages.map((p) => (
                     <tr key={p.id}>
                       <td>{p.name}</td>
-                      <td className="mono">{formatLabel(p.format)}</td>
-                      <td>
+                      <td className={table.muted}>{formatLabel(p.format)}</td>
+                      <td className={table.actionCol}>
                         <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
                           Browse
                         </button>
@@ -214,7 +235,7 @@ shipyardToken=${registryToken}`;
                   <span className={table.muted}>{formatLabel(selectedPkg.format)}</span>
                 </div>
                 {versionsLoading ? (
-                  <EmptyState title="Loading artifacts…" />
+                  <TableSkeleton />
                 ) : (
                   <PackageBrowser
                     key={selectedPkg.id}
@@ -230,7 +251,9 @@ shipyardToken=${registryToken}`;
           </Panel>
 
           <Panel title="OCI repositories" meta={<StatusBadge status="info">{oci.length}</StatusBadge>}>
-            {oci.length === 0 ? (
+            {loading ? (
+              <TableSkeleton />
+            ) : oci.length === 0 ? (
               <EmptyState
                 title="No OCI repositories"
                 description={`Push with docker push <host>/${org.slug}/${project.slug}/<name>:<tag> after docker login <host>.`}
@@ -240,14 +263,14 @@ shipyardToken=${registryToken}`;
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th />
+                    <th className={table.actionCol} />
                   </tr>
                 </thead>
                 <tbody>
                   {oci.map((r) => (
                     <tr key={r.id}>
                       <td className="mono">{r.name}</td>
-                      <td>
+                      <td className={table.actionCol}>
                         <button type="button" className={table.rowButton} onClick={() => void openOci(r)}>
                           Tags
                         </button>

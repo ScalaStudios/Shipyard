@@ -18,14 +18,10 @@
   --sy-color-status-info: #256faf;
   --sy-color-focus-ring: #1f5eff;
 
-  --sy-gradient-canvas:
-    radial-gradient(1200px 560px at 8% -10%, color-mix(in srgb, var(--sy-color-action-primary) 18%, transparent), transparent 58%),
-    radial-gradient(900px 480px at 100% 0%, color-mix(in srgb, var(--sy-color-accent-dock) 12%, transparent), transparent 52%),
-    radial-gradient(700px 420px at 70% 110%, color-mix(in srgb, var(--sy-color-status-info) 10%, transparent), transparent 55%),
-    linear-gradient(180deg, #f7f9fc 0%, var(--sy-color-bg-canvas) 48%, #e8eef6 100%);
+  --sy-gradient-canvas: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
   --sy-gradient-nav: linear-gradient(185deg, #ffffff 0%, color-mix(in srgb, #ffffff 88%, #315efb) 100%);
   --sy-gradient-panel: linear-gradient(165deg, #ffffff 0%, color-mix(in srgb, #ffffff 94%, #315efb) 100%);
-  --sy-gradient-cta: linear-gradient(135deg, #315efb 0%, #1f4ed8 55%, #b86519 160%);
+  --sy-gradient-cta: linear-gradient(180deg, #315efb 0%, #2448d4 100%);
   --sy-shadow-panel: 0 1px 0 color-mix(in srgb, #fff 70%, transparent), 0 10px 30px color-mix(in srgb, #15233a 8%, transparent);
   --sy-shadow-float: 0 18px 50px color-mix(in srgb, #15233a 14%, transparent);
   --sy-glow-primary: 0 0 0 1px color-mix(in srgb, var(--sy-color-action-primary) 28%, transparent),
@@ -54,6 +50,19 @@
   --sy-font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
   --sy-font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
+  --sy-text-xs-size: 11px;
+  --sy-text-xs-leading: 16px;
+  --sy-text-sm-size: 12px;
+  --sy-text-sm-leading: 18px;
+  --sy-text-md-size: 14px;
+  --sy-text-md-leading: 20px;
+  --sy-text-lg-size: 16px;
+  --sy-text-lg-leading: 24px;
+  --sy-text-xl-size: 20px;
+  --sy-text-xl-leading: 28px;
+  --sy-text-display-size: 26px;
+  --sy-text-display-leading: 32px;
+
   --sy-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --sy-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
   --sy-duration-fast: 140ms;
@@ -80,14 +89,10 @@
   --sy-color-status-info: #69a7e8;
   --sy-color-focus-ring: #9ab8ff;
 
-  --sy-gradient-canvas:
-    radial-gradient(1000px 520px at 0% -5%, color-mix(in srgb, #315efb 28%, transparent), transparent 55%),
-    radial-gradient(800px 460px at 100% 5%, color-mix(in srgb, #b86519 16%, transparent), transparent 50%),
-    radial-gradient(640px 400px at 55% 100%, color-mix(in srgb, #256faf 14%, transparent), transparent 55%),
-    linear-gradient(180deg, #0a0d12 0%, #07090d 45%, #0b1018 100%);
+  --sy-gradient-canvas: linear-gradient(180deg, #0a0d12 0%, #07090d 100%);
   --sy-gradient-nav: linear-gradient(185deg, #121821 0%, #0f1319 55%, #101722 100%);
   --sy-gradient-panel: linear-gradient(160deg, #141b25 0%, #0f1319 70%);
-  --sy-gradient-cta: linear-gradient(135deg, #6e97ff 0%, #315efb 48%, #b86519 140%);
+  --sy-gradient-cta: linear-gradient(180deg, #7aa2ff 0%, #5c86e8 100%);
   --sy-shadow-panel: 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 14px 40px color-mix(in srgb, #000 45%, transparent);
   --sy-shadow-float: 0 22px 60px color-mix(in srgb, #000 55%, transparent);
   --sy-glow-primary: 0 0 0 1px color-mix(in srgb, var(--sy-color-action-primary) 35%, transparent),
@@ -109,8 +114,8 @@ body,
 body {
   margin: 0;
   font-family: var(--sy-font-sans);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--sy-text-md-size);
+  line-height: var(--sy-text-md-leading);
   color: var(--sy-color-text-primary);
   background: var(--sy-color-bg-canvas);
   background-image: var(--sy-gradient-canvas);

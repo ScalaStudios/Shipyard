@@ -111,11 +111,11 @@ export function OverviewPage() {
         {!org || !project ? (
           <EmptyState
             title="Select an organization and project"
-            description="Create them under Projects, or import an existing forge org."
+            description="Create them under Projects, or import an existing forge organization."
             action={
               <Link to={org ? "/projects/import" : "/projects"}>
                 <Button type="button" variant="primary">
-                  {org ? "Import from forge" : "Get started"}
+                  {org ? "Import repositories" : "Get started"}
                 </Button>
               </Link>
             }
@@ -150,7 +150,7 @@ export function OverviewPage() {
 
       <Panel title="Recent runs" meta={<StatusBadge status="info">{runs.length}</StatusBadge>}>
         {!org || !project ? (
-          <EmptyState title="No project context" />
+          <EmptyState title="Select a project" description="Run history is scoped to a project." />
         ) : runs.length === 0 ? (
           <EmptyState title="No runs yet" description="Save a pipeline and start a run from Pipelines." />
         ) : (

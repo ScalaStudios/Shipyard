@@ -248,7 +248,7 @@ export function ImportPage() {
   return (
     <div className={table.stack}>
       <PageHeader
-        title="Import from forge"
+        title="Import repositories"
         description="Connect your forge account or paste a PAT, pick a remote organization, and import each repository as a Shipyard project with webhook wiring."
       />
 
