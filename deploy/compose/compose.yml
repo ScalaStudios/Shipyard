@@ -63,7 +63,7 @@ services:
     profiles: ["runner"]
 
   buildkitd:
-    image: moby/buildkit:v0.16.0
+    image: moby/buildkit:v0.33.0
     privileged: true
     command: ["--addr", "tcp://0.0.0.0:1234"]
     profiles: ["runner"]

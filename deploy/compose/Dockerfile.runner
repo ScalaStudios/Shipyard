@@ -7,6 +7,6 @@ RUN CGO_ENABLED=0 go build -o /out/shipyard-runner ./cmd/shipyard-runner
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git && rm -rf /var/lib/apt/lists/*
-COPY --from=moby/buildkit:v0.16.0 /usr/bin/buildctl /usr/local/bin/buildctl
+COPY --from=moby/buildkit:v0.33.0 /usr/bin/buildctl /usr/local/bin/buildctl
 COPY --from=build /out/shipyard-runner /usr/local/bin/shipyard-runner
 ENTRYPOINT ["shipyard-runner"]
