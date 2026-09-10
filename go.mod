@@ -3,7 +3,7 @@ module git.lunarlabs.dev/Shipyard/shipyard
 go 1.25.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.43.6
+	github.com/aws/aws-sdk-go-v2 v1.47.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.79.2
 	github.com/jackc/pgx/v5 v5.10.0
