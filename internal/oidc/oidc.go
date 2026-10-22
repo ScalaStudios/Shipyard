@@ -25,6 +25,7 @@ const (
 	KindGitea   ProviderKind = "gitea"
 	KindEntra   ProviderKind = "entra"
 	KindDiscord ProviderKind = "discord"
+	KindHalo    ProviderKind = "halo"
 )
 
 type ProviderConfig struct {
@@ -67,7 +68,7 @@ func (s *Service) SetProviders(providers []ProviderConfig) {
 		if p.Name == "" || p.ClientID == "" {
 			continue
 		}
-		if p.Kind == KindOIDC && p.Issuer == "" {
+		if (p.Kind == KindOIDC || p.Kind == KindHalo) && p.Issuer == "" {
 			continue
 		}
 		m[p.Name] = p
@@ -105,7 +106,7 @@ func Normalize(p ProviderConfig) ProviderConfig {
 		if len(p.Scopes) == 0 {
 			p.Scopes = []string{"openid", "profile", "email"}
 		}
-	case KindForgejo, KindGitea:
+	case KindForgejo, KindGitea, KindHalo:
 		if len(p.Scopes) == 0 {
 			p.Scopes = []string{"openid", "profile", "email"}
 		}
@@ -148,6 +149,8 @@ func detectKind(p ProviderConfig) ProviderKind {
 		return KindEntra
 	case name == "discord" || strings.Contains(issuer, "discord.com"):
 		return KindDiscord
+	case name == "halo":
+		return KindHalo
 	default:
 		return KindOIDC
 	}
@@ -465,6 +468,8 @@ func authEndpoint(p ProviderConfig) string {
 		return "https://discord.com/api/oauth2/authorize"
 	case KindEntra:
 		return entraBase(base) + "/oauth2/v2.0/authorize"
+	case KindHalo:
+		return base + "/oauth2/authorize"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://accounts.google.com/o/oauth2/v2/auth"
@@ -489,6 +494,8 @@ func tokenEndpoint(p ProviderConfig) string {
 		return "https://discord.com/api/oauth2/token"
 	case KindEntra:
 		return entraBase(base) + "/oauth2/v2.0/token"
+	case KindHalo:
+		return base + "/oauth2/token"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://oauth2.googleapis.com/token"
@@ -513,6 +520,8 @@ func userInfoEndpoint(p ProviderConfig) string {
 		return "https://discord.com/api/users/@me"
 	case KindEntra:
 		return "https://graph.microsoft.com/v1.0/me"
+	case KindHalo:
+		return base + "/oauth2/userinfo"
 	default:
 		if strings.Contains(base, "accounts.google.com") {
 			return "https://openidconnect.googleapis.com/v1/userinfo"

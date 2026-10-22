@@ -59,7 +59,7 @@ The demo uses a throwaway encryption key and a well-known password. Do not expos
 | **Packages** | npm and Maven repositories, with `maven-metadata.xml` generation |
 | **Registry** | OCI `/v2` distribution with `docker login`/`push`/`pull` — images are named `<host>/<org>/<project>/<name>` |
 | **Delivery** | Releases, environments and deployments |
-| **Auth** | Local accounts, sessions, API tokens, and OIDC sign-in (GitHub, GitLab, Forgejo, Gitea, Entra, Discord) |
+| **Auth** | Local accounts, sessions, API tokens, and OIDC sign-in (GitHub, GitLab, Forgejo, Gitea, Entra, Discord, Halo) |
 | **Integrations** | Forge webhooks, PR/MR bot comments, commit statuses, Discord alerts |
 | **Ops** | Instance settings in the database, encrypted credentials, cluster heartbeat, setup checklist |
 

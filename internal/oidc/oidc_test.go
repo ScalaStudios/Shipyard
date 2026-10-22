@@ -31,3 +31,24 @@ func TestNormalizeEntraAndDiscord(t *testing.T) {
 		t.Fatalf("discord auth %s", authEndpoint(discord))
 	}
 }
+
+func TestNormalizeHalo(t *testing.T) {
+	t.Parallel()
+	halo := Normalize(ProviderConfig{Name: "halo", ClientID: "hl_abc", Issuer: "https://auth.example.com/"})
+	if halo.Kind != KindHalo {
+		t.Fatalf("halo kind %s", halo.Kind)
+	}
+	if authEndpoint(halo) != "https://auth.example.com/oauth2/authorize" {
+		t.Fatalf("halo auth %s", authEndpoint(halo))
+	}
+	if tokenEndpoint(halo) != "https://auth.example.com/oauth2/token" {
+		t.Fatalf("halo token %s", tokenEndpoint(halo))
+	}
+	if userInfoEndpoint(halo) != "https://auth.example.com/oauth2/userinfo" {
+		t.Fatalf("halo userinfo %s", userInfoEndpoint(halo))
+	}
+	s := New([]ProviderConfig{{Name: "halo", ClientID: "hl_abc"}})
+	if s.Enabled() {
+		t.Fatal("halo without issuer must be skipped")
+	}
+}

@@ -157,6 +157,16 @@ func loadOIDCProviders(cfg Config) []oidc.ProviderConfig {
 			RedirectURL:  envOr("SHIPYARD_OIDC_ENTRA_REDIRECT_URL", baseRedirect+"/entra/callback"),
 		})
 	}
+	if id := os.Getenv("SHIPYARD_OIDC_HALO_CLIENT_ID"); id != "" {
+		out = append(out, oidc.ProviderConfig{
+			Name:         "halo",
+			Kind:         oidc.KindHalo,
+			Issuer:       os.Getenv("SHIPYARD_OIDC_HALO_ISSUER"),
+			ClientID:     id,
+			ClientSecret: os.Getenv("SHIPYARD_OIDC_HALO_CLIENT_SECRET"),
+			RedirectURL:  envOr("SHIPYARD_OIDC_HALO_REDIRECT_URL", baseRedirect+"/halo/callback"),
+		})
+	}
 	if id := os.Getenv("SHIPYARD_OIDC_DISCORD_CLIENT_ID"); id != "" {
 		out = append(out, oidc.ProviderConfig{
 			Name:         "discord",

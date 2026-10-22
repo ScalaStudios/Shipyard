@@ -57,7 +57,7 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 		{
 			ID:       "login_provider",
 			Title:    "Add a sign-in provider",
-			Detail:   "Let your team sign in with GitHub, Forgejo, Entra or any OIDC provider.",
+			Detail:   "Let your team sign in with GitHub, Forgejo, Entra, Halo or any OIDC provider.",
 			Done:     loginProviders > 0,
 			Optional: true,
 			Href:     "/settings/authentication",
