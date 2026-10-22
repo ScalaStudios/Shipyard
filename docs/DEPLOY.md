@@ -108,7 +108,7 @@ Use Certbot or your own certificates. Prefer Caddy when you can.
 | `SHIPYARD_WEBHOOK_SECRET` | Global webhook HMAC / shared secret fallback |
 | `SHIPYARD_SECRETS_KEY` | Base64 32-byte key for encrypted secrets |
 | `SHIPYARD_ALLOW_REGISTER` | Open registration (otherwise first-user only) |
-| `SHIPYARD_OIDC_*` | Login presets (GitHub, GitLab, Forgejo, Gitea, generic) |
+| `SHIPYARD_OIDC_*` | Login presets (GitHub, GitLab, Forgejo, Gitea, Entra, Discord, Halo, generic) |
 
 See `.env.example` for the full list.
 
