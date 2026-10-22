@@ -176,8 +176,9 @@ export SHIPYARD_REGISTRATION_TOKEN=%q
 export SHIPYARD_RUNNER_NAME=%q
 export SHIPYARD_RUNNER_LABELS=%q
 export SHIPYARD_RUNNER_TOKEN_FILE="$HOME/.shipyard/runner.token"
-go install git.lunarlabs.dev/Shipyard/shipyard/cmd/shipyard-runner@master
-shipyard-runner`, apiURL, token, name, labels)
+git clone --depth 1 https://github.com/ScalaStudios/shipyard.git /tmp/shipyard-src
+(cd /tmp/shipyard-src && go build -o "$HOME/.shipyard/bin/shipyard-runner" ./cmd/shipyard-runner)
+"$HOME/.shipyard/bin/shipyard-runner"`, apiURL, token, name, labels)
 }
 
 func renderRunnerInstallScript(apiURL, token, name, labels, method string) string {
@@ -195,6 +196,7 @@ SHIPYARD_REGISTRATION_TOKEN=%q
 SHIPYARD_RUNNER_NAME=%q
 SHIPYARD_RUNNER_LABELS=%q
 METHOD=%q
+SOURCE_REPO="${SOURCE_REPO:-https://github.com/ScalaStudios/shipyard.git}"
 SHIPYARD_HOME="${SHIPYARD_HOME:-$HOME/.shipyard}"
 TOKEN_FILE="$SHIPYARD_HOME/runner.token"
 BIN_DIR="$SHIPYARD_HOME/bin"
@@ -214,14 +216,11 @@ install_docker() {
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
-  if have git; then
-    git clone --depth 1 https://git.lunarlabs.dev/Shipyard/shipyard.git "$tmp/src"
-  else
-    die "git required to build the runner image (or install Go and re-run with METHOD=binary)"
-  fi
-  docker build -t "$image" -f "$tmp/src/deploy/compose/Dockerfile.runner" "$tmp/src"
+  have git || die "git required to build the runner image (or install Go and re-run with METHOD=binary)"
+  git clone --depth 1 "$SOURCE_REPO" "$tmp/src" || return 1
+  docker build -t "$image" -f "$tmp/src/deploy/compose/Dockerfile.runner" "$tmp/src" || return 1
   docker rm -f "shipyard-${SHIPYARD_RUNNER_NAME}" >/dev/null 2>&1 || true
-  docker volume create shipyard-runner-data >/dev/null
+  docker volume create shipyard-runner-data >/dev/null || return 1
   docker run -d --restart unless-stopped \
     --name "shipyard-${SHIPYARD_RUNNER_NAME}" \
     -e SHIPYARD_URL="$SHIPYARD_URL" \
@@ -231,15 +230,20 @@ install_docker() {
     -e SHIPYARD_RUNNER_TOKEN_FILE=/var/lib/shipyard/runner.token \
     -v shipyard-runner-data:/var/lib/shipyard \
     --label shipyard.runner=true \
-    "$image"
+    "$image" || return 1
   log "Runner container shipyard-${SHIPYARD_RUNNER_NAME} is up"
   docker logs --tail 20 "shipyard-${SHIPYARD_RUNNER_NAME}" || true
 }
 
 install_binary() {
   have go || die "Go toolchain not found (install Go 1.25+ or use Docker)"
-  log "Installing shipyard-runner with go install"
-  GOBIN="$BIN_DIR" go install git.lunarlabs.dev/Shipyard/shipyard/cmd/shipyard-runner@master
+  have git || die "git required to fetch the runner source"
+  log "Building shipyard-runner from source"
+  local src
+  src="$(mktemp -d)"
+  git clone --depth 1 "$SOURCE_REPO" "$src" || die "could not clone $SOURCE_REPO"
+  (cd "$src" && go build -o "$BIN_DIR/shipyard-runner" ./cmd/shipyard-runner) || die "go build failed"
+  rm -rf "$src"
   export PATH="$BIN_DIR:$PATH"
   cat > "$SHIPYARD_HOME/runner.env" <<EOF
 SHIPYARD_URL=$SHIPYARD_URL
