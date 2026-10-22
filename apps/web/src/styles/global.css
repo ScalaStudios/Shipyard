@@ -1,7 +1,7 @@
 .mono {
   font-family: var(--sy-font-mono);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 @keyframes sy-rise {

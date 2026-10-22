@@ -1,11 +1,11 @@
 .block {
   margin: 0;
-  padding: var(--sy-space-3, 12px);
+  padding: var(--sy-space-4);
   overflow-x: auto;
   font-family: var(--sy-font-mono);
-  font-size: 12px;
-  line-height: 18px;
-  border-radius: var(--sy-radius-control, 8px);
+  font-size: 13px;
+  line-height: 1.62;
+  border-radius: var(--sy-radius-control);
   border: 1px solid var(--sy-color-border-default);
   background: var(--sy-color-bg-subtle);
 }

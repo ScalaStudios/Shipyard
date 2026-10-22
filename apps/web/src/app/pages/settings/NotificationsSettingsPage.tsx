@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { Link } from "react-router-dom";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
@@ -184,9 +184,9 @@ export function NotificationsSettingsPage() {
                     <Button variant="secondary" disabled={busy} onClick={() => void testDiscord(d.id)}>
                       Send test
                     </Button>{" "}
-                    <Button variant="ghost" disabled={busy} onClick={() => void removeDiscord(d.id)}>
-                      Remove
-                    </Button>
+                    <HoldToConfirm size="sm" doneLabel="Removed" disabled={busy} onConfirm={() => void removeDiscord(d.id)}>
+                      Hold to remove
+                    </HoldToConfirm>
                   </td>
                 </tr>
               ))}

@@ -1,12 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, RunStatus } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Deployment, Environment, Release } from "../api";
-import { formatTime, runStatus } from "../lib/format";
+import { formatTime } from "../lib/format";
 
 export function DeploymentsPage() {
   const { org, project, setError } = useWorkspace();
@@ -165,7 +165,7 @@ export function DeploymentsPage() {
                       <td>{envNameByID[d.environment_id] ?? d.environment_id.slice(0, 8)}</td>
                       <td className="mono">{releaseByID[d.release_id] ?? d.release_id.slice(0, 8)}</td>
                       <td>
-                        <StatusBadge status={runStatus(d.status)}>{d.status}</StatusBadge>
+                        <RunStatus status={d.status} />
                       </td>
                       <td>{d.run_id ? <Link to={`/pipelines/runs/${d.run_id}`}>Run</Link> : <span className={table.muted}>—</span>}</td>
                       <td className={table.muted}>{formatTime(d.created_at)}</td>

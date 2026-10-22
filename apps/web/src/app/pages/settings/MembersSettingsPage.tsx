@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
 import { PageHeader } from "../../components/PageHeader";
@@ -13,7 +13,6 @@ export function MembersSettingsPage() {
   const [login, setLogin] = useState("");
   const [role, setRole] = useState("developer");
   const [busy, setBusy] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState("");
   const canManage = org?.role === "owner" || org?.role === "admin";
 
   async function refresh() {
@@ -46,14 +45,9 @@ export function MembersSettingsPage() {
 
   async function remove(member: Member) {
     if (!org) return;
-    if (confirmRemove !== member.user_id) {
-      setConfirmRemove(member.user_id);
-      return;
-    }
     setBusy(true);
     try {
       await api.removeMember(org.id, member.user_id);
-      setConfirmRemove("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to remove member");
@@ -108,9 +102,9 @@ export function MembersSettingsPage() {
                   <td className={table.muted}>{formatTime(m.created_at)}</td>
                   <td>
                     {canManage && m.user_id !== user.id ? (
-                      <Button type="button" variant="secondary" disabled={busy} onClick={() => void remove(m)}>
-                        {confirmRemove === m.user_id ? "Confirm remove" : "Remove"}
-                      </Button>
+                      <HoldToConfirm size="sm" doneLabel="Removed" disabled={busy} onConfirm={() => void remove(m)}>
+                        Hold to remove
+                      </HoldToConfirm>
                     ) : null}
                   </td>
                 </tr>

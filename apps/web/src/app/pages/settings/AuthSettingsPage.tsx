@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
 import { PageHeader } from "../../components/PageHeader";
@@ -7,19 +7,21 @@ import { useWorkspace } from "../../context/WorkspaceContext";
 import { api, AuthProvider, GitHubAppStatus, InstanceUser } from "../../api";
 import { FormField, FormFooter, FormGrid, FormNote, FormSection, GridField } from "./SettingsForm";
 
-const KINDS = ["github", "gitlab", "forgejo", "gitea", "entra", "discord", "oidc"];
+const KINDS = ["github", "gitlab", "forgejo", "gitea", "entra", "discord", "halo", "oidc"];
 
 const PURPOSES = [
   {
     id: "login" as const,
     title: "Sign-in providers",
     description: "Let people sign in to Shipyard with an account they already have.",
+    kinds: KINDS,
     callback: (base: string, name: string) => `${base}/api/v1/auth/oidc/${name}/callback`,
   },
   {
     id: "forge" as const,
     title: "Forge applications",
     description: "Authorize Shipyard to read repositories and register webhooks when importing.",
+    kinds: KINDS.filter((k) => k !== "halo"),
     callback: (base: string, name: string) => `${base}/api/v1/forge/oauth/${name}/callback`,
   },
 ];
@@ -30,7 +32,7 @@ function ProviderSection({ purpose }: { purpose: (typeof PURPOSES)[number] }) {
   const [callbackBase, setCallbackBase] = useState("");
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [kind, setKind] = useState(KINDS[0]);
+  const [kind, setKind] = useState(purpose.kinds[0]);
   const [issuer, setIssuer] = useState("");
   const [clientID, setClientID] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -156,9 +158,9 @@ function ProviderSection({ purpose }: { purpose: (typeof PURPOSES)[number] }) {
                     <Button type="button" variant="secondary" onClick={() => void toggle(p)}>
                       {p.enabled ? "Disable" : "Enable"}
                     </Button>
-                    <Button type="button" variant="secondary" onClick={() => void remove(p)}>
-                      Remove
-                    </Button>
+                    <HoldToConfirm size="sm" doneLabel="Removed" onConfirm={() => void remove(p)}>
+                      Hold to remove
+                    </HoldToConfirm>
                   </div>
                 </td>
               </tr>
@@ -178,7 +180,7 @@ function ProviderSection({ purpose }: { purpose: (typeof PURPOSES)[number] }) {
                   value={kind}
                   onChange={(e) => setKind(e.target.value)}
                 >
-                  {KINDS.map((k) => (
+                  {purpose.kinds.map((k) => (
                     <option key={k} value={k}>
                       {k}
                     </option>

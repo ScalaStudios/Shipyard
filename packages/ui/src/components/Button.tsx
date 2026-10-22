@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import styles from "./Button.module.css";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "destructive";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
@@ -20,9 +20,18 @@ export function Button({
 }: ButtonProps) {
   const classes = [styles.button, styles[variant], className].filter(Boolean).join(" ");
   return (
-    <button className={classes} disabled={disabled || loading} data-loading={loading || undefined} {...rest}>
-      {icon ? <span className={styles.icon}>{icon}</span> : null}
-      <span>{loading ? "Working…" : children}</span>
+    <button
+      className={classes}
+      disabled={disabled || loading}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
+      <span className={styles.content}>
+        {icon ? <span className={styles.icon}>{icon}</span> : null}
+        <span>{children}</span>
+      </span>
+      {loading ? <span className={styles.spinner} aria-hidden="true" /> : null}
     </button>
   );
 }

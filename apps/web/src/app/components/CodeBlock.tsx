@@ -10,7 +10,7 @@ const shipyardTheme: PrismTheme = {
     { types: ["boolean", "number"], style: { color: "var(--sy-color-status-warning)" } },
     { types: ["selector", "attr-name", "string", "char", "builtin", "inserted"], style: { color: "var(--sy-color-status-success)" } },
     { types: ["operator", "entity", "url", "variable"], style: { color: "var(--sy-color-text-primary)" } },
-    { types: ["atrule", "attr-value", "function", "class-name"], style: { color: "var(--sy-color-action-primary-hover)" } },
+    { types: ["atrule", "attr-value", "function", "class-name"], style: { color: "var(--sy-color-accent-gold)" } },
     { types: ["keyword"], style: { color: "var(--sy-color-action-primary)" } },
     { types: ["regex", "important"], style: { color: "var(--sy-color-status-danger)" } },
   ],

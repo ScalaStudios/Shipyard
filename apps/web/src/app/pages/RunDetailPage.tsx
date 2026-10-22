@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, RunStatus } from "@shipyard/ui";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Job, LogLine, PipelineRun } from "../api";
-import { formatTime, runStatus } from "../lib/format";
+import { formatTime } from "../lib/format";
 
 const ACTIVE_STATUSES = ["pending", "queued", "running"];
 
@@ -168,9 +168,9 @@ export function RunDetailPage() {
       ) : (
         <Panel
           title="Jobs + logs"
-          meta={<StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>}
+          meta={<RunStatus status={run.status} />}
         >
-          <div className={table.split} style={{ padding: 16 }}>
+          <div className={table.split} style={{ padding: "0 24px 24px" }}>
             <ul className={table.jobList}>
               {jobs.map((job) => (
                 <li key={job.id}>
@@ -180,7 +180,7 @@ export function RunDetailPage() {
                     onClick={() => void openJob(job.id)}
                   >
                     <strong>{job.name}</strong>
-                    <StatusBadge status={runStatus(job.status)}>{job.status}</StatusBadge>
+                    <RunStatus status={job.status} />
                   </button>
                   {job.error_message ? (
                     <div className={table.muted} style={{ padding: "0 12px 12px", fontSize: 12, lineHeight: "16px" }}>

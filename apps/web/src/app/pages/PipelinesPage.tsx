@@ -1,12 +1,12 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, RunStatus } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Pipeline, PipelineRun } from "../api";
-import { defaultPipelineYAML, formatTime, runStatus } from "../lib/format";
+import { defaultPipelineYAML, formatTime } from "../lib/format";
 
 export function PipelinesPage() {
   const { org, project, setError } = useWorkspace();
@@ -124,7 +124,7 @@ export function PipelinesPage() {
                 {pipelines.some((p) => p.slug === slug) ? "Update pipeline" : "Save pipeline"}
               </Button>
             </form>
-            <div style={{ padding: "0 16px 16px" }}>
+            <div style={{ padding: "0 24px 24px" }}>
               <textarea
                 className={table.textarea}
                 ref={yamlRef}
@@ -157,7 +157,7 @@ export function PipelinesPage() {
                         <Link to={`/pipelines/runs/${run.id}`}>#{run.number}</Link>
                       </td>
                       <td>
-                        <StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>
+                        <RunStatus status={run.status} />
                       </td>
                       <td className={table.muted}>{run.trigger_type ?? "manual"}</td>
                       <td className="mono">{run.git_ref || "—"}</td>

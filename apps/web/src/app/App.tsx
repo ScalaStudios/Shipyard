@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Button } from "@shipyard/ui";
-import { IconMoon, IconSun } from "@tabler/icons-react";
+import { Button, Loader } from "@shipyard/ui";
+import { Moon, Sun } from "lucide-react";
 import { AppShell } from "../shell/AppShell";
 import { api, setUnauthorizedHandler, User } from "./api";
 import bootStyles from "./BootScreen.module.css";
@@ -64,7 +64,7 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Button
             variant="ghost"
             aria-label="Toggle theme"
-            icon={resolved === "dark" ? <IconSun size={16} /> : <IconMoon size={16} />}
+            icon={resolved === "dark" ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
             onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
           >
             {resolved === "dark" ? "Light" : "Dark"}
@@ -151,14 +151,10 @@ export function App() {
   if (boot === "loading") {
     return (
       <div className={bootStyles.screen}>
-        <div className={bootStyles.glow} aria-hidden />
         <div className={bootStyles.card}>
           <img className={bootStyles.mark} src="/shipyard-mark.svg" width={40} height={40} alt="" />
           <h1 className={bootStyles.title}>Shipyard</h1>
-          <div className={bootStyles.pulse}>
-            <span className={bootStyles.dot} aria-hidden />
-            Connecting to control plane…
-          </div>
+          <Loader label="Connecting to control plane" />
         </div>
       </div>
     );
@@ -167,7 +163,6 @@ export function App() {
   if (boot === "offline") {
     return (
       <div className={bootStyles.screen}>
-        <div className={bootStyles.glow} aria-hidden />
         <div className={bootStyles.card}>
           <img className={bootStyles.mark} src="/shipyard-mark.svg" width={40} height={40} alt="" />
           <h1 className={bootStyles.title}>Control plane offline</h1>

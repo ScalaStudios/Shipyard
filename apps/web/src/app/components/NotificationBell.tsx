@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { IconBell } from "@tabler/icons-react";
+import { Bell } from "lucide-react";
 import { api, AppNotification } from "../api";
 import styles from "./NotificationBell.module.css";
 
@@ -109,7 +109,7 @@ export function NotificationBell() {
           void refresh();
         }}
       >
-        <IconBell size={16} stroke={1.6} />
+        <Bell size={16} strokeWidth={1.75} />
         {count > 0 ? <span className={styles.badge}>{count > 9 ? "9+" : count}</span> : null}
       </button>
       {panel}

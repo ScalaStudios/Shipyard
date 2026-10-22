@@ -3,28 +3,27 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sy-space-2);
-  margin: var(--sy-space-4);
+  margin: 0 var(--sy-space-6) var(--sy-space-6);
   padding: var(--sy-space-6);
-  border: 1px dashed color-mix(in srgb, var(--sy-color-action-primary) 28%, var(--sy-color-border-default));
+  border: 1px dashed var(--sy-color-border-strong);
   border-radius: var(--sy-radius-panel);
-  background:
-    radial-gradient(420px 160px at 0% 0%, color-mix(in srgb, var(--sy-color-action-primary) 12%, transparent), transparent 70%),
-    var(--sy-color-bg-subtle);
+  background: var(--sy-color-bg-subtle);
 }
 
 .title {
-  font-size: 14px;
-  line-height: 20px;
+  font-family: var(--sy-font-display);
+  font-size: 17px;
+  line-height: 1.34;
   font-weight: 600;
   color: var(--sy-color-text-primary);
 }
 
 .description {
   margin: 0;
-  max-width: 48ch;
+  max-width: 60ch;
   color: var(--sy-color-text-muted);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 1.55;
 }
 
 .action {

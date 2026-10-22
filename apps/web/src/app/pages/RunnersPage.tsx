@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Heart } from "lucide-react";
+import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
@@ -27,13 +27,11 @@ function pingClass(ms: number | null): string {
 function RunnerHeartbeat({ runner, now }: { runner: Runner; now: number }) {
   const alive = isRunnerAlive(runner, now);
   const age = heartbeatAgeMs(runner.last_heartbeat_at, now);
-  const Heart = alive ? IconHeartFilled : IconHeart;
 
   return (
     <div className={styles.heartbeat} title={runner.last_heartbeat_at ? formatTime(runner.last_heartbeat_at) : "No heartbeat yet"}>
       <span className={styles.heartWrap} aria-hidden="true">
-        {alive ? <span className={styles.pulseRing} /> : null}
-        <Heart size={18} stroke={1.75} className={alive ? styles.heartAlive : styles.heartDead} />
+        <Heart size={18} strokeWidth={1.75} fill={alive ? "currentColor" : "none"} className={alive ? styles.heartAlive : styles.heartDead} />
       </span>
       <span className={styles.heartbeatCopy}>
         <span className={alive ? styles.heartbeatStateAlive : styles.heartbeatStateDead}>{alive ? "Alive" : "Dead"}</span>
@@ -56,7 +54,6 @@ export function RunnersPage() {
   const [copied, setCopied] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const [apiPingMs, setApiPingMs] = useState<number | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState("");
 
   async function refresh() {
     const started = performance.now();
@@ -67,13 +64,8 @@ export function RunnersPage() {
   }
 
   async function removeRunner(runner: Runner) {
-    if (confirmRemove !== runner.id) {
-      setConfirmRemove(runner.id);
-      return;
-    }
     try {
       await api.deleteRunner(runner.id);
-      setConfirmRemove("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to remove runner");
@@ -236,11 +228,10 @@ export function RunnersPage() {
                     <td>
                       <div className={styles.nameCell}>
                         <span className={styles.heartWrap} aria-hidden="true">
-                          {alive ? <span className={styles.pulseRing} /> : null}
-                          {alive ? (
-                            <IconHeartFilled size={16} stroke={1.75} className={styles.heartAlive} />
+                                            {alive ? (
+                            <Heart size={16} strokeWidth={1.75} fill="currentColor" className={styles.heartAlive} />
                           ) : (
-                            <IconHeart size={16} stroke={1.75} className={styles.heartDead} />
+                            <Heart size={16} strokeWidth={1.75} className={styles.heartDead} />
                           )}
                         </span>
                         <span className={styles.nameText}>
@@ -259,9 +250,9 @@ export function RunnersPage() {
                     <td>{r.drained ? "yes" : "no"}</td>
                     <td>
                       {alive || r.status === "busy" ? null : (
-                        <Button type="button" variant="secondary" onClick={() => void removeRunner(r)}>
-                          {confirmRemove === r.id ? "Confirm remove" : "Remove"}
-                        </Button>
+                        <HoldToConfirm size="sm" doneLabel="Removed" onConfirm={() => void removeRunner(r)}>
+                          Hold to remove
+                        </HoldToConfirm>
                       )}
                     </td>
                   </tr>

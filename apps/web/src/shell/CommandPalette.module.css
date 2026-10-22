@@ -1,0 +1,115 @@
+.dialog {
+  width: min(560px, calc(100vw - 40px));
+  max-height: min(480px, calc(100vh - 96px));
+  margin: 96px auto auto;
+  padding: 0;
+  border: 1px solid var(--sy-color-border-strong);
+  border-radius: var(--sy-radius-panel);
+  background: var(--sy-color-bg-raised);
+  color: var(--sy-color-text-primary);
+  box-shadow: var(--sy-shadow-modal);
+  overflow: hidden;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: sy-palette var(--sy-duration) var(--sy-ease-out);
+}
+
+.dialog::backdrop {
+  background: var(--sy-color-scrim);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  padding: 0 var(--sy-space-4);
+  border-bottom: 1px solid var(--sy-color-border-default);
+  color: var(--sy-color-text-faint);
+}
+
+.input {
+  flex: 1;
+  height: 56px;
+  border: 0;
+  background: transparent;
+  color: var(--sy-color-text-primary);
+  font-size: 15px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--sy-color-text-faint);
+}
+
+.kbd {
+  padding: 0 var(--sy-space-2);
+  border: 1px solid var(--sy-color-border-strong);
+  border-radius: var(--sy-radius-check);
+  font-family: var(--sy-font-mono);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.list {
+  margin: 0;
+  padding: var(--sy-space-2);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.group {
+  padding: var(--sy-space-3) var(--sy-space-3) var(--sy-space-2);
+  color: var(--sy-color-text-faint);
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  min-height: 44px;
+  padding: 0 var(--sy-space-3);
+  border-radius: var(--sy-radius-control);
+  color: var(--sy-color-text-muted);
+  cursor: pointer;
+}
+
+.option[aria-selected="true"] {
+  background: var(--sy-color-bg-press);
+  color: var(--sy-color-text-primary);
+}
+
+.label {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.hint {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sy-color-text-faint);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  padding: var(--sy-space-6) var(--sy-space-3);
+  color: var(--sy-color-text-muted);
+  font-size: 13px;
+}
+
+@keyframes sy-palette {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

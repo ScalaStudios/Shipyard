@@ -20,22 +20,19 @@ export function SettingsLayout() {
   const visible = links.filter((link) => !link.adminOnly || user.is_admin);
 
   return (
-    <div className={styles.layout}>
-      <aside className={styles.side} aria-label="Settings">
-        <div className={styles.sideTitle}>Settings</div>
-        <nav className={styles.sideNav}>
-          {visible.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) => (isActive ? styles.sideActive : styles.sideItem)}
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
+    <div>
+      <nav className={styles.tabs} aria-label="Settings">
+        {visible.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            end={link.end}
+            className={({ isActive }) => (isActive ? styles.tabActive : styles.tab)}
+          >
+            {link.label}
+          </NavLink>
+        ))}
+      </nav>
       <div className={styles.main}>
         <Outlet />
       </div>

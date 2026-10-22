@@ -1,5 +1,5 @@
 .section {
-  padding: 0 var(--sy-space-5);
+  padding: 0 var(--sy-space-6);
 }
 
 .intro {
@@ -7,7 +7,7 @@
   padding: var(--sy-space-4) 0;
   color: var(--sy-color-text-muted);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 1.55;
 }
 
 .field {
@@ -15,7 +15,7 @@
   grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
   gap: var(--sy-space-6);
   align-items: start;
-  padding: var(--sy-space-5) 0;
+  padding: var(--sy-space-6) 0;
   border-top: 1px solid var(--sy-color-border-default);
 }
 
@@ -26,16 +26,17 @@
 .label {
   display: block;
   color: var(--sy-color-text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 20px;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
 }
 
 .hint {
   margin: var(--sy-space-1) 0 0;
   color: var(--sy-color-text-muted);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .control {
@@ -55,28 +56,28 @@
 .control textarea {
   height: auto;
   min-height: 96px;
-  padding: var(--sy-space-2) var(--sy-space-3);
+  padding: var(--sy-space-3) var(--sy-space-4);
   font-family: var(--sy-font-mono);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 1.62;
   resize: vertical;
 }
 
 .narrow {
-  max-width: 220px;
+  max-width: 240px;
 }
 
 .source {
   color: var(--sy-color-text-faint);
   font-size: 12px;
-  line-height: 16px;
+  line-height: 1.45;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--sy-space-4);
-  padding: var(--sy-space-5) 0;
+  padding: var(--sy-space-6) 0;
   border-top: 1px solid var(--sy-color-border-default);
 }
 
@@ -101,15 +102,15 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sy-space-3);
-  padding: var(--sy-space-4) var(--sy-space-5);
+  padding: var(--sy-space-4) var(--sy-space-6);
   border-top: 1px solid var(--sy-color-border-default);
-  background: color-mix(in srgb, var(--sy-color-bg-subtle) 60%, transparent);
+  background: var(--sy-color-bg-subtle);
 }
 
 .footerNote {
   color: var(--sy-color-text-muted);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 1.45;
 }
 
 .saved {
@@ -118,19 +119,19 @@
 
 .note {
   margin: 0;
-  padding: var(--sy-space-4) var(--sy-space-5);
+  padding: var(--sy-space-4) var(--sy-space-6);
   color: var(--sy-color-text-muted);
-  font-size: 12px;
-  line-height: 20px;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .note code {
-  padding: 1px 5px;
+  padding: 0 var(--sy-space-1);
   border: 1px solid var(--sy-color-border-default);
-  border-radius: 5px;
+  border-radius: var(--sy-radius-check);
   background: var(--sy-color-bg-subtle);
   font-family: var(--sy-font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 @media (max-width: 900px) {

@@ -1,33 +1,60 @@
-import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
-  IconBox,
-  IconBuildingWarehouse,
-  IconLayoutDashboard,
-  IconPackages,
-  IconRocket,
-  IconSettings,
-  IconTopologyStar3,
-  IconGitBranch,
-  IconServer,
-  IconFolder,
-} from "@tabler/icons-react";
+  Box,
+  Container,
+  Folder,
+  GitBranch,
+  LayoutDashboard,
+  Network,
+  Rocket,
+  Server,
+  Settings,
+  Warehouse,
+} from "lucide-react";
 
 export type NavItem = {
   id: string;
   label: string;
   to: string;
-  icon: ComponentType<{ size?: number; stroke?: number }>;
+  icon: LucideIcon;
+  summary: string;
 };
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: "overview", label: "Overview", to: "/", icon: IconLayoutDashboard },
-  { id: "projects", label: "Projects", to: "/projects", icon: IconFolder },
-  { id: "pipelines", label: "Pipelines", to: "/pipelines", icon: IconGitBranch },
-  { id: "artifacts", label: "Artifacts", to: "/artifacts", icon: IconBox },
-  { id: "registry", label: "Registry", to: "/registry", icon: IconPackages },
-  { id: "releases", label: "Releases", to: "/releases", icon: IconRocket },
-  { id: "deployments", label: "Deployments", to: "/deployments", icon: IconBuildingWarehouse },
-  { id: "runners", label: "Runners", to: "/runners", icon: IconServer },
-  { id: "cluster", label: "Cluster", to: "/cluster", icon: IconTopologyStar3 },
-  { id: "settings", label: "Settings", to: "/settings", icon: IconSettings },
+export type NavGroup = { id: string; label: string | null; items: NavItem[] };
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "home",
+    label: null,
+    items: [
+      { id: "overview", label: "Overview", to: "/", icon: LayoutDashboard, summary: "Delivery health and what needs attention." },
+      { id: "projects", label: "Projects", to: "/projects", icon: Folder, summary: "Organizations, projects and forge imports." },
+    ],
+  },
+  {
+    id: "delivery",
+    label: "Delivery",
+    items: [
+      { id: "pipelines", label: "Pipelines", to: "/pipelines", icon: GitBranch, summary: "Pipeline definitions, runs and job logs." },
+      { id: "artifacts", label: "Artifacts", to: "/artifacts", icon: Box, summary: "Build outputs stored by digest." },
+      { id: "registry", label: "Registry", to: "/registry", icon: Container, summary: "OCI images and Maven or npm packages." },
+      { id: "releases", label: "Releases", to: "/releases", icon: Rocket, summary: "Versioned bundles of artifacts and images." },
+      { id: "deployments", label: "Deployments", to: "/deployments", icon: Warehouse, summary: "Rollouts to environments and their history." },
+    ],
+  },
+  {
+    id: "infrastructure",
+    label: "Infrastructure",
+    items: [
+      { id: "runners", label: "Runners", to: "/runners", icon: Server, summary: "Build agents, heartbeats and install tokens." },
+      { id: "cluster", label: "Cluster", to: "/cluster", icon: Network, summary: "Control-plane nodes and their state." },
+    ],
+  },
+  {
+    id: "administration",
+    label: "Administration",
+    items: [{ id: "settings", label: "Settings", to: "/settings", icon: Settings, summary: "Account, authentication, members and integrations." }],
+  },
 ];
+
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);

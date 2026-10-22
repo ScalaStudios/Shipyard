@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, RunStatus } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
@@ -16,7 +16,7 @@ import {
   RemoteRepo,
   SCMProvider,
 } from "../api";
-import { formatTime, runStatus } from "../lib/format";
+import { formatTime } from "../lib/format";
 import styles from "./ImportPage.module.css";
 
 type Step = "credential" | "org" | "repos" | "progress";
@@ -489,7 +489,7 @@ export function ImportPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
-                  <label className={table.muted} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  <label className={table.muted} style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                     <input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} />
                     Archived
                   </label>
@@ -537,7 +537,7 @@ export function ImportPage() {
           ) : null}
 
           {step === "progress" && job ? (
-            <Panel title="Import progress" meta={<StatusBadge status={runStatus(job.status)}>{job.status}</StatusBadge>}>
+            <Panel title="Import progress" meta={<RunStatus status={job.status} />}>
               <div className={styles.progress}>
                 <div className={styles.barTrack} aria-hidden>
                   <div className={styles.barFill} style={{ width: `${progressPct}%` }} />
@@ -570,7 +570,7 @@ export function ImportPage() {
                           {it.repo_owner}/{it.repo_name}
                         </td>
                         <td>
-                          <StatusBadge status={runStatus(it.status)}>{it.status}</StatusBadge>
+                          <RunStatus status={it.status} />
                         </td>
                         <td className={table.muted}>{it.error_message || "—"}</td>
                       </tr>

@@ -19,8 +19,8 @@
 7. **Graphs are optional views, not the only truth.** Pipeline DAG and cluster topology screens MUST also provide list/table views. Argo CD's multiple detail views are a useful precedent. [R12]
 8. **Dark, light and system theme modes are required.** Do not implement dark mode through one-off selectors; semantic tokens drive themes. [R2][R9]
 9. **Keyboard support is required.** Every primary workflow must be operable without a mouse.
-10. **Shipyard uses IBM Plex Sans and IBM Plex Mono.** Do not substitute Inter unless the font cannot load. IBM Plex is open source and designed for UI use. [R17]
-11. **Product icons use Tabler Icons.** Brand/vendor marks use Simple Icons or official vendor SVGs. Do not mix Lucide, Heroicons, Font Awesome and Tabler on the same surface. [R16]
+10. **Shipyard follows the Scala Studios brand (guidelines v2.0, September 2026).** Archivo for headings, Inter for UI text, JetBrains Mono for code and data, self-hosted through `@fontsource-variable`. [R17]
+11. **Product icons use Lucide** at a 1.75 stroke. Brand/vendor marks use Simple Icons or official vendor SVGs. Do not mix icon families on the same surface. [R16]
 12. **Ordinary CI logs are not a fake terminal.** Use a purpose-built virtualized log viewer. Use xterm.js only for a genuinely interactive exec/shell session.
 13. **One obvious primary action per action group.** Secondary actions should be visually quiet.
 14. **Status is never communicated by color alone.** Pair semantic color with icon and text.
@@ -34,9 +34,9 @@ Shipyard combines CI/CD, artifact/package hosting, OCI registry functions, runne
 
 The visual language is **industrial precision with subtle harbor identity**:
 
-- graphite and neutral surfaces;
-- Shipyard blue for selection and primary actions;
-- restrained dock orange for rare release/attention accents;
+- warm Ink and Ash neutral surfaces;
+- Scala Ember for the one primary action and the active selection;
+- Gold only as a highlight inside an already-accented area;
 - compact geometry;
 - explicit borders and separators;
 - dense information with strong hierarchy;
@@ -140,7 +140,8 @@ Shipyard therefore defaults to **medium-high desktop density**, with Compact and
 | Log viewer | custom + virtualization + ANSI parser | Search, timestamps, wrap, pause/follow, copy selection. |
 | Interactive shell | `@xterm/xterm` | Only real shell/exec sessions. |
 | Operational charts | `uPlot` | Small fast time-series; no generic chart-card factory. |
-| Icons | `@tabler/icons-react` | Only general product icon family. [R16] |
+| Icons | `lucide-react` | Only general product icon family, `strokeWidth={1.75}`. [R16] |
+| Motion components | React Bits, vendored in `packages/ui/src/reactbits` | Only through `HoldToConfirm`, `RunStatus` and `Loader` in `@shipyard/ui`. |
 | Brand icons | Simple Icons / official SVG | Vendors only. |
 | Component docs | Storybook | Every reusable state documented. |
 | E2E | Playwright | Critical workflows + keyboard paths. |
@@ -224,57 +225,54 @@ Do not write feature CSS using palette-only names such as `--blue-500` when the 
 
 ## 5. Color system
 
-### Dark theme
+The dark theme is the root (`:root`). The light theme overrides only what changes. Source of truth: `packages/ui/src/styles/tokens.css`.
+
+### Dark theme (default)
 
 | Token | Value | Usage |
 |---|---:|---|
-| `bg.canvas` | `#0B0D10` | app background |
-| `bg.surface` | `#111419` | navigation, main panes |
-| `bg.subtle` | `#15191F` | nested/alternate surface |
-| `bg.raised` | `#191E25` | popovers/dialogs only |
-| `border.default` | `#2A3038` | separators |
-| `border.strong` | `#3A424D` | strong boundary |
-| `text.primary` | `#E7EAF0` | primary text |
-| `text.muted` | `#9AA4B2` | secondary metadata |
-| `text.faint` | `#6F7A87` | low-priority metadata |
-| `action.primary` | `#6E97FF` | selection/primary action |
-| `action.primaryHover` | `#89AAFF` | hover |
-| `accent.dock` | `#E2A45B` | rare Shipyard accent |
-| `status.success` | `#45B97C` | success/healthy |
-| `status.warning` | `#D8A13B` | warning/degraded |
-| `status.danger` | `#E26666` | fail/destructive |
-| `status.info` | `#69A7E8` | info |
-| `focus.ring` | `#9AB8FF` | keyboard focus |
+| `bg.canvas` | `#111111` | Scala Ink, app background |
+| `bg.surface` | `#1C1917` | Ash, cards, panels, popovers |
+| `bg.subtle` | `#0C0B0A` | recessed wells, table headers, inputs |
+| `border.default` | `#2A2724` | separators |
+| `border.strong` | `#44403A` | control and strong boundaries |
+| `text.primary` | `#FFFFFF` | primary text |
+| `text.muted` | `#D3D0CC` | secondary text |
+| `text.faint` | `#A8A29B` | tertiary text, lowest allowed on dark |
+| `link` | `#FDB07C` | Ember Tint, inline links |
+| `action.primary` | `#FA7E26` | Ember, active rules, icons, large text |
+| `action.fill` | `#FA7E26` | primary button fill, Ink label |
+| `status.success` | `#2FA36B` | container `#0F2A1E` |
+| `status.warning` | `#E0A21B` | container `#2E2306` |
+| `status.danger` | `#E23D4F` | container `#2E1114` |
+| `status.info` | `#4D8DF6` | container `#0E1B33` |
+| `focus.ring` | `#FA7E26` | 2px ring, 2px offset |
 
 ### Light theme
 
 | Token | Value | Usage |
 |---|---:|---|
-| `bg.canvas` | `#F5F7F9` | app background |
-| `bg.surface` | `#FFFFFF` | main pane/navigation |
-| `bg.subtle` | `#F8FAFC` | nested/alternate surface |
-| `border.default` | `#D8DEE6` | separators |
-| `border.strong` | `#B7C0CC` | strong boundary |
-| `text.primary` | `#1F2328` | primary text |
-| `text.muted` | `#59636E` | secondary text |
-| `text.faint` | `#7A8591` | low priority |
-| `action.primary` | `#315EFB` | primary action |
-| `action.primaryHover` | `#244CD8` | hover |
-| `accent.dock` | `#B86519` | rare accent, not default body text |
-| `status.success` | `#177A49` | success/healthy |
-| `status.warning` | `#A05E00` | warning/degraded |
-| `status.danger` | `#B92C2C` | fail/destructive |
-| `status.info` | `#256FAF` | info |
-| `focus.ring` | `#1F5EFF` | focus |
+| `bg.canvas` | `#FAFAF9` | Neutral 50 |
+| `bg.surface` | `#FFFFFF` | cards, panels |
+| `bg.subtle` | `#F5F4F2` | recessed wells, table headers, inputs |
+| `border.default` | `#E7E5E2` | separators |
+| `border.strong` | `#D3D0CC` | control boundaries |
+| `text.primary` | `#2A2724` | primary text |
+| `text.muted` | `#57534D` | secondary text |
+| `text.faint` | `#78716A` | tertiary text |
+| `link` / `action.primary` | `#B85110` | Ember Deep for all orange text and icons |
+| `status.*` | `#17754A` `#8C6206` `#C92438` `#255BB5` | text-safe state colours |
 
 ### Color rules
 
-- No gradients in normal product chrome.
-- Never use status red/green as a decorative accent.
-- Primary blue means **selection or primary action**, not “anything important.”
-- Dock orange is limited to rare release/attention moments and brand details.
-- In tables, prefer a subtle tinted row/background + icon + label instead of fully saturated status fills.
-- Never use colored body text when the contrast is insufficient; use primary text plus a colored icon/border instead.
+- Orange is an accent. Dark surfaces follow 70% Ink / 20% Ash / at most 10% Ember; light surfaces 80/15/5.
+- Ember buttons take Ink labels. Never white on Ember.
+- Orange text on light surfaces is always Ember Deep.
+- Status dots and health indicators use success, warning and danger only, never Ember or Gold.
+- Error and warning always carry an icon or text label.
+- Never place a primary Ember button inside an error container. Destructive confirmations use the danger fill.
+- No gradients in product chrome. One warm atmospheric glow behind the sign-in hero is the only exception.
+- Warm neutrals only; no cool or pure greys.
 
 ---
 
@@ -282,69 +280,64 @@ Do not write feature CSS using palette-only names such as `--blue-500` when the 
 
 ### Fonts
 
-- **UI:** IBM Plex Sans
-- **Code/technical:** IBM Plex Mono
-- **Fallback:** system sans / system monospace
-
-IBM Plex provides Sans and Mono families under an open font license and is designed to work well in user interfaces. [R17]
+- **Headings:** Archivo
+- **UI and body:** Inter
+- **Code and data:** JetBrains Mono
 
 ### Scale
 
-| Token | Size / line | Weight | Use |
-|---|---|---:|---|
-| Page title | 24 / 32px | 600 | one per page |
-| Section | 18 / 26px | 600 | major section |
-| Panel title | 15 / 22px | 600 | panel/table heading |
-| Body | 14 / 20px | 400 | default |
-| Body strong | 14 / 20px | 500 | names/important values |
-| Small | 13 / 18px | 400 | dense tables/metadata |
-| Micro | 12 / 16px | 500 | badges/timestamps |
-| Code | 13 / 20px | 400 | logs/YAML/commands |
-| Code small | 12 / 18px | 400 | digests/coordinates |
+| Style | Family | Size / line | Weight | Use |
+|---|---|---|---:|---|
+| Display | Archivo | 56 / 1.02 | 800 | sign-in hero only |
+| H2 | Archivo | 30 / 1.18 | 700 | page titles, stat values |
+| H3 | Archivo | 22 / 1.26 | 700 | dialog and boot titles |
+| H4 | Archivo | 17 / 1.34 | 600 | panel titles |
+| Body | Inter | 15 / 1.6 | 400 | default UI text |
+| Body small | Inter | 13 / 1.55 | 400 | table cells, help text |
+| Caption | Inter | 12 / 1.45 | 400 | timestamps, metadata |
+| Label | Inter | 12 / 1.3 | 600 | form labels, column headers |
+| Overline | Inter | 11 / 1.2, 0.16em | 600 | uppercase section markers |
+| Button | Inter | 15 / 1.2 | 600 | all buttons |
+| Navigation | Inter | 15 / 1.2 | 500 | nav items, tabs |
+| Code | JetBrains Mono | 13 / 1.62 | 400 | logs, YAML, commands |
 
-PatternFly's use of 14px default body text and tabular numerals is a useful reference for dense technical interfaces. [R8]
+Nothing outside this table is a type style.
 
 ### Rules
 
-- Sentence case.
-- Avoid all caps except short protocol/architecture labels (`OCI`, `AMD64`, `ARM64`).
-- Use `font-variant-numeric: tabular-nums` for build numbers, duration, storage, percentages, queue counts and changing metrics.
+- Sentence case for headings, buttons and labels. Uppercase only for overlines and badges.
+- Use `font-variant-numeric: tabular-nums` for build numbers, durations, storage, percentages and counts.
 - Do not use monospace as decoration; use it for machine-readable content.
 - Page headings are left aligned.
-- Avoid huge 32-48px headings inside the authenticated product UI.
+- One change of weight for emphasis; never combine bold, colour, italics and underline.
 
 ---
 
 ## 7. Geometry, spacing and density
 
-### 4px base grid
+### 4px base scale
 
-`0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64`
+`4, 8, 12, 16, 24, 32, 48, 64, 96, 128, 160`. Page gutters: 48px desktop, 32px tablet, 20px mobile.
 
 ### Radius
 
-- controls: `6px`
-- panels/popovers: `8px`
-- large dialogs: max `10-12px`
-- pills: only when the semantic shape is a pill (tag/status/chip)
+- tags: `2px`
+- checkboxes, inline code: `4px`
+- controls: `8px`
+- cards and panels: `12px`
+- dialogs and the sign-in panel: `16px`
+- full rounding only for badges and avatars
 
 ### Control heights
 
-- compact desktop: `28px`
-- default desktop: `32px`
-- prominent form action: `36px`
-- touch-oriented effective target: aim near `44px` where practical while meeting WCAG minimums. [R18]
-
-### Table row density
-
-- Compact: `30px`
-- Comfortable: `36px` (default)
-
-Users may choose Compact or Comfortable globally. Do not invent a third density per page.
+- compact (toolbars, top bar): `32px`
+- default: `40px`
+- prominent: `48px`
+- touch targets: `44px` minimum
 
 ### Elevation
 
-**Borders before shadows.** Shadows are reserved for overlays, floating menus and dialogs. Normal cards/panels use a 1px border and spacing.
+Surface colour and a hairline border first. Shadows only for things that float: popovers `0 8px 24px rgba(0,0,0,.45)`, dialogs `0 24px 64px rgba(0,0,0,.60)`. Ember lift `0 6px 20px rgba(250,126,38,.28)` on primary button hover only. Never more than two elevation levels in one view.
 
 ---
 
@@ -352,48 +345,30 @@ Users may choose Compact or Comfortable globally. Do not invent a third density 
 
 ### Canonical product icons
 
-Use direct imports from `@tabler/icons-react`.
+Use direct imports from `lucide-react` with `strokeWidth={1.75}`.
 
 | Meaning | Icon |
 |---|---|
-| Dashboard | `IconLayoutDashboard` |
-| Projects | `IconFolderCode` |
-| Pipelines | `IconGitBranch` |
-| Job/run | `IconPlayerPlay` |
-| Artifacts | `IconPackage` |
-| Registry | `IconContainer` |
-| Releases | `IconRocket` |
-| Deployments | `IconCloudUpload` |
-| Runners | `IconServer2` |
-| Cluster | `IconTopologyStar3` |
-| Logs | `IconTerminal2` |
-| Settings | `IconSettings` |
-| Secrets | `IconKey` |
-| Security | `IconShieldCheck` |
-| Success | `IconCircleCheck` |
-| Failure | `IconCircleX` |
-| Running | `IconLoader2` |
-| Queued | `IconClock` |
-| Warning | `IconAlertTriangle` |
-| Retry | `IconRefresh` |
-| Stop | `IconSquare` |
-| Copy | `IconCopy` |
-| Download | `IconDownload` |
-| Upload | `IconUpload` |
-| Search | `IconSearch` |
-| Command palette | `IconCommand` |
-
-Tabler provides React SVG icons under an MIT license. [R16]
+| Dashboard | `LayoutDashboard` |
+| Projects | `Folder` |
+| Pipelines | `GitBranch` |
+| Artifacts | `Box` |
+| Registry | `Container` |
+| Releases | `Rocket` |
+| Deployments | `Warehouse` |
+| Runners | `Server` |
+| Cluster | `Network` |
+| Settings | `Settings` |
+| Notifications | `Bell` |
 
 ### Rules
 
-- navigation: 18px
-- normal control: 16px
-- stroke: library default unless design-system wrapper changes it globally
-- icon-only buttons MUST have an accessible label and tooltip
+- sizes: 16, 20, 24
+- default colour: `text.faint`; active colour: `action.primary`
+- outline everywhere; filled only for a status indicator that must read at small sizes
+- icon-only buttons MUST have an accessible label
 - do not use emoji as product icons
-- do not use sparkle/wand/brain icons for generic “smart” functions
-- vendor brands must not be recolored in ways that violate their brand rules
+- vendor brands must not be recoloured in ways that violate their brand rules
 
 ---
 
@@ -420,10 +395,10 @@ Tabler provides React SVG icons under an MIT license. [R16]
 ```
 
 Dimensions:
-- topbar: `48px`
-- sidebar expanded: `224px`
-- sidebar collapsed: `56px`
-- desktop page gutter: `20-24px`
+- topbar: `64px`, breadcrumb on the left, project, notifications, theme and account on the right
+- sidebar: `264px`, grouped as Overview/Projects, Delivery, Infrastructure, Administration
+- below `960px` the sidebar becomes a drawer
+- page gutter: `48px` desktop, `32px` tablet, `20px` mobile
 
 ### Navigation order
 
@@ -462,19 +437,21 @@ Dangerous actions do not execute immediately from command search; they open the 
 
 ### Button
 
-- variants: primary, secondary, ghost, destructive, link, icon-only
-- sizes: 28 / 32 / 36px
-- radius: 6px
+- variants: primary (Ember fill, Ink label), secondary (outline), ghost (quiet), destructive (danger fill), link, icon-only
+- sizes: 32 / 40 / 48px; default padding 0 24px; Inter 600 15px
+- radius: 8px
 - icons: 16px
+- loading keeps the button width and replaces the label with a 16px spinner
 - one high-emphasis primary action per local action group
 - destructive buttons are not visually primary until the user enters a destructive confirmation context
+- irreversible removals use `HoldToConfirm` (hold for 1.2s) instead of a second click
 
 ### Input
 
-- default height: 32px
+- default height: 40px, padding 0 16px
 - persistent visible label
 - helper/error below field
-- code/path/token inputs may use IBM Plex Mono
+- code/path/token inputs may use JetBrains Mono
 - do not use floating labels
 
 ### Select / ComboBox
@@ -838,8 +815,8 @@ Do not create a completely different mobile information architecture.
 Motion is functional only.
 
 Allowed:
-- 100-160ms hover/focus/selection transition;
-- 160-220ms menu/dialog/drawer entrance;
+- 160ms micro-interactions, 220ms transitions, 320ms page-level, easing `cubic-bezier(.2,.8,.2,1)`;
+- 2-8px directional movement only;
 - small progress indication;
 - graph edge activity while currently running.
 
@@ -1059,25 +1036,23 @@ Add/modify:
 ### Semantic token CSS
 
 ```css
-:root {
-  --sy-color-bg-canvas: #f5f7f9;
-  --sy-color-bg-surface: #ffffff;
-  --sy-color-text-primary: #1f2328;
-  --sy-color-text-muted: #59636e;
-  --sy-color-border-default: #d8dee6;
-  --sy-color-action-primary: #315efb;
-  --sy-radius-control: 6px;
-  --sy-radius-panel: 8px;
-  --sy-control-height-default: 32px;
+:root,
+[data-theme="dark"] {
+  --sy-color-bg-canvas: #111111;
+  --sy-color-bg-surface: #1c1917;
+  --sy-color-text-primary: #ffffff;
+  --sy-color-text-muted: #d3d0cc;
+  --sy-color-border-default: #2a2724;
+  --sy-color-action-primary: #fa7e26;
 }
 
-[data-theme="dark"] {
-  --sy-color-bg-canvas: #0b0d10;
-  --sy-color-bg-surface: #111419;
-  --sy-color-text-primary: #e7eaf0;
-  --sy-color-text-muted: #9aa4b2;
-  --sy-color-border-default: #2a3038;
-  --sy-color-action-primary: #6e97ff;
+[data-theme="light"] {
+  --sy-color-bg-canvas: #fafaf9;
+  --sy-color-bg-surface: #ffffff;
+  --sy-color-text-primary: #2a2724;
+  --sy-color-text-muted: #57534d;
+  --sy-color-border-default: #e7e5e2;
+  --sy-color-action-primary: #b85110;
 }
 ```
 
@@ -1085,13 +1060,13 @@ Add/modify:
 
 ```tsx
 import { Button, DataTable, StatusBadge } from '@shipyard/ui';
-import { IconRefresh } from '@tabler/icons-react';
+import { RefreshCw } from 'lucide-react';
 ```
 
 Preferred:
 
 ```tsx
-<Button variant="secondary" icon={<IconRefresh />}>
+<Button variant="secondary" icon={<RefreshCw size={16} strokeWidth={1.75} />}>
   Retry failed
 </Button>
 ```
@@ -1121,11 +1096,11 @@ The component is responsible for icon, semantic color and accessible text.
 
 ### Visual system
 
-- [ ] IBM Plex Sans / Mono only.
-- [ ] Tabler product icons only.
+- [ ] Archivo / Inter / JetBrains Mono only.
+- [ ] Lucide product icons only.
 - [ ] Semantic tokens only.
-- [ ] 4px spacing system.
-- [ ] 6px controls / 8px panels.
+- [ ] 4px spacing scale.
+- [ ] 8px controls / 12px panels.
 - [ ] No product gradients.
 - [ ] Shadows only where elevation is real.
 
@@ -1215,10 +1190,9 @@ Do not silently drift.
   https://react-aria.adobe.com/
 - **[R15] TanStack Table.** Headless data-grid engine with full control over markup and styling.  
   https://tanstack.com/table/latest
-- **[R16] Tabler Icons React.** MIT-licensed React SVG icon package.  
-  https://github.com/tabler/tabler-icons/blob/main/packages/icons-react/README.md
-- **[R17] IBM Plex.** Open-source Sans/Mono family designed to work in UI environments.  
-  https://github.com/IBM/plex/blob/master/README.md
+- **[R16] Lucide.** ISC-licensed icon set on a 24px grid; the Scala Studios approved base set.  
+  https://lucide.dev
+- **[R17] Scala Studios brand guidelines v2.0.** Logo, colour, typography, layout and interface rules, September 2026.
 - **[R18] WCAG 2.2 - Target Size Minimum.** Minimum target-size accessibility guidance.  
   https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
 - **[Q1] HN - Density userstyle discussion.** Qualitative power-user discussion: density is valuable when information hierarchy remains clear.  

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, HoldToConfirm } from "@shipyard/ui";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
 import { PageHeader } from "../../components/PageHeader";
@@ -214,9 +214,9 @@ export function IntegrationsSettingsPage() {
                       <td>{c.bot_username}</td>
                       <td>{c.has_token ? "yes" : "no"}</td>
                       <td>
-                        <Button variant="ghost" disabled={busy} onClick={() => void remove(c.id)}>
-                          Remove
-                        </Button>
+                        <HoldToConfirm size="sm" doneLabel="Removed" disabled={busy} onConfirm={() => void remove(c.id)}>
+                          Hold to remove
+                        </HoldToConfirm>
                       </td>
                     </tr>
                   ))}

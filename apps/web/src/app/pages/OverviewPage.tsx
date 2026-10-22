@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { AlertTriangle, Gauge, Loader as LoaderIcon, Server } from "lucide-react";
+import { Button, EmptyState, Panel, RunStatus, StatusBadge } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
@@ -8,6 +9,18 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OnboardingStatus, PipelineRun, Runner, SystemInfo } from "../api";
 import { formatTime, isRunnerAlive, runStatus } from "../lib/format";
 import onboarding from "./OnboardingPage.module.css";
+import styles from "./OverviewPage.module.css";
+
+const SHORTCUTS = [
+  { to: "/pipelines", label: "Pipelines" },
+  { to: "/artifacts", label: "Artifacts" },
+  { to: "/registry", label: "Registry" },
+  { to: "/releases", label: "Releases" },
+  { to: "/deployments", label: "Deployments" },
+  { to: "/runners", label: "Add a runner" },
+  { to: "/projects/import", label: "Import from forge" },
+  { to: "/settings/authentication", label: "Sign-in providers" },
+];
 
 export function OverviewPage() {
   const { org, project, user, setError } = useWorkspace();
@@ -57,7 +70,14 @@ export function OverviewPage() {
   const online = runners.filter((r) => isRunnerAlive(r)).length;
   const failed = runs.filter((r) => r.status === "failed").length;
   const running = runs.filter((r) => r.status === "running" || r.status === "queued" || r.status === "pending").length;
-  const attention = runs.filter((r) => r.status === "failed" || r.status === "canceled").slice(0, 8);
+  const attention = runs.filter((r) => r.status === "failed" || r.status === "canceled").slice(0, 6);
+  const scope = project?.name ?? org?.name;
+  const metrics = [
+    { icon: LoaderIcon, value: running, label: "Runs active or queued" },
+    { icon: AlertTriangle, value: failed, label: "Failed runs in recent history" },
+    { icon: Server, value: `${online}/${runners.length}`, label: "Runners online" },
+    { icon: Gauge, value: info?.phase ?? (loading ? "…" : "—"), label: "Control-plane phase" },
+  ];
 
   return (
     <div className={table.stack}>
@@ -73,84 +93,112 @@ export function OverviewPage() {
           </Link>
         </div>
       ) : null}
+
       <PageHeader
-        title={project ? `${project.name} - Overview` : "Overview"}
-        description={
-          project ? (
-            <>
-              Control-plane health, runner capacity, and recent delivery activity for <strong>{project.name}</strong>.
-            </>
-          ) : (
-            "Control-plane health, runner capacity, and recent delivery activity. Select a project to scope this view."
-          )
-        }
+        title="Overview"
+        description={scope ? <>What needs attention in <strong>{scope}</strong> right now.</> : "Select a project to see its delivery activity."}
       />
 
-      <div className={table.stats}>
-        <div className={table.stat}>
-          <div className={table.statLabel}>Phase</div>
-          <div className={table.statValue}>{info?.phase ?? (loading ? "…" : "—")}</div>
-        </div>
-        <div className={table.stat}>
-          <div className={table.statLabel}>Runners online</div>
-          <div className={table.statValue}>
-            {online}/{runners.length}
-          </div>
-        </div>
-        <div className={table.stat}>
-          <div className={table.statLabel}>Active / queued</div>
-          <div className={table.statValue}>{running}</div>
-        </div>
-        <div className={table.stat}>
-          <div className={table.statLabel}>Failed (recent)</div>
-          <div className={table.statValue}>{failed}</div>
-        </div>
+      <section className={styles.metrics} aria-label="Delivery metrics">
+        {metrics.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div key={m.label} className={styles.metric}>
+              <Icon size={20} strokeWidth={1.75} className={styles.metricIcon} aria-hidden="true" />
+              <div className={styles.metricValue}>{m.value}</div>
+              <div className={styles.metricLabel}>{m.label}</div>
+            </div>
+          );
+        })}
+      </section>
+
+      <div className={styles.split}>
+        <Panel
+          title="Needs attention"
+          description={attention.length ? `${attention.length} runs, most recent first.` : "Failed and canceled runs appear here."}
+          actions={
+            org && project ? (
+              <Link className={styles.textLink} to="/pipelines">
+                All runs
+              </Link>
+            ) : null
+          }
+        >
+          {!org || !project ? (
+            <EmptyState
+              title="Select an organization and project"
+              description="Create them under Projects, or import an existing forge organization."
+              action={
+                <Link to={org ? "/projects/import" : "/projects"}>
+                  <Button type="button" variant="primary">
+                    {org ? "Import from forge" : "Get started"}
+                  </Button>
+                </Link>
+              }
+            />
+          ) : attention.length === 0 ? (
+            <EmptyState title="Nothing needs attention" description="Recent runs are healthy." />
+          ) : (
+            <ul className={styles.list}>
+              {attention.map((run) => (
+                <li key={run.id} className={styles.row}>
+                  <RunStatus status={run.status} label={`Run #${run.number}`} />
+                  <span className={styles.rowMeta}>
+                    {run.error_message || run.git_ref || run.trigger_type || "No details"} · {formatTime(run.created_at)}
+                  </span>
+                  <Link className={styles.rowAction} to={`/pipelines/runs/${run.id}`}>
+                    View run
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel
+          title="Runner fleet"
+          description={runners.length ? `${online} of ${runners.length} online.` : "No runners registered yet."}
+          actions={
+            <Link className={styles.textLink} to="/runners">
+              Manage
+            </Link>
+          }
+        >
+          {runners.length === 0 ? (
+            <EmptyState title="No runners registered" description="Generate an install command under Runners." />
+          ) : (
+            <ul className={styles.list}>
+              {runners.slice(0, 6).map((runner) => {
+                const alive = isRunnerAlive(runner);
+                return (
+                  <li key={runner.id} className={styles.row}>
+                    <span className={styles.rowTitle}>{runner.name}</span>
+                    <span className={`${styles.rowMeta} mono`}>{(runner.labels ?? []).join(", ") || "no labels"}</span>
+                    <StatusBadge status={runStatus(alive ? runner.status : "offline")}>{alive ? runner.status : "offline"}</StatusBadge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       </div>
 
-      <Panel title="Needs attention" meta={<StatusBadge status={attention.length ? "danger" : "success"}>{attention.length}</StatusBadge>}>
-        {!org || !project ? (
-          <EmptyState
-            title="Select an organization and project"
-            description="Create them under Projects, or import an existing forge org."
-            action={
-              <Link to={org ? "/projects/import" : "/projects"}>
-                <Button type="button" variant="primary">
-                  {org ? "Import from forge" : "Get started"}
-                </Button>
-              </Link>
-            }
-          />
-        ) : attention.length === 0 ? (
-          <EmptyState title="Nothing needs attention" description="Recent runs are healthy." />
-        ) : (
-          <DataTable>
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Status</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attention.map((run) => (
-                <tr key={run.id}>
-                  <td>
-                    <Link to={`/pipelines/runs/${run.id}`}>#{run.number}</Link>
-                  </td>
-                  <td>
-                    <StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>
-                  </td>
-                  <td className={table.muted}>{formatTime(run.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        )}
-      </Panel>
+      <section aria-labelledby="shortcuts-heading">
+        <h2 id="shortcuts-heading" className={styles.sectionTitle}>
+          Shortcuts
+        </h2>
+        <div className={styles.shortcuts}>
+          {SHORTCUTS.map((s) => (
+            <Link key={s.to} className={styles.shortcut} to={s.to}>
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      <Panel title="Recent runs" meta={<StatusBadge status="info">{runs.length}</StatusBadge>}>
+      <Panel title="Recent runs" description={project ? `Latest activity in ${project.name}.` : undefined}>
         {!org || !project ? (
-          <EmptyState title="No project context" />
+          <EmptyState title="No project selected" description="Choose a project in the top bar to list its runs." />
         ) : runs.length === 0 ? (
           <EmptyState title="No runs yet" description="Save a pipeline and start a run from Pipelines." />
         ) : (
@@ -159,6 +207,7 @@ export function OverviewPage() {
               <tr>
                 <th>Run</th>
                 <th>Status</th>
+                <th>Ref</th>
                 <th>Trigger</th>
                 <th>Created</th>
               </tr>
@@ -170,39 +219,11 @@ export function OverviewPage() {
                     <Link to={`/pipelines/runs/${run.id}`}>#{run.number}</Link>
                   </td>
                   <td>
-                    <StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>
+                    <RunStatus status={run.status} />
                   </td>
+                  <td className="mono">{run.git_ref ?? "—"}</td>
                   <td className={table.muted}>{run.trigger_type ?? "—"}</td>
                   <td className={table.muted}>{formatTime(run.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
-        )}
-      </Panel>
-
-      <Panel title="Runners" meta={<StatusBadge status={online ? "success" : "neutral"}>{runners.length}</StatusBadge>}>
-        {runners.length === 0 ? (
-          <EmptyState title="No runners registered" description="Create a registration token under Runners." />
-        ) : (
-          <DataTable>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Labels</th>
-                <th>Heartbeat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runners.map((runner) => (
-                <tr key={runner.id}>
-                  <td>{runner.name}</td>
-                  <td>
-                    <StatusBadge status={runStatus(runner.status)}>{runner.status}</StatusBadge>
-                  </td>
-                  <td className="mono">{(runner.labels ?? []).join(", ") || "—"}</td>
-                  <td className={table.muted}>{formatTime(runner.last_heartbeat_at)}</td>
                 </tr>
               ))}
             </tbody>
