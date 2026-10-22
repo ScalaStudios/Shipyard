@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { IconChevronLeft } from "@tabler/icons-react";
+import { ChevronLeft } from "lucide-react";
 import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
 import { CodeBlock } from "../components/CodeBlock";
 import { DataTable } from "../components/DataTable";
@@ -253,7 +253,7 @@ shipyardToken=${registryToken}`;
               <div className={table.backRow}>
                 <Button
                   variant="secondary"
-                  icon={<IconChevronLeft size={16} stroke={1.75} />}
+                  icon={<ChevronLeft size={16} strokeWidth={1.75} />}
                   onClick={() => setSelectedPkg(null)}
                 >
                   All repositories
