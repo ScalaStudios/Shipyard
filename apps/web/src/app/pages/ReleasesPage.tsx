@@ -8,8 +8,10 @@ import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Release } from "../api";
 import { formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function ReleasesPage() {
+  usePageTitle("Releases");
   const { org, project, setError } = useWorkspace();
   const [releases, setReleases] = useState<Release[]>([]);
   const [version, setVersion] = useState("");

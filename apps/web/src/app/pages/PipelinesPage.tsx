@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, EmptyState, Panel, StatusBadge } from "@shipyard/ui";
+import { Button, EmptyState, Panel, StatusBadge, RunStatus } from "@shipyard/ui";
 import { DataTable } from "../components/DataTable";
 import table from "../components/DataTable.module.css";
 import { FormField, formStyles as form } from "../components/FormField";
@@ -8,9 +8,11 @@ import { PageHeader } from "../components/PageHeader";
 import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Pipeline, PipelineRun } from "../api";
-import { defaultPipelineYAML, formatTime, runStatus } from "../lib/format";
+import { defaultPipelineYAML, formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function PipelinesPage() {
+  usePageTitle("Pipelines");
   const { org, project, setError } = useWorkspace();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [runs, setRuns] = useState<PipelineRun[]>([]);
@@ -177,7 +179,7 @@ export function PipelinesPage() {
                         <Link to={`/pipelines/runs/${run.id}`}>#{run.number}</Link>
                       </td>
                       <td>
-                        <StatusBadge status={runStatus(run.status)}>{run.status}</StatusBadge>
+                        <RunStatus status={run.status} />
                       </td>
                       <td className={table.muted}>{run.trigger_type ?? "manual"}</td>
                       <td className="mono">{run.git_ref || "—"}</td>

@@ -357,19 +357,6 @@
   background: var(--sy-color-bg-hover);
 }
 
-.avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--sy-color-border-strong);
-  border-radius: var(--sy-radius-full);
-  background: var(--sy-color-bg-surface);
-  font-size: 11px;
-  font-weight: 600;
-}
-
 .accountName {
   max-width: 16ch;
   overflow: hidden;

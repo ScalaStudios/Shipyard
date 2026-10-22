@@ -29,6 +29,54 @@ function splitCoordinate(name: string): [string, string] {
   return at === -1 ? ["", name] : [name.slice(0, at), name.slice(at + 1)];
 }
 
+type TreeNode = {
+  label: string;
+  path: string;
+  children: TreeNode[];
+  artifacts: Artifact[];
+};
+
+function countArtifacts(node: TreeNode): number {
+  return node.artifacts.length + node.children.reduce((sum, child) => sum + countArtifacts(child), 0);
+}
+
+function buildTree(list: Artifact[]): TreeNode[] {
+  const roots: TreeNode[] = [];
+  const find = (nodes: TreeNode[], label: string, path: string) => {
+    let node = nodes.find((n) => n.label === label);
+    if (!node) {
+      node = { label, path, children: [], artifacts: [] };
+      nodes.push(node);
+    }
+    return node;
+  };
+  for (const item of list) {
+    const segments = item.group ? item.group.split(".") : [];
+    if (segments.length === 0) {
+      find(roots, item.artifact, item.artifact).artifacts.push(item);
+      continue;
+    }
+    let level = roots;
+    let path = "";
+    let node: TreeNode | null = null;
+    for (const segment of segments) {
+      path = path ? `${path}.${segment}` : segment;
+      node = find(level, segment, path);
+      level = node.children;
+    }
+    node?.artifacts.push(item);
+  }
+  const sort = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label));
+    nodes.forEach((n) => {
+      n.artifacts.sort((a, b) => a.artifact.localeCompare(b.artifact));
+      sort(n.children);
+    });
+  };
+  sort(roots);
+  return roots;
+}
+
 export function PackageBrowser({
   orgSlug,
   projectSlug,
@@ -83,6 +131,17 @@ export function PackageBrowser({
     if (!q) return artifacts;
     return artifacts.filter((a) => a.name.toLowerCase().includes(q));
   }, [artifacts, query]);
+
+  const tree = useMemo(() => buildTree(filtered), [filtered]);
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggle = (path: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
 
   const selected = artifacts.find((a) => a.name === selectedName) ?? null;
   const entry = selected?.versions.find((v) => v.version === selectedVersion) ?? null;
@@ -167,32 +226,38 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
     );
   }
 
-  return (
-    <div className={styles.browser}>
-      <div className={styles.tree}>
-        <input
-          className={table.input}
-          placeholder="Filter coordinates"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Filter artifact coordinates"
-        />
-        {filtered.length === 0 ? (
-          <p className={styles.note}>No coordinate matches “{query.trim()}”.</p>
-        ) : (
-          <ul className={styles.treeList}>
-            {filtered.map((a) => (
+  function renderNode(node: TreeNode, depth: number) {
+    const open = !collapsed.has(node.path);
+    const total =
+      node.artifacts.length + node.children.reduce((sum, child) => sum + countArtifacts(child), 0);
+    return (
+      <li key={node.path} className={styles.treeItem}>
+        <button
+          type="button"
+          className={styles.folderButton}
+          style={{ paddingLeft: `calc(var(--sy-space-3) + ${depth} * 14px)` }}
+          onClick={() => toggle(node.path)}
+          aria-expanded={open}
+        >
+          <span className={styles.caret} aria-hidden>
+            {open ? "▾" : "▸"}
+          </span>
+          <span className={styles.segment}>{node.label}</span>
+          <span className={styles.count}>{total}</span>
+        </button>
+        {open ? (
+          <ul className={styles.nested}>
+            {node.children.map((child) => renderNode(child, depth + 1))}
+            {node.artifacts.map((a) => (
               <li key={a.name} className={styles.treeItem}>
                 <button
                   type="button"
                   className={`${styles.artifactButton} ${a.name === selectedName ? styles.artifactActive : ""}`}
+                  style={{ paddingLeft: `calc(var(--sy-space-3) + ${(depth + 1) * 14}px)` }}
                   onClick={() => selectArtifact(a)}
                   aria-expanded={a.name === selectedName}
                 >
-                  <span className={styles.coordinate}>
-                    {a.group ? <span className={styles.group}>{a.group}</span> : null}
-                    <span className={styles.artifact}>{a.artifact}</span>
-                  </span>
+                  <span className={styles.artifact}>{a.artifact}</span>
                   <span className={styles.count}>{a.versions.length}</span>
                 </button>
                 {a.name === selectedName ? (
@@ -202,6 +267,7 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
                         <button
                           type="button"
                           className={`${styles.versionButton} ${v.version === selectedVersion ? styles.versionActive : ""}`}
+                          style={{ paddingLeft: `calc(var(--sy-space-3) + ${(depth + 2) * 14}px)` }}
                           onClick={() => setSelectedVersion(v.version)}
                           aria-current={v.version === selectedVersion}
                         >
@@ -215,6 +281,25 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
               </li>
             ))}
           </ul>
+        ) : null}
+      </li>
+    );
+  }
+
+  return (
+    <div className={styles.browser}>
+      <div className={styles.tree}>
+        <input
+          className={table.input}
+          placeholder="Filter coordinates"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Filter artifact coordinates"
+        />
+        {filtered.length === 0 ? (
+          <p className={styles.note}>No coordinate matches “{query.trim()}”.</p>
+        ) : (
+          <ul className={styles.treeList}>{tree.map((node) => renderNode(node, 0))}</ul>
         )}
       </div>
 
@@ -238,7 +323,7 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
                     <th>Filename</th>
                     <th>Size</th>
                     <th>Digest</th>
-                    <th />
+                    <th className={table.actionCol} />
                   </tr>
                 </thead>
                 <tbody>
@@ -260,10 +345,10 @@ implementation '${selected.group}:${selected.artifact}:${entry.version}'`
                           <span className={table.muted}>—</span>
                         )}
                       </td>
-                      <td>
-                        <button type="button" className={table.rowButton} onClick={() => void copy(fileURL(f), `url:${f.id}`)}>
+                      <td className={table.actionCol}>
+                        <Button variant="secondary" size="compact" onClick={() => void copy(fileURL(f), `url:${f.id}`)}>
                           {copied === `url:${f.id}` ? "Copied" : "Copy URL"}
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}

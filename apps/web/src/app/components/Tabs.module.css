@@ -1,29 +1,27 @@
 .tablist {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--sy-space-1);
-  padding: var(--sy-space-1);
-  border: 1px solid var(--sy-color-border-default);
-  border-radius: var(--sy-radius-control);
-  background: var(--sy-color-bg-subtle);
+  gap: var(--sy-space-6);
+  padding: 0;
+  border-bottom: 1px solid var(--sy-color-border-default);
+  background: transparent;
 }
 
 .tab {
-  height: var(--sy-control-height-compact);
-  padding: 0 var(--sy-space-3);
-  border: 1px solid transparent;
-  border-radius: 6px;
+  min-height: var(--sy-control-height-default);
+  margin-bottom: -1px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--sy-color-text-muted);
-  font-size: var(--sy-text-sm-size);
-  line-height: var(--sy-text-sm-leading);
-  font-weight: 600;
+  color: var(--sy-color-text-faint);
+  font-size: var(--sy-text-md-size);
+  line-height: var(--sy-text-md-leading);
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background var(--sy-duration-fast) var(--sy-ease-out),
-    color var(--sy-duration-fast) var(--sy-ease-out);
+  transition: color var(--sy-duration-fast) var(--sy-ease-out);
 }
 
 .tab:hover {
@@ -31,7 +29,6 @@
 }
 
 .active {
-  border-color: var(--sy-color-border-default);
-  background: var(--sy-color-bg-surface);
   color: var(--sy-color-text-primary);
+  border-bottom-color: var(--sy-color-ember);
 }

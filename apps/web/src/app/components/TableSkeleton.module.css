@@ -14,7 +14,7 @@
 
 .bar {
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--sy-radius-full);
   background: linear-gradient(
     90deg,
     var(--sy-color-bg-subtle) 0%,

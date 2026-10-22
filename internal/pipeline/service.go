@@ -39,6 +39,13 @@ type Run struct {
 	FinishedAt     *time.Time `json:"finished_at,omitempty"`
 }
 
+type OrgRun struct {
+	Run
+	ProjectSlug  string `json:"project_slug"`
+	ProjectName  string `json:"project_name"`
+	PipelineSlug string `json:"pipeline_slug"`
+}
+
 type Job struct {
 	ID           string     `json:"id"`
 	RunID        string     `json:"run_id"`
@@ -261,6 +268,60 @@ func (s *Service) ListRuns(ctx context.Context, projectID string) ([]Run, error)
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+func (s *Service) ListRunsForOrg(ctx context.Context, orgID string, limit int) ([]OrgRun, error) {
+	if limit < 1 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.id, r.pipeline_id, r.project_id, r.organization_id, r.number, r.status, r.trigger_type,
+		       r.git_ref, r.git_sha, r.error_message, r.created_at, r.started_at, r.finished_at,
+		       p.slug, p.name, COALESCE(d.slug, '')
+		FROM pipeline_runs r
+		JOIN projects p ON p.id = r.project_id
+		LEFT JOIN pipeline_definitions d ON d.id = r.pipeline_id
+		WHERE p.organization_id = $1
+		ORDER BY r.created_at DESC
+		LIMIT $2
+	`, orgID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OrgRun
+	for rows.Next() {
+		var r OrgRun
+		if err := rows.Scan(&r.ID, &r.PipelineID, &r.ProjectID, &r.OrganizationID, &r.Number, &r.Status, &r.TriggerType,
+			&r.GitRef, &r.GitSHA, &r.ErrorMessage, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
+			&r.ProjectSlug, &r.ProjectName, &r.PipelineSlug); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) GetRunForOrg(ctx context.Context, orgID, runID string) (OrgRun, error) {
+	var r OrgRun
+	err := s.pool.QueryRow(ctx, `
+		SELECT r.id, r.pipeline_id, r.project_id, r.organization_id, r.number, r.status, r.trigger_type,
+		       r.git_ref, r.git_sha, r.error_message, r.created_at, r.started_at, r.finished_at,
+		       p.slug, p.name, COALESCE(d.slug, '')
+		FROM pipeline_runs r
+		JOIN projects p ON p.id = r.project_id
+		LEFT JOIN pipeline_definitions d ON d.id = r.pipeline_id
+		WHERE p.organization_id = $1 AND r.id::text = $2
+	`, orgID, runID).Scan(&r.ID, &r.PipelineID, &r.ProjectID, &r.OrganizationID, &r.Number, &r.Status, &r.TriggerType,
+		&r.GitRef, &r.GitSHA, &r.ErrorMessage, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
+		&r.ProjectSlug, &r.ProjectName, &r.PipelineSlug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return OrgRun{}, identity.ErrNotFound
+	}
+	return r, err
 }
 
 func (s *Service) GetRun(ctx context.Context, projectID, runID string) (Run, error) {

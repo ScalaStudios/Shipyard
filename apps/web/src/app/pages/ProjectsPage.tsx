@@ -9,8 +9,10 @@ import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, type Project } from "../api";
 import { formatTime, slugify } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function ProjectsPage() {
+  usePageTitle("Projects");
   const navigate = useNavigate();
   const { orgs, projects, org, project, loading, setOrgID, setProjectID, refreshOrgs, refreshProjects, setError } =
     useWorkspace();
@@ -64,9 +66,9 @@ export function ProjectsPage() {
     }
   }
 
-  function openProject(p: Project, dest: "/" | "/pipelines" = "/") {
+  function openProject(p: Project) {
     setProjectID(p.id);
-    navigate(dest);
+    navigate("/pipelines");
   }
 
   return (
@@ -101,7 +103,7 @@ export function ProjectsPage() {
             />
           </FormField>
           <div className={form.action}>
-            <Button type="submit" variant="primary" loading={busy} disabled={!orgURLName}>
+            <Button type="submit" variant="secondary" loading={busy} disabled={!orgURLName}>
               Create organization
             </Button>
           </div>
@@ -180,7 +182,7 @@ export function ProjectsPage() {
             description="Create one above, or import every repository from a connected forge organization in one pass."
             action={
               <Link to="/projects/import">
-                <Button type="button" variant="primary">
+                <Button type="button" variant="secondary">
                   Import repositories
                 </Button>
               </Link>
@@ -230,14 +232,9 @@ export function ProjectsPage() {
                         <td className={table.muted}>{p.description || "—"}</td>
                         <td className={table.muted}>{formatTime(p.created_at)}</td>
                         <td className={table.actionCol}>
-                          <div className={table.formRow}>
-                            <Button type="button" variant="secondary" onClick={() => openProject(p, "/")}>
-                              Overview
-                            </Button>
-                            <Button type="button" variant="ghost" onClick={() => openProject(p, "/pipelines")}>
-                              Pipelines
-                            </Button>
-                          </div>
+                          <Button type="button" variant="secondary" size="compact" onClick={() => openProject(p)}>
+                            Pipelines
+                          </Button>
                         </td>
                       </tr>
                     );

@@ -66,7 +66,7 @@ export function NotificationBell() {
           >
             <div className={styles.head}>
               <strong>Notifications</strong>
-              <Link to="/settings/notifications" onClick={() => setOpen(false)}>
+              <Link to="/organization/notifications" onClick={() => setOpen(false)}>
                 View all
               </Link>
             </div>
@@ -75,7 +75,7 @@ export function NotificationBell() {
               {items.map((n) => (
                 <li key={n.id}>
                   <Link
-                    to={n.href || "/settings/notifications"}
+                    to={n.href || "/organization/notifications"}
                     className={styles.item}
                     onClick={() => {
                       void api

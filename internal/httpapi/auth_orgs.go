@@ -155,6 +155,62 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"token": plain, "prefix": prefix, "expires_at": expires, "scopes": req.Scopes})
 }
 
+type apiTokenRow struct {
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Prefix     string     `json:"prefix"`
+	Scopes     []string   `json:"scopes"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+}
+
+func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.pool.Query(r.Context(), `
+		SELECT id, name, token_prefix, scopes, created_at, last_used_at, expires_at
+		FROM api_tokens
+		WHERE user_id = $1 AND revoked_at IS NULL
+		ORDER BY created_at DESC
+	`, currentUser(r).ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	defer rows.Close()
+	out := []apiTokenRow{}
+	for rows.Next() {
+		var item apiTokenRow
+		if err := rows.Scan(&item.ID, &item.Name, &item.Prefix, &item.Scopes, &item.CreatedAt, &item.LastUsedAt, &item.ExpiresAt); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		out = append(out, item)
+	}
+	if rows.Err() != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tokens": out})
+}
+
+func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	tag, err := s.pool.Exec(r.Context(), `
+		UPDATE api_tokens SET revoked_at = now()
+		WHERE id::text = $1 AND user_id = $2 AND revoked_at IS NULL
+	`, r.PathValue("tokenID"), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "token.revoked", ResourceType: "api_token", ResourceID: r.PathValue("tokenID"), IP: clientIP(r), UserAgent: r.UserAgent()})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "revoked"})
+}
+
 func (s *Server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	list, err := s.orgs.ListOrganizations(r.Context(), currentUser(r).ID)
 	if err != nil {

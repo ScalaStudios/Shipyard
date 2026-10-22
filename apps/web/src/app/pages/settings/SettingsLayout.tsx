@@ -1,28 +1,17 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useWorkspace } from "../../context/WorkspaceContext";
+import { usePageTitle } from "../../lib/usePageTitle";
 import styles from "./SettingsLayout.module.css";
 
-type SettingsLink = { to: string; label: string; end?: boolean; adminOnly?: boolean };
+type SettingsLink = { to: string; label: string; end?: boolean };
 
-const links: SettingsLink[] = [
-  { to: "/settings", end: true, label: "Account" },
-  { to: "/settings/instance", label: "Instance", adminOnly: true },
-  { to: "/settings/authentication", label: "Authentication", adminOnly: true },
-  { to: "/settings/members", label: "Members" },
-  { to: "/settings/secrets", label: "Secrets" },
-  { to: "/settings/integrations", label: "Integrations" },
-  { to: "/settings/webhooks", label: "Webhooks" },
-  { to: "/settings/notifications", label: "Notifications" },
-];
-
-export function SettingsLayout() {
-  const { user } = useWorkspace();
-  const visible = links.filter((link) => !link.adminOnly || user.is_admin);
+function SettingsShell({ title, links }: { title: string; links: SettingsLink[] }) {
+  usePageTitle(title);
 
   return (
     <div>
-      <nav className={styles.tabs} aria-label="Settings">
-        {visible.map((link) => (
+      <nav className={styles.tabs} aria-label={title}>
+        {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
@@ -37,5 +26,39 @@ export function SettingsLayout() {
         <Outlet />
       </div>
     </div>
+  );
+}
+
+export function AccountLayout() {
+  return <SettingsShell title="My settings" links={[{ to: "/account", end: true, label: "Profile" }]} />;
+}
+
+export function OrganizationLayout() {
+  const { org } = useWorkspace();
+
+  return (
+    <SettingsShell
+      title={org ? org.name : "Organization"}
+      links={[
+        { to: "/organization", end: true, label: "Members" },
+        { to: "/organization/secrets", label: "Secrets" },
+        { to: "/organization/integrations", label: "Integrations" },
+        { to: "/organization/webhooks", label: "Webhooks" },
+        { to: "/organization/notifications", label: "Notifications" },
+      ]}
+    />
+  );
+}
+
+export function AdminLayout() {
+  return (
+    <SettingsShell
+      title="Instance"
+      links={[
+        { to: "/admin", end: true, label: "Instance" },
+        { to: "/admin/authentication", label: "Authentication" },
+        { to: "/admin/users", label: "Users" },
+      ]}
+    />
   );
 }

@@ -1,0 +1,36 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--sy-space-3);
+  min-width: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  color: var(--sy-color-text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity[data-size="lg"] .name {
+  font-family: var(--sy-font-display);
+  font-size: var(--sy-text-lg-size);
+  line-height: 1.34;
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--sy-color-text-muted);
+  font-size: var(--sy-text-sm-size);
+  line-height: var(--sy-text-sm-leading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

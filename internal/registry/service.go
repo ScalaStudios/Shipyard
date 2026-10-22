@@ -25,6 +25,12 @@ type Repository struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type OrgRepository struct {
+	Repository
+	ProjectSlug string `json:"project_slug"`
+	ProjectName string `json:"project_name"`
+}
+
 type Manifest struct {
 	ID        string    `json:"id"`
 	Digest    string    `json:"digest"`
@@ -68,6 +74,29 @@ func (s *Service) ListRepositories(ctx context.Context, projectID string) ([]Rep
 	for rows.Next() {
 		var r Repository
 		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) ListRepositoriesForOrg(ctx context.Context, orgID string) ([]OrgRepository, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.id, r.project_id, r.name, r.created_at, p.slug, p.name
+		FROM oci_repositories r
+		JOIN projects p ON p.id = r.project_id
+		WHERE p.organization_id = $1
+		ORDER BY p.name, r.name
+	`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OrgRepository
+	for rows.Next() {
+		var r OrgRepository
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.CreatedAt, &r.ProjectSlug, &r.ProjectName); err != nil {
 			return nil, err
 		}
 		out = append(out, r)

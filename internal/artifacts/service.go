@@ -28,6 +28,12 @@ type Artifact struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type OrgArtifact struct {
+	Artifact
+	ProjectSlug string `json:"project_slug"`
+	ProjectName string `json:"project_name"`
+}
+
 type Service struct {
 	pool  *pgxpool.Pool
 	store storage.Store
@@ -79,6 +85,30 @@ func (s *Service) List(ctx context.Context, projectID string) ([]Artifact, error
 	for rows.Next() {
 		var a Artifact
 		if err := rows.Scan(&a.ID, &a.ProjectID, &a.OrganizationID, &a.JobID, &a.RunID, &a.Name, &a.Digest, &a.SizeBytes, &a.ContentType, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *Service) ListForOrg(ctx context.Context, orgID string) ([]OrgArtifact, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT a.id, a.project_id, a.organization_id, COALESCE(a.job_id::text,''), COALESCE(a.run_id::text,''),
+		       a.name, a.digest, a.size_bytes, a.content_type, a.created_at, p.slug, p.name
+		FROM artifacts a
+		JOIN projects p ON p.id = a.project_id
+		WHERE p.organization_id = $1
+		ORDER BY a.created_at DESC LIMIT 500
+	`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OrgArtifact
+	for rows.Next() {
+		var a OrgArtifact
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.OrganizationID, &a.JobID, &a.RunID, &a.Name, &a.Digest, &a.SizeBytes, &a.ContentType, &a.CreatedAt, &a.ProjectSlug, &a.ProjectName); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

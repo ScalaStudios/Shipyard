@@ -219,9 +219,9 @@ export function NotificationsSettingsPage() {
                   <td>
                     {n.href ? <Link to={n.href}>Open</Link> : null}{" "}
                     {!n.read_at ? (
-                      <button type="button" className={table.rowButton} onClick={() => void markOne(n.id)}>
+                      <Button variant="secondary" size="compact" onClick={() => void markOne(n.id)}>
                         Mark read
-                      </button>
+                      </Button>
                     ) : null}
                   </td>
                 </tr>

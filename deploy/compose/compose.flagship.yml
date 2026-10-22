@@ -63,14 +63,14 @@ services:
   shipyard-runner:
     build:
       context: ../..
-      dockerfile: deploy/compose/Dockerfile.runner.jdk21
+      dockerfile: deploy/compose/Dockerfile.runner.multijdk
     restart: unless-stopped
     environment:
       SHIPYARD_URL: http://shipyard-server:8080
       SHIPYARD_REGISTRATION_TOKEN: ${SHIPYARD_REGISTRATION_TOKEN:-}
       SHIPYARD_RUNNER_TOKEN: ${SHIPYARD_RUNNER_TOKEN:-}
       SHIPYARD_RUNNER_NAME: flagship-jdk21
-      SHIPYARD_RUNNER_LABELS: jdk21,gradle
+      SHIPYARD_RUNNER_LABELS: jdk8,jdk11,jdk17,jdk21,jdk25,gradle
       SHIPYARD_RUNNER_TOKEN_FILE: /var/lib/shipyard/runner.token
       SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
       SHIPYARD_WORKDIR: /var/lib/shipyard/work

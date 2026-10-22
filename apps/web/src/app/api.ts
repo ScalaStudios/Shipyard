@@ -74,6 +74,12 @@ export type PipelineRun = {
   finished_at?: string;
 };
 
+export type OrgRun = PipelineRun & {
+  project_slug: string;
+  project_name: string;
+  pipeline_slug: string;
+};
+
 export type Job = {
   id: string;
   run_id: string;
@@ -125,10 +131,22 @@ export type Artifact = {
   size_bytes: number;
 };
 
+export type OrgArtifact = Artifact & {
+  project_id: string;
+  project_slug: string;
+  project_name: string;
+};
+
 export type PackageRepo = {
   id: string;
   name: string;
   format: string;
+};
+
+export type OrgPackageRepo = PackageRepo & {
+  project_id: string;
+  project_slug: string;
+  project_name: string;
 };
 
 export type PackageVersion = {
@@ -154,6 +172,12 @@ export type Release = {
 export type OCIRepo = {
   id: string;
   name: string;
+};
+
+export type OrgOCIRepo = OCIRepo & {
+  project_id: string;
+  project_slug: string;
+  project_name: string;
 };
 
 export type Environment = {
@@ -221,6 +245,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export type ApiToken = {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[] | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+};
+
 export const api = {
   systemInfo: () => request<SystemInfo>("/api/v1/system/info"),
   oidcProviders: () => request<{ providers: OIDCProvider[] }>("/api/v1/auth/oidc/providers"),
@@ -235,6 +269,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  listTokens: () => request<{ tokens: ApiToken[] }>("/api/v1/me/tokens"),
+  revokeToken: (id: string) =>
+    request<{ status: string }>(`/api/v1/me/tokens/${id}`, { method: "DELETE" }),
 
   listOrgs: () => request<{ organizations: Organization[] }>("/api/v1/orgs"),
   createOrg: (payload: { slug: string; name: string; description?: string }) =>
@@ -262,6 +299,8 @@ export const api = {
     }),
   listRuns: (orgID: string, projectID: string) =>
     request<{ runs: PipelineRun[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/runs`),
+  listOrgRuns: (orgID: string, limit = 100) => request<{ runs: OrgRun[] }>(`/api/v1/orgs/${orgID}/runs?limit=${limit}`),
+  getOrgRun: (orgID: string, runID: string) => request<{ run: OrgRun }>(`/api/v1/orgs/${orgID}/runs/${runID}`),
   startRun: (orgID: string, projectID: string, pipelineID: string) =>
     request<{ run: PipelineRun }>(`/api/v1/orgs/${orgID}/projects/${projectID}/pipelines/${pipelineID}/runs`, {
       method: "POST",
@@ -303,8 +342,6 @@ export const api = {
       body: JSON.stringify(payload ?? {}),
     }),
 
-  listArtifacts: (orgID: string, projectID: string) =>
-    request<{ artifacts: Artifact[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/artifacts`),
   listPackages: (orgID: string, projectID: string) =>
     request<{ repositories: PackageRepo[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/packages`),
   createPackageRepo: (orgID: string, projectID: string, payload: { name: string; format: string }) =>
@@ -320,6 +357,11 @@ export const api = {
     request<{ repositories: OCIRepo[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/oci`),
   listOCITags: (orgID: string, projectID: string, name: string) =>
     request<{ tags: string[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/oci/${encodeURIComponent(name)}/tags`),
+  listOrgPackages: (orgID: string) =>
+    request<{ repositories: OrgPackageRepo[] }>(`/api/v1/orgs/${orgID}/registry/packages`),
+  listOrgOCI: (orgID: string) => request<{ repositories: OrgOCIRepo[] }>(`/api/v1/orgs/${orgID}/registry/oci`),
+  listOrgArtifacts: (orgID: string) =>
+    request<{ artifacts: OrgArtifact[] }>(`/api/v1/orgs/${orgID}/registry/artifacts`),
 
   listReleases: (orgID: string, projectID: string) =>
     request<{ releases: Release[] }>(`/api/v1/orgs/${orgID}/projects/${projectID}/releases`),
@@ -409,6 +451,38 @@ export const api = {
     }),
   deleteAuthProvider: (purpose: "login" | "forge", id: string) =>
     request<{ status: string }>(`/api/v1/settings/auth-providers/${id}?purpose=${purpose}`, { method: "DELETE" }),
+  listUsers: () => request<{ users: User[] }>("/api/v1/settings/users"),
+  getUser: (userID: string) => request<{ user: User }>(`/api/v1/settings/users/${userID}`),
+  updateUser: (userID: string, payload: { username: string; email: string; display_name: string }) =>
+    request<{ status: string }>(`/api/v1/settings/users/${userID}`, { method: "PUT", body: JSON.stringify(payload) }),
+  setUserPassword: (userID: string, password: string) =>
+    request<{ status: string }>(`/api/v1/settings/users/${userID}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
+  avatarURL: (userID: string, version = 0) => `/api/v1/users/${userID}/avatar${version > 0 ? `?v=${version}` : ""}`,
+  uploadUserAvatar: (userID: string, file: File) =>
+    request<{ status: string }>(`/api/v1/settings/users/${userID}/avatar`, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    }),
+  removeUserAvatar: (userID: string) =>
+    request<{ status: string }>(`/api/v1/settings/users/${userID}/avatar`, { method: "DELETE" }),
+  uploadMyAvatar: (file: File) =>
+    request<{ status: string }>("/api/v1/me/avatar", {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    }),
+  removeMyAvatar: () => request<{ status: string }>("/api/v1/me/avatar", { method: "DELETE" }),
+  createUser: (payload: { username: string; email: string; display_name?: string; password: string; is_admin: boolean }) =>
+    request<{ user: User }>("/api/v1/settings/users", { method: "POST", body: JSON.stringify(payload) }),
+  setUserActive: (userID: string, isActive: boolean) =>
+    request<{ status: string }>(`/api/v1/settings/users/${userID}/active`, {
+      method: "PUT",
+      body: JSON.stringify({ is_active: isActive }),
+    }),
   listInstanceAdmins: () => request<{ users: InstanceUser[] }>("/api/v1/settings/admins"),
   setInstanceAdmin: (userID: string, isAdmin: boolean) =>
     request<{ status: string }>(`/api/v1/settings/admins/${userID}`, {

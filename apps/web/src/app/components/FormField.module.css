@@ -20,6 +20,17 @@
   width: 100%;
 }
 
+.check {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--sy-control-height-default);
+}
+
+.check input {
+  width: auto;
+  accent-color: var(--sy-color-ember);
+}
+
 .label {
   color: var(--sy-color-text-muted);
   font-size: var(--sy-text-sm-size);

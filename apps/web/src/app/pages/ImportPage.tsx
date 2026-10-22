@@ -17,6 +17,7 @@ import {
   SCMProvider,
 } from "../api";
 import { formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 import styles from "./ImportPage.module.css";
 
 type Step = "credential" | "org" | "repos" | "progress";
@@ -25,6 +26,7 @@ const POLL_FAILURE_LIMIT = 5;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function ImportPage() {
+  usePageTitle("Import repositories");
   const navigate = useNavigate();
   const { org, user, setError, refreshProjects } = useWorkspace();
   const [step, setStep] = useState<Step>("credential");
@@ -318,7 +320,7 @@ export function ImportPage() {
                   <div className={styles.connectButtons}>
                     <Button
                       type="button"
-                      variant="primary"
+                      variant="secondary"
                       loading={busy}
                       onClick={() => {
                         setBusy(true);

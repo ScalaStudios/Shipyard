@@ -63,6 +63,29 @@
   text-decoration: underline;
 }
 
+.actionCol {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+td.actionCol > div {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.clickRow {
+  cursor: pointer;
+}
+
+.identityRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sy-space-4);
+  padding: var(--sy-space-4) var(--sy-space-6);
+}
+
 .rowButton {
   display: inline;
   padding: 0;

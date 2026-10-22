@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@shipyard/ui";
 import styles from "./LoginPage.module.css";
 import { api, OIDCProvider } from "./api";
+import { usePageTitle } from "./lib/usePageTitle";
 
 export function LoginPage({
   allowRegister,
@@ -12,6 +13,7 @@ export function LoginPage({
   firstRun: boolean;
   onAuthed: () => void;
 }) {
+  usePageTitle("Sign in");
   const [mode, setMode] = useState<"login" | "register">(firstRun ? "register" : "login");
   const [login, setLogin] = useState("");
   const [username, setUsername] = useState("");

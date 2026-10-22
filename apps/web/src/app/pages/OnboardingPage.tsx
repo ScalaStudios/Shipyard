@@ -5,9 +5,11 @@ import table from "../components/DataTable.module.css";
 import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, OnboardingStatus } from "../api";
+import { usePageTitle } from "../lib/usePageTitle";
 import styles from "./OnboardingPage.module.css";
 
 export function OnboardingPage() {
+  usePageTitle("Get started");
   const { setError } = useWorkspace();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
 

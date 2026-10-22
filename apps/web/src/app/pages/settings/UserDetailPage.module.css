@@ -1,0 +1,15 @@
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sy-space-2);
+  margin-left: auto;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sy-space-2);
+  padding: var(--sy-space-4);
+}

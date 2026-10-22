@@ -5,12 +5,14 @@ type Variant = "primary" | "secondary" | "ghost" | "destructive";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
+  size?: "compact";
   icon?: ReactNode;
   loading?: boolean;
 };
 
 export function Button({
   variant = "secondary",
+  size,
   icon,
   loading = false,
   children,
@@ -18,7 +20,7 @@ export function Button({
   disabled,
   ...rest
 }: ButtonProps) {
-  const classes = [styles.button, styles[variant], className].filter(Boolean).join(" ");
+  const classes = [styles.button, styles[variant], size ? styles.compact : null, className].filter(Boolean).join(" ");
   return (
     <button
       className={classes}

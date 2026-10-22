@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Box,
+  Building2,
   Container,
   Folder,
   GitBranch,
@@ -8,7 +8,7 @@ import {
   Network,
   Rocket,
   Server,
-  Settings,
+  ShieldCheck,
   Warehouse,
 } from "lucide-react";
 
@@ -18,6 +18,7 @@ export type NavItem = {
   to: string;
   icon: LucideIcon;
   summary: string;
+  adminOnly?: boolean;
 };
 
 export type NavGroup = { id: string; label: string | null; items: NavItem[] };
@@ -36,8 +37,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Delivery",
     items: [
       { id: "pipelines", label: "Pipelines", to: "/pipelines", icon: GitBranch, summary: "Pipeline definitions, runs and job logs." },
-      { id: "artifacts", label: "Artifacts", to: "/artifacts", icon: Box, summary: "Build outputs stored by digest." },
-      { id: "registry", label: "Registry", to: "/registry", icon: Container, summary: "OCI images and Maven or npm packages." },
+      { id: "registry", label: "Registry", to: "/registry", icon: Container, summary: "Artifacts, OCI images and Maven or npm packages." },
       { id: "releases", label: "Releases", to: "/releases", icon: Rocket, summary: "Versioned bundles of artifacts and images." },
       { id: "deployments", label: "Deployments", to: "/deployments", icon: Warehouse, summary: "Rollouts to environments and their history." },
     ],
@@ -53,7 +53,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: "administration",
     label: "Administration",
-    items: [{ id: "settings", label: "Settings", to: "/settings", icon: Settings, summary: "Account, authentication, members and integrations." }],
+    items: [
+      { id: "organization", label: "Organization", to: "/organization", icon: Building2, summary: "Members, secrets, integrations and webhooks." },
+      { id: "admin", label: "Instance", to: "/admin", icon: ShieldCheck, summary: "Instance settings, authentication and users.", adminOnly: true },
+    ],
   },
 ];
 

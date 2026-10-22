@@ -5,15 +5,6 @@ export type PathSegment = {
   to?: string;
 };
 
-const PROJECT_PATH_SECTIONS = new Set([
-  "overview",
-  "pipelines",
-  "artifacts",
-  "registry",
-  "releases",
-  "deployments",
-]);
-
 export function sectionFromPath(pathname: string): NavItem | undefined {
   const ranked = [...NAV_ITEMS].sort((a, b) => b.to.length - a.to.length);
   for (const item of ranked) {
@@ -30,11 +21,9 @@ export function sectionFromPath(pathname: string): NavItem | undefined {
 
 export function buildPathSegments({
   orgSlug,
-  projectSlug,
   pathname,
 }: {
   orgSlug?: string;
-  projectSlug?: string;
   pathname: string;
 }): PathSegment[] {
   const section = sectionFromPath(pathname);
@@ -51,21 +40,14 @@ export function buildPathSegments({
     if (first) segments.push({ label: first.replace(/-/g, " "), to: `/${first}` });
   }
 
-  if (projectSlug && section && PROJECT_PATH_SECTIONS.has(section.id)) {
-    segments.push({
-      label: projectSlug,
-      to: "/",
-    });
-  }
-
   const runMatch = pathname.match(/^\/pipelines\/runs\/([^/]+)/);
   if (runMatch) {
-    segments.push({ label: runMatch[1] });
+    segments.push({ label: `run ${runMatch[1].slice(0, 8)}` });
   }
 
-  const settingsMatch = pathname.match(/^\/settings(?:\/([^/]+))?/);
-  if (settingsMatch && settingsMatch[1]) {
-    segments.push({ label: settingsMatch[1], to: `/settings/${settingsMatch[1]}` });
+  const areaMatch = pathname.match(/^\/(organization|admin|account)(?:\/([^/]+))?/);
+  if (areaMatch && areaMatch[2]) {
+    segments.push({ label: areaMatch[2], to: `/${areaMatch[1]}/${areaMatch[2]}` });
   }
 
   return segments;

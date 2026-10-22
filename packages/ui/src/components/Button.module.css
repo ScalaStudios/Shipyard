@@ -81,6 +81,12 @@
   background: var(--sy-color-danger-fill-hover);
 }
 
+.compact {
+  min-height: var(--sy-control-height-compact);
+  padding: 0 var(--sy-space-4);
+  font-size: 13px;
+}
+
 .icon {
   display: inline-flex;
   width: 16px;

@@ -6,8 +6,10 @@ import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, SystemInfo } from "../api";
 import { formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function ClusterPage() {
+  usePageTitle("Cluster");
   const { setError } = useWorkspace();
   const [info, setInfo] = useState<SystemInfo | null>(null);
 

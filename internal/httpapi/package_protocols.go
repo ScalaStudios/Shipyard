@@ -220,11 +220,6 @@ func (s *Server) handleMavenGet(w http.ResponseWriter, r *http.Request) {
 	artifactPath := strings.Trim(r.PathValue("path"), "/")
 	base := path.Base(artifactPath)
 
-	if v, err := s.packages.GetVersion(r.Context(), repoID, artifactPath, "metadata", base); err == nil {
-		s.serveMavenBlob(w, r, v)
-		return
-	}
-
 	if base == "maven-metadata.xml" || base == "maven-metadata.xml.sha1" || base == "maven-metadata.xml.md5" {
 		xmlBytes, okMeta := s.mavenMetadataXML(w, r, repoID, artifactPath)
 		if !okMeta {

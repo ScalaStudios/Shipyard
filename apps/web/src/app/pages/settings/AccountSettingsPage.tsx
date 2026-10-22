@@ -1,8 +1,11 @@
 import { FormEvent, useState } from "react";
 import { Button, Panel } from "@shipyard/ui";
+import { AvatarControls } from "../../components/AvatarControls";
 import { DataTable } from "../../components/DataTable";
 import table from "../../components/DataTable.module.css";
+import { FormField, formStyles as form } from "../../components/FormField";
 import { PageHeader } from "../../components/PageHeader";
+import { UserIdentity } from "../../components/UserIdentity";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { api } from "../../api";
 
@@ -10,6 +13,8 @@ export function AccountSettingsPage() {
   const { user, setError } = useWorkspace();
   const [tokenName, setTokenName] = useState("cli");
   const [tokenValue, setTokenValue] = useState("");
+  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [hasAvatar, setHasAvatar] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function createToken(event: FormEvent) {
@@ -29,6 +34,16 @@ export function AccountSettingsPage() {
     <div className={table.stack}>
       <PageHeader title="Account" description="Profile details and personal access tokens for the API and CLI." />
       <Panel title="Profile">
+        <div className={table.identityRow}>
+          <UserIdentity
+            name={user.display_name || user.username}
+            meta={`@${user.username} · ${user.email}`}
+            userID={user.id}
+            size="lg"
+            version={avatarVersion}
+            onStatus={setHasAvatar}
+          />
+        </div>
         <DataTable>
           <tbody>
             <tr>
@@ -45,6 +60,18 @@ export function AccountSettingsPage() {
             </tr>
           </tbody>
         </DataTable>
+      </Panel>
+      <Panel title="Avatar">
+        <div className={form.row}>
+          <FormField label="Profile image" hint="Square PNG or JPEG, up to 2 MB.">
+            <AvatarControls
+              hasAvatar={hasAvatar}
+              upload={(file) => api.uploadMyAvatar(file)}
+              remove={() => api.removeMyAvatar()}
+              onChanged={() => setAvatarVersion((v) => v + 1)}
+            />
+          </FormField>
+        </div>
       </Panel>
       <Panel title="API tokens">
         <form className={table.toolbar} onSubmit={createToken}>

@@ -13,18 +13,19 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { PipelinesPage } from "./pages/PipelinesPage";
 import { RunDetailPage } from "./pages/RunDetailPage";
-import { ArtifactsPage } from "./pages/ArtifactsPage";
 import { RegistryPage } from "./pages/RegistryPage";
 import { ReleasesPage } from "./pages/ReleasesPage";
 import { DeploymentsPage } from "./pages/DeploymentsPage";
 import { RunnersPage } from "./pages/RunnersPage";
 import { ClusterPage } from "./pages/ClusterPage";
-import { SettingsLayout } from "./pages/settings/SettingsLayout";
+import { AccountLayout, AdminLayout, OrganizationLayout } from "./pages/settings/SettingsLayout";
 import { AccountSettingsPage } from "./pages/settings/AccountSettingsPage";
 import { AuthSettingsPage } from "./pages/settings/AuthSettingsPage";
 import { InstanceSettingsPage } from "./pages/settings/InstanceSettingsPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { MembersSettingsPage } from "./pages/settings/MembersSettingsPage";
+import { UsersSettingsPage } from "./pages/settings/UsersSettingsPage";
+import { UserDetailPage } from "./pages/settings/UserDetailPage";
 import { SecretsSettingsPage } from "./pages/settings/SecretsSettingsPage";
 import { IntegrationsSettingsPage } from "./pages/settings/IntegrationsSettingsPage";
 import { WebhooksSettingsPage } from "./pages/settings/WebhooksSettingsPage";
@@ -62,7 +63,7 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         onLogout={onLogout}
         themeToggle={
           <Button
-            variant="ghost"
+            variant="secondary"
             aria-label="Toggle theme"
             icon={resolved === "dark" ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
             onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
@@ -77,23 +78,38 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           <Route path="/projects/import" element={<ImportPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
           <Route path="/pipelines/runs/:runId" element={<RunDetailPage />} />
-          <Route path="/artifacts" element={<ArtifactsPage />} />
+          <Route path="/artifacts" element={<Navigate to="/registry" replace />} />
           <Route path="/registry" element={<RegistryPage />} />
           <Route path="/releases" element={<ReleasesPage />} />
           <Route path="/deployments" element={<DeploymentsPage />} />
           <Route path="/runners" element={<RunnersPage />} />
           <Route path="/cluster" element={<ClusterPage />} />
           <Route path="/get-started" element={<OnboardingPage />} />
-          <Route path="/settings" element={<SettingsLayout />}>
+          <Route path="/account" element={<AccountLayout />}>
             <Route index element={<AccountSettingsPage />} />
-            <Route path="authentication" element={<AuthSettingsPage />} />
-            <Route path="instance" element={<InstanceSettingsPage />} />
-            <Route path="members" element={<MembersSettingsPage />} />
+          </Route>
+          <Route path="/organization" element={<OrganizationLayout />}>
+            <Route index element={<MembersSettingsPage />} />
             <Route path="secrets" element={<SecretsSettingsPage />} />
             <Route path="integrations" element={<IntegrationsSettingsPage />} />
             <Route path="webhooks" element={<WebhooksSettingsPage />} />
             <Route path="notifications" element={<NotificationsSettingsPage />} />
           </Route>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<InstanceSettingsPage />} />
+            <Route path="authentication" element={<AuthSettingsPage />} />
+            <Route path="users" element={<UsersSettingsPage />} />
+            <Route path="users/:userId" element={<UserDetailPage />} />
+          </Route>
+          <Route path="/settings" element={<Navigate to="/account" replace />} />
+          <Route path="/settings/members" element={<Navigate to="/organization" replace />} />
+          <Route path="/settings/secrets" element={<Navigate to="/organization/secrets" replace />} />
+          <Route path="/settings/integrations" element={<Navigate to="/organization/integrations" replace />} />
+          <Route path="/settings/webhooks" element={<Navigate to="/organization/webhooks" replace />} />
+          <Route path="/settings/notifications" element={<Navigate to="/organization/notifications" replace />} />
+          <Route path="/settings/instance" element={<Navigate to="/admin" replace />} />
+          <Route path="/settings/authentication" element={<Navigate to="/admin/authentication" replace />} />
+          <Route path="/settings/users" element={<Navigate to="/admin/users" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>

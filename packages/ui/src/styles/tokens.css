@@ -94,6 +94,19 @@
   --sy-control-height-default: 40px;
   --sy-control-height-prominent: 48px;
 
+  --sy-color-ember: #fa7e26;
+
+  --sy-text-xs-size: 11px;
+  --sy-text-xs-leading: 1.2;
+  --sy-text-sm-size: 13px;
+  --sy-text-sm-leading: 20px;
+  --sy-text-md-size: 15px;
+  --sy-text-md-leading: 24px;
+  --sy-text-lg-size: 17px;
+  --sy-text-lg-leading: 1.34;
+  --sy-text-xl-size: 22px;
+  --sy-text-xl-leading: 1.26;
+
   --sy-font-display: "Archivo Variable", "Archivo", "Helvetica Neue", Arial, sans-serif;
   --sy-font-sans: "Inter Variable", "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
   --sy-font-mono: "JetBrains Mono Variable", "JetBrains Mono", "SF Mono", Menlo, monospace;

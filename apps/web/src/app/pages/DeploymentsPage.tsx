@@ -9,8 +9,10 @@ import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Deployment, Environment, Release } from "../api";
 import { formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 export function DeploymentsPage() {
+  usePageTitle("Deployments");
   const { org, project, setError } = useWorkspace();
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);

@@ -9,6 +9,7 @@ import { TableSkeleton } from "../components/TableSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Runner, RunnerInstall } from "../api";
 import { formatTime, heartbeatAgeMs, isRunnerAlive, runStatus } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 import styles from "./RunnersPage.module.css";
 
 function formatAge(ms: number | null): string {
@@ -47,6 +48,7 @@ function RunnerHeartbeat({ runner, now }: { runner: Runner; now: number }) {
 }
 
 export function RunnersPage() {
+  usePageTitle("Runners");
   const { org, setError } = useWorkspace();
   const [runners, setRunners] = useState<Runner[]>([]);
   const [install, setInstall] = useState<RunnerInstall | null>(null);
@@ -127,7 +129,7 @@ export function RunnersPage() {
         title="Runners"
         description="One-click install like Pterodactyl Wings — generate a token and run the curl | bash script on any machine."
         actions={
-          <Button variant="primary" loading={busy} onClick={() => void createInstall()}>
+          <Button variant="secondary" loading={busy} onClick={() => void createInstall()}>
             Create runner install
           </Button>
         }

@@ -10,13 +10,16 @@ import { PageHeader } from "../components/PageHeader";
 import { TableSkeleton } from "../components/TableSkeleton";
 import { Tabs } from "../components/Tabs";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { api, OCIRepo, PackageRepo, PackageVersion } from "../api";
+import { api, ApiToken, OrgArtifact, OrgOCIRepo, OrgPackageRepo, PackageVersion } from "../api";
+import { formatBytes, formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
-type Section = "packages" | "oci" | "publish";
+type Section = "packages" | "oci" | "artifacts" | "publish";
 
 const SECTIONS = [
   { id: "packages", label: "Packages" },
   { id: "oci", label: "Containers" },
+  { id: "artifacts", label: "Build artifacts" },
   { id: "publish", label: "Publish & consume" },
 ];
 
@@ -34,34 +37,51 @@ function formatLabel(format: string): string {
 }
 
 export function RegistryPage() {
-  const { org, project, user, setError } = useWorkspace();
+  usePageTitle("Registry");
+  const { org, projects, user, setError } = useWorkspace();
   const [section, setSection] = useState<Section>("packages");
-  const [packages, setPackages] = useState<PackageRepo[]>([]);
-  const [oci, setOci] = useState<OCIRepo[]>([]);
-  const [selectedPkg, setSelectedPkg] = useState<PackageRepo | null>(null);
+  const [packages, setPackages] = useState<OrgPackageRepo[]>([]);
+  const [oci, setOci] = useState<OrgOCIRepo[]>([]);
+  const [buildArtifacts, setBuildArtifacts] = useState<OrgArtifact[]>([]);
+  const [selectedPkg, setSelectedPkg] = useState<OrgPackageRepo | null>(null);
   const [versions, setVersions] = useState<PackageVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
-  const [selectedOci, setSelectedOci] = useState<OCIRepo | null>(null);
+  const [selectedOci, setSelectedOci] = useState<OrgOCIRepo | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [pkgName, setPkgName] = useState("");
   const [pkgFormat, setPkgFormat] = useState("maven");
+  const [pkgProject, setPkgProject] = useState("");
   const [busy, setBusy] = useState(false);
-  const [registryToken, setRegistryToken] = useState("");
+  const [registryToken, setRegistryToken] = useState(() => sessionStorage.getItem("shipyard.registryToken") ?? "");
+  const [tokens, setTokens] = useState<ApiToken[]>([]);
+  const [revoking, setRevoking] = useState("");
   const [tokenBusy, setTokenBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
-    if (!org || !project) {
+    if (!org) {
       setPackages([]);
       setOci([]);
+      setBuildArtifacts([]);
       setLoading(false);
       return;
     }
     try {
-      const [p, o] = await Promise.all([api.listPackages(org.id, project.id), api.listOCI(org.id, project.id)]);
-      setPackages(p.repositories ?? []);
-      setOci(o.repositories ?? []);
+      const [p, o, a] = await Promise.allSettled([
+        api.listOrgPackages(org.id),
+        api.listOrgOCI(org.id),
+        api.listOrgArtifacts(org.id),
+      ]);
+      setPackages(p.status === "fulfilled" ? (p.value.repositories ?? []) : []);
+      setOci(o.status === "fulfilled" ? (o.value.repositories ?? []) : []);
+      setBuildArtifacts(a.status === "fulfilled" ? (a.value.artifacts ?? []) : []);
+      const failed = [
+        p.status === "rejected" ? "package repositories" : "",
+        o.status === "rejected" ? "containers" : "",
+        a.status === "rejected" ? "build artifacts" : "",
+      ].filter(Boolean);
+      if (failed.length > 0) setError(`failed to load ${failed.join(", ")}`);
     } finally {
       setLoading(false);
     }
@@ -70,20 +90,32 @@ export function RegistryPage() {
   useEffect(() => {
     setLoading(true);
     void refresh().catch((err) => setError(err instanceof Error ? err.message : "failed to load registry"));
-  }, [org?.id, project?.id]);
+  }, [org?.id]);
+
+  useEffect(() => {
+    void refreshTokens();
+  }, []);
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setPkgProject("");
+      return;
+    }
+    if (!projects.some((p) => p.id === pkgProject)) setPkgProject(projects[0].id);
+  }, [projects, pkgProject]);
 
   function changeSection(id: string) {
     setSection(id as Section);
     setSelectedPkg(null);
   }
 
-  async function openPackage(repo: PackageRepo) {
-    if (!org || !project) return;
+  async function openPackage(repo: OrgPackageRepo) {
+    if (!org) return;
     setSelectedPkg(repo);
     setVersions([]);
     setVersionsLoading(true);
     try {
-      const res = await api.listPackageVersions(org.id, project.id, repo.id);
+      const res = await api.listPackageVersions(org.id, repo.project_id, repo.id);
       setVersions(res.versions ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load package versions");
@@ -92,11 +124,11 @@ export function RegistryPage() {
     }
   }
 
-  async function openOci(repo: OCIRepo) {
-    if (!org || !project) return;
+  async function openOci(repo: OrgOCIRepo) {
+    if (!org) return;
     setSelectedOci(repo);
     try {
-      const res = await api.listOCITags(org.id, project.id, repo.name);
+      const res = await api.listOCITags(org.id, repo.project_id, repo.name);
       setTags(res.tags ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load OCI tags");
@@ -105,10 +137,10 @@ export function RegistryPage() {
 
   async function createPackage(event: FormEvent) {
     event.preventDefault();
-    if (!org || !project) return;
+    if (!org || !pkgProject) return;
     setBusy(true);
     try {
-      await api.createPackageRepo(org.id, project.id, { name: pkgName, format: pkgFormat });
+      await api.createPackageRepo(org.id, pkgProject, { name: pkgName, format: pkgFormat });
       setPkgName("");
       await refresh();
     } catch (err) {
@@ -119,17 +151,45 @@ export function RegistryPage() {
   }
 
   async function generateRegistryToken() {
-    if (!project) return;
+    if (!org) return;
     setTokenBusy(true);
     setCopied("");
     try {
-      const res = await api.createToken({ name: `${project.slug}-registry`, scopes: ["registry:read", "registry:write"] });
+      const res = await api.createToken({ name: `${org.slug}-registry`, scopes: ["registry:read", "registry:write"] });
       setRegistryToken(res.token);
+      sessionStorage.setItem("shipyard.registryToken", res.token);
+      await refreshTokens();
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to generate registry token");
     } finally {
       setTokenBusy(false);
     }
+  }
+
+  async function refreshTokens() {
+    try {
+      const res = await api.listTokens();
+      setTokens(res.tokens ?? []);
+    } catch {
+      setTokens([]);
+    }
+  }
+
+  async function revoke(id: string) {
+    setRevoking(id);
+    try {
+      await api.revokeToken(id);
+      await refreshTokens();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to revoke token");
+    } finally {
+      setRevoking("");
+    }
+  }
+
+  function forgetToken() {
+    sessionStorage.removeItem("shipyard.registryToken");
+    setRegistryToken("");
   }
 
   async function copy(text: string, key: string) {
@@ -142,11 +202,13 @@ export function RegistryPage() {
     }
   }
 
-  const mavenRepo = packages.find((p) => p.format === "maven")?.name ?? "<repo>";
+  const mavenRow = packages.find((p) => p.format === "maven");
+  const mavenRepo = mavenRow?.name ?? "<repo>";
+  const mavenProject = mavenRow?.project_slug ?? "<project>";
   const apiBase = window.location.origin;
   const gradleBlock = `repositories {
     maven {
-        url = uri("${apiBase}/repository/maven/${org?.slug}/${project?.slug}/${mavenRepo}")
+        url = uri("${apiBase}/repository/maven/${org?.slug}/${mavenProject}/${mavenRepo}")
         credentials {
             username = providers.gradleProperty("shipyardUser").get()
             password = providers.gradleProperty("shipyardToken").get()
@@ -168,20 +230,20 @@ shipyardToken=${registryToken}`;
   return (
     <div className={table.stack}>
       <PageHeader
-        title={project ? `${project.name} - Registry` : "Registry"}
+        title="Registry"
         description={
-          project ? (
+          org ? (
             <>
-              Package and OCI repositories for <strong>{project.name}</strong>. Maven layout also serves Gradle.
+              Packages, containers, and build artifacts for <strong>{org.name}</strong>. Maven layout also serves Gradle.
             </>
           ) : (
-            "Package and OCI repositories for the selected project. Maven layout also serves Gradle."
+            "Packages, containers, and build artifacts for your organization. Maven layout also serves Gradle."
           )
         }
       />
 
-      {!org || !project ? (
-        <EmptyState title="Select a project" />
+      {!org ? (
+        <EmptyState title="No organization selected" />
       ) : (
         <>
           <Tabs tabs={SECTIONS} active={section} onChange={changeSection} />
@@ -197,7 +259,9 @@ shipyardToken=${registryToken}`;
                   All repositories
                 </Button>
                 <strong>{selectedPkg.name}</strong>
-                <span className={table.muted}>{formatLabel(selectedPkg.format)}</span>
+                <span className={table.muted}>
+                  {selectedPkg.project_name} · {formatLabel(selectedPkg.format)}
+                </span>
               </div>
               <Panel>
                 {versionsLoading ? (
@@ -206,7 +270,7 @@ shipyardToken=${registryToken}`;
                   <PackageBrowser
                     key={selectedPkg.id}
                     orgSlug={org.slug}
-                    projectSlug={project.slug}
+                    projectSlug={selectedPkg.project_slug}
                     repoName={selectedPkg.name}
                     format={selectedPkg.format}
                     versions={versions}
@@ -217,6 +281,21 @@ shipyardToken=${registryToken}`;
           ) : (
             <Panel title="Package repositories" meta={<StatusBadge status="info">{packages.length}</StatusBadge>}>
               <form className={form.row} onSubmit={createPackage}>
+                <FormField label="Project" htmlFor="pkg-project">
+                  <select
+                    id="pkg-project"
+                    className={table.select}
+                    value={pkgProject}
+                    onChange={(e) => setPkgProject(e.target.value)}
+                    required
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
                 <FormField label="Repository name" htmlFor="pkg-name">
                   <input
                     id="pkg-name"
@@ -249,13 +328,14 @@ shipyardToken=${registryToken}`;
               ) : packages.length === 0 ? (
                 <EmptyState
                   title="No package repositories"
-                  description="Create one above to publish Maven, npm, or generic artifacts from this project."
+                  description="Create one above to publish Maven, npm, or generic artifacts from any project in this organization."
                 />
               ) : (
                 <DataTable>
                   <thead>
                     <tr>
-                      <th>Name</th>
+                      <th>Project</th>
+                      <th>Repository</th>
                       <th>Format</th>
                       <th className={table.actionCol} />
                     </tr>
@@ -263,12 +343,13 @@ shipyardToken=${registryToken}`;
                   <tbody>
                     {packages.map((p) => (
                       <tr key={p.id}>
+                        <td className={table.muted}>{p.project_name}</td>
                         <td>{p.name}</td>
                         <td className={table.muted}>{formatLabel(p.format)}</td>
                         <td className={table.actionCol}>
-                          <button type="button" className={table.rowButton} onClick={() => void openPackage(p)}>
+                          <Button variant="secondary" size="compact" onClick={() => void openPackage(p)}>
                             Browse
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -285,24 +366,26 @@ shipyardToken=${registryToken}`;
               ) : oci.length === 0 ? (
                 <EmptyState
                   title="No OCI repositories"
-                  description={`Push with docker push <host>/${org.slug}/${project.slug}/<name>:<tag> after docker login <host>.`}
+                  description={`Push with docker push <host>/${org.slug}/<project>/<name>:<tag> after docker login <host>.`}
                 />
               ) : (
                 <DataTable>
                   <thead>
                     <tr>
-                      <th>Name</th>
+                      <th>Project</th>
+                      <th>Repository</th>
                       <th className={table.actionCol} />
                     </tr>
                   </thead>
                   <tbody>
                     {oci.map((r) => (
                       <tr key={r.id}>
+                        <td className={table.muted}>{r.project_name}</td>
                         <td className="mono">{r.name}</td>
                         <td className={table.actionCol}>
-                          <button type="button" className={table.rowButton} onClick={() => void openOci(r)}>
+                          <Button variant="secondary" size="compact" onClick={() => void openOci(r)}>
                             Tags
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -326,6 +409,50 @@ shipyardToken=${registryToken}`;
             </Panel>
           )}
 
+          {section !== "artifacts" ? null : (
+            <Panel title="Build artifacts" meta={<StatusBadge status="info">{buildArtifacts.length}</StatusBadge>}>
+              {loading ? (
+                <TableSkeleton />
+              ) : buildArtifacts.length === 0 ? (
+                <EmptyState
+                  title="No artifacts yet"
+                  description="Pipeline jobs upload them with the artifacts step."
+                />
+              ) : (
+                <DataTable>
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>Name</th>
+                      <th>Digest</th>
+                      <th>Size</th>
+                      <th className={table.actionCol} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {buildArtifacts.map((a) => (
+                      <tr key={a.id}>
+                        <td className={table.muted}>{a.project_name}</td>
+                        <td>{a.name}</td>
+                        <td className="mono" title={a.digest}>
+                          {a.digest.slice(0, 16)}
+                        </td>
+                        <td>{formatBytes(a.size_bytes)}</td>
+                        <td className={table.actionCol}>
+                          <a href={`/api/v1/orgs/${org.id}/projects/${a.project_id}/artifacts/${a.id}/download`}>
+                            <Button variant="secondary" size="compact">
+                              Download
+                            </Button>
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              )}
+            </Panel>
+          )}
+
           {section !== "publish" ? null : (
             <Panel
               title="Publish & consume"
@@ -337,10 +464,60 @@ shipyardToken=${registryToken}`;
             >
               <p className={table.muted}>
                 Generate a registry token, then drop it in your global <code className="mono">~/.gradle/gradle.properties</code> and{" "}
-                <code className="mono">~/.m2/settings.xml</code> — no passwords in project files.
+                <code className="mono">~/.m2/settings.xml</code> — no passwords in project files. The secret is shown once; revoke and
+                generate a new one if you lose it.
               </p>
+
+              {tokens.length === 0 ? null : (
+                <DataTable>
+                  <thead>
+                    <tr>
+                      <th>Token</th>
+                      <th>Scopes</th>
+                      <th>Created</th>
+                      <th>Last used</th>
+                      <th className={table.actionCol} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.map((t) => (
+                      <tr key={t.id}>
+                        <td>
+                          <span className={table.formRow}>
+                            <strong>{t.name}</strong>
+                            <code className="mono">{t.prefix}…</code>
+                          </span>
+                        </td>
+                        <td className={table.muted}>{(t.scopes ?? []).join(", ") || "full access"}</td>
+                        <td className={table.muted}>{formatTime(t.created_at)}</td>
+                        <td className={table.muted}>{t.last_used_at ? formatTime(t.last_used_at) : "never"}</td>
+                        <td className={table.actionCol}>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="compact"
+                            loading={revoking === t.id}
+                            onClick={() => void revoke(t.id)}
+                          >
+                            Revoke
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              )}
               {registryToken ? (
                 <div className={table.stack}>
+                  <div className={table.toolbar}>
+                    <strong>Registry token</strong>
+                    <Button variant="secondary" size="compact" onClick={() => void copy(registryToken, "token")}>
+                      {copied === "token" ? "Copied" : "Copy token"}
+                    </Button>
+                    <Button variant="ghost" size="compact" onClick={forgetToken}>
+                      Hide
+                    </Button>
+                  </div>
                   <div className={table.toolbar}>
                     <strong>build.gradle.kts</strong>
                     <Button variant="secondary" onClick={() => void copy(gradleBlock, "gradle")}>
@@ -364,7 +541,14 @@ shipyardToken=${registryToken}`;
                   <CodeBlock language="markup" code={m2Settings} />
                 </div>
               ) : (
-                <EmptyState title="No token yet" description="Generate a registry token to see the global Gradle and Maven config." />
+                <EmptyState
+                  title={tokens.length ? "Secret not shown" : "No token yet"}
+                  description={
+                    tokens.length
+                      ? "Your tokens are listed above, but the secret is only shown when it is created. Generate a new one to see the Gradle and Maven config again."
+                      : "Generate a registry token to see the global Gradle and Maven config."
+                  }
+                />
               )}
             </Panel>
           )}

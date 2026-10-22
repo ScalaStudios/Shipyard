@@ -2,17 +2,13 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { LogOut, Menu, Search } from "lucide-react";
+import { Avatar } from "../app/components/Avatar";
 import { NotificationBell } from "../app/components/NotificationBell";
 import { useWorkspace } from "../app/context/WorkspaceContext";
 import { CommandPalette } from "./CommandPalette";
 import { NAV_GROUPS } from "./nav";
 import { buildPathSegments } from "./path";
 import styles from "./AppShell.module.css";
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
 
 export function AppShell({
   children,
@@ -29,13 +25,13 @@ export function AppShell({
   const { user, orgs, projects, org, project, loading, setOrgID, setProjectID, error, clearError } = useWorkspace();
   const segments = buildPathSegments({
     orgSlug: org?.slug,
-    projectSlug: project?.slug,
     pathname: location.pathname,
   });
   const displayName = user.display_name || user.username;
 
   useEffect(() => {
     setDrawerOpen(false);
+    clearError();
   }, [location.pathname]);
 
   useEffect(() => {
@@ -87,7 +83,7 @@ export function AppShell({
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className={styles.group}>
               {group.label ? <div className={styles.groupLabel}>{group.label}</div> : null}
-              {group.items.map((item) => {
+              {group.items.filter((item) => !item.adminOnly || user.is_admin).map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -166,10 +162,8 @@ export function AppShell({
             ) : null}
             <NotificationBell />
             <div className={styles.themeToggle}>{themeToggle}</div>
-            <Link className={styles.account} to="/settings" title="Account settings">
-              <span className={styles.avatar} aria-hidden="true">
-                {initials(displayName)}
-              </span>
+            <Link className={styles.account} to="/account" title="My settings">
+              <Avatar name={displayName} userID={user.id} size="sm" />
               <span className={styles.accountName}>{displayName}</span>
             </Link>
             <button type="button" className={styles.iconButton} onClick={onLogout} aria-label="Sign out" title="Sign out">

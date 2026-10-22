@@ -83,6 +83,21 @@ export function formatTime(value?: string): string {
   });
 }
 
+export function timeAgo(value?: string, now = Date.now()): string {
+  if (!value) return "—";
+  const t = new Date(value).getTime();
+  if (Number.isNaN(t)) return value;
+  const seconds = Math.max(0, Math.round((now - t) / 1000));
+  if (seconds < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
+  return formatTime(value);
+}
+
 export const defaultPipelineYAML = `pipeline:
   name: hello
 jobs:

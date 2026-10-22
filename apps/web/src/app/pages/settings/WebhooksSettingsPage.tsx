@@ -37,7 +37,7 @@ export function WebhooksSettingsPage() {
             <EmptyState
               title="No deliveries yet"
               description="Create a connection under Integrations, then configure the forge webhook."
-              action={<Link to="/settings/integrations">Open integrations</Link>}
+              action={<Link to="/organization/integrations">Open integrations</Link>}
             />
           ) : (
             <DataTable>

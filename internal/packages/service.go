@@ -24,6 +24,12 @@ type Repository struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type OrgRepository struct {
+	Repository
+	ProjectSlug string `json:"project_slug"`
+	ProjectName string `json:"project_name"`
+}
+
 type Version struct {
 	ID           string          `json:"id"`
 	RepositoryID string          `json:"repository_id"`
@@ -89,6 +95,29 @@ func (s *Service) ListRepositories(ctx context.Context, projectID string) ([]Rep
 	return out, rows.Err()
 }
 
+func (s *Service) ListRepositoriesForOrg(ctx context.Context, orgID string) ([]OrgRepository, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.id, r.project_id, r.name, r.format, r.created_at, p.slug, p.name
+		FROM package_repositories r
+		JOIN projects p ON p.id = r.project_id
+		WHERE p.organization_id = $1
+		ORDER BY p.name, r.name
+	`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OrgRepository
+	for rows.Next() {
+		var r OrgRepository
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.CreatedAt, &r.ProjectSlug, &r.ProjectName); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 func (s *Service) Publish(ctx context.Context, repoID, name, version, filename string, r io.Reader, size int64, metadata json.RawMessage) (Version, error) {
 	name = strings.TrimSpace(name)
 	version = strings.TrimSpace(version)
@@ -120,6 +149,18 @@ func (s *Service) PublishOrReplace(ctx context.Context, repoID, name, version, f
 	version = strings.TrimSpace(version)
 	if name == "" || version == "" {
 		return Version{}, fmt.Errorf("%w: name and version required", identity.ErrInvalidInput)
+	}
+	var existing Version
+	var protected bool
+	scanErr := s.pool.QueryRow(ctx, `
+		SELECT id, repository_id, name, version, filename, digest, size_bytes, created_at, metadata, protected
+		FROM package_versions
+		WHERE repository_id = $1 AND name = $2 AND version = $3 AND filename = $4
+	`, repoID, name, version, filename).
+		Scan(&existing.ID, &existing.RepositoryID, &existing.Name, &existing.Version, &existing.Filename, &existing.Digest, &existing.SizeBytes, &existing.CreatedAt, &existing.Metadata, &protected)
+	if scanErr == nil && protected {
+		_, _ = io.Copy(io.Discard, r)
+		return existing, nil
 	}
 	info, err := s.store.Put(ctx, "", r, size)
 	if err != nil {

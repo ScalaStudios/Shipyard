@@ -9,7 +9,7 @@ type Command = { id: string; label: string; hint: string; group: string; icon: t
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
-  const { projects, setProjectID } = useWorkspace();
+  const { user, projects, setProjectID } = useWorkspace();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -28,7 +28,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   const commands = useMemo<Command[]>(
     () => [
-      ...NAV_ITEMS.map((item) => ({
+      ...NAV_ITEMS.filter((item) => !item.adminOnly || user.is_admin).map((item) => ({
         id: item.id,
         label: item.label,
         hint: item.summary,
@@ -48,7 +48,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         },
       })),
     ],
-    [navigate, projects, setProjectID],
+    [navigate, projects, setProjectID, user.is_admin],
   );
 
   const needle = query.trim().toLowerCase();

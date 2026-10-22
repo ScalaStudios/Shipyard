@@ -6,13 +6,16 @@ import { PageHeader } from "../components/PageHeader";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { api, Job, LogLine, PipelineRun } from "../api";
 import { formatTime } from "../lib/format";
+import { usePageTitle } from "../lib/usePageTitle";
 
 const ACTIVE_STATUSES = ["pending", "queued", "running"];
 
 export function RunDetailPage() {
   const { runId = "" } = useParams();
-  const { org, project, setError } = useWorkspace();
+  const { org, setProjectID, setError } = useWorkspace();
   const [run, setRun] = useState<PipelineRun | null>(null);
+  const [runProjectID, setRunProjectID] = useState("");
+  const [missing, setMissing] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobID, setJobID] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogLine[]>([]);
@@ -26,9 +29,11 @@ export function RunDetailPage() {
 
   const active = !run || ACTIVE_STATUSES.includes(run.status);
 
-  async function loadLogs(id: string, cancelled?: () => boolean) {
-    if (!org || !project) return;
-    const res = await api.jobLogs(org.id, project.id, id, lastSeq.current);
+  usePageTitle(run ? `Run #${run.number}` : "Run detail");
+
+  async function loadLogs(projectID: string, id: string, cancelled?: () => boolean) {
+    if (!org) return;
+    const res = await api.jobLogs(org.id, projectID, id, lastSeq.current);
     const lines = res.logs ?? [];
     if (cancelled?.() || jobRef.current !== id || lines.length === 0) return;
     lastSeq.current = lines.reduce((max, l) => (typeof l.seq === "number" && l.seq > max ? l.seq : max), lastSeq.current);
@@ -43,42 +48,61 @@ export function RunDetailPage() {
     stick.current = true;
   }
 
-  async function load(cancelled?: () => boolean) {
-    if (!org || !project || !runId) return;
+  async function load(projectID: string, cancelled?: () => boolean) {
+    if (!org || !projectID || !runId) return;
     inFlight.current = true;
     try {
-      const detail = await api.getRun(org.id, project.id, runId);
+      const detail = await api.getRun(org.id, projectID, runId);
       if (cancelled?.()) return;
       const list = detail.jobs ?? [];
       setRun(detail.run);
       setJobs(list);
       const current = list.some((j) => j.id === jobRef.current) ? jobRef.current : (list[0]?.id ?? null);
       if (current !== jobRef.current) selectJob(current);
-      if (current) await loadLogs(current, cancelled);
+      if (current) await loadLogs(projectID, current, cancelled);
     } finally {
       inFlight.current = false;
     }
   }
 
   useEffect(() => {
+    if (!org || !runId) return;
     let cancelled = false;
     selectJob(null);
     setRun(null);
     setJobs([]);
-    void load(() => cancelled).catch((err) => {
-      if (!cancelled) setError(err instanceof Error ? err.message : "failed to load run");
-    });
+    setRunProjectID("");
+    setMissing(false);
+    void (async () => {
+      let owner = "";
+      try {
+        const res = await api.getOrgRun(org.id, runId);
+        owner = res.run.project_id ?? "";
+      } catch {
+        owner = "";
+      }
+      if (cancelled) return;
+      if (!owner) {
+        setMissing(true);
+        return;
+      }
+      setRunProjectID(owner);
+      setProjectID(owner);
+      await load(owner, () => cancelled).catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "failed to load run");
+      });
+    })();
     return () => {
       cancelled = true;
     };
-  }, [org?.id, project?.id, runId]);
+  }, [org?.id, runId]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !runProjectID) return;
     let cancelled = false;
     const timer = window.setInterval(() => {
       if (inFlight.current) return;
-      void load(() => cancelled).catch((err) => {
+      void load(runProjectID, () => cancelled).catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "failed to load run");
       });
     }, 2500);
@@ -86,7 +110,7 @@ export function RunDetailPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [org?.id, project?.id, runId, active]);
+  }, [org?.id, runProjectID, runId, active]);
 
   useEffect(() => {
     const el = logRef.current;
@@ -103,7 +127,7 @@ export function RunDetailPage() {
   async function refresh() {
     setRefreshing(true);
     try {
-      await load();
+      await load(runProjectID);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load run");
     } finally {
@@ -112,11 +136,11 @@ export function RunDetailPage() {
   }
 
   async function openJob(id: string) {
-    if (!org || !project) return;
+    if (!org || !runProjectID) return;
     selectJob(id);
     setBusy(true);
     try {
-      await loadLogs(id);
+      await loadLogs(runProjectID, id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to load logs");
     } finally {
@@ -125,11 +149,11 @@ export function RunDetailPage() {
   }
 
   async function cancel() {
-    if (!org || !project || !run) return;
+    if (!org || !runProjectID || !run) return;
     setBusy(true);
     try {
-      await api.cancelRun(org.id, project.id, run.id);
-      await load();
+      await api.cancelRun(org.id, runProjectID, run.id);
+      await load(runProjectID);
     } catch (err) {
       setError(err instanceof Error ? err.message : "failed to cancel run");
     } finally {
@@ -137,8 +161,8 @@ export function RunDetailPage() {
     }
   }
 
-  if (!org || !project) {
-    return <EmptyState title="Select a project" />;
+  if (!org) {
+    return <EmptyState title="Select an organization" />;
   }
 
   return (
@@ -163,7 +187,12 @@ export function RunDetailPage() {
         }
       />
 
-      {!run ? (
+      {missing ? (
+        <EmptyState
+          title="Run not found"
+          description="This run is not in the selected organization, or you no longer have access to it."
+        />
+      ) : !run ? (
         <EmptyState title="Loading run…" />
       ) : (
         <Panel

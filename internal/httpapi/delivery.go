@@ -9,6 +9,7 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/artifacts"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/releases"
 )
 
@@ -24,6 +25,22 @@ func (s *Server) handleListArtifacts(w http.ResponseWriter, r *http.Request) {
 	}
 	if list == nil {
 		list = []artifacts.Artifact{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"artifacts": list})
+}
+
+func (s *Server) handleListOrgArtifacts(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
+		return
+	}
+	list, err := s.artifacts.ListForOrg(r.Context(), org.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if list == nil {
+		list = []artifacts.OrgArtifact{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"artifacts": list})
 }
@@ -229,6 +246,22 @@ func (s *Server) handleListPackageRepos(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"repositories": list})
 }
 
+func (s *Server) handleListOrgPackageRepos(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
+		return
+	}
+	list, err := s.packages.ListRepositoriesForOrg(r.Context(), org.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if list == nil {
+		list = []packages.OrgRepository{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repositories": list})
+}
+
 func (s *Server) handleCreatePackageRepo(w http.ResponseWriter, r *http.Request) {
 	_, project, ok := s.projectAccess(w, r, rbac.PermProjectUpdate)
 	if !ok {
@@ -301,6 +334,22 @@ func (s *Server) handleListOCIRepos(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"repositories": list})
+}
+
+func (s *Server) handleListOrgOCIRepos(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
+		return
+	}
+	list, err := s.registry.ListRepositoriesForOrg(r.Context(), org.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if list == nil {
+		list = []registry.OrgRepository{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"repositories": list})
 }

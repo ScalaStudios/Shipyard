@@ -1,0 +1,22 @@
+FROM golang:1.25-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/shipyard-runner ./cmd/shipyard-runner
+
+FROM eclipse-temurin:8-jdk-jammy AS jdk8
+FROM eclipse-temurin:11-jdk-jammy AS jdk11
+FROM eclipse-temurin:17-jdk-jammy AS jdk17
+FROM eclipse-temurin:25-jdk-noble AS jdk25
+
+FROM eclipse-temurin:21-jdk-jammy
+RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git curl fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+COPY --from=jdk8 /opt/java/openjdk /usr/lib/jvm/temurin-8
+COPY --from=jdk11 /opt/java/openjdk /usr/lib/jvm/temurin-11
+COPY --from=jdk17 /opt/java/openjdk /usr/lib/jvm/temurin-17
+COPY --from=jdk25 /opt/java/openjdk /usr/lib/jvm/temurin-25
+RUN ln -s /opt/java/openjdk /usr/lib/jvm/temurin-21
+COPY --from=moby/buildkit:v0.16.0 /usr/bin/buildctl /usr/local/bin/buildctl
+COPY --from=build /out/shipyard-runner /usr/local/bin/shipyard-runner
+ENTRYPOINT ["shipyard-runner"]

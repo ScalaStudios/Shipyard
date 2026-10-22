@@ -98,6 +98,35 @@ func (s *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"runs": list})
 }
 
+func (s *Server) handleListOrgRuns(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
+		return
+	}
+	list, err := s.pipelines.ListRunsForOrg(r.Context(), org.ID, int(queryInt64(r, "limit", 25)))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if list == nil {
+		list = []pipeline.OrgRun{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"runs": list})
+}
+
+func (s *Server) handleGetOrgRun(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.orgAccess(w, r, rbac.PermProjectRead)
+	if !ok {
+		return
+	}
+	run, err := s.pipelines.GetRunForOrg(r.Context(), org.ID, r.PathValue("runID"))
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"run": run})
+}
+
 func (s *Server) handleGetRun(w http.ResponseWriter, r *http.Request) {
 	_, project, ok := s.projectAccess(w, r, rbac.PermProjectRead)
 	if !ok {

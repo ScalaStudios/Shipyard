@@ -96,7 +96,7 @@ export function IntegrationsSettingsPage() {
         title="Login providers (OIDC)"
         meta={<StatusBadge status={oidc.length ? "success" : "neutral"}>{oidc.length}</StatusBadge>}
         actions={
-          <Link to="/settings/authentication">
+          <Link to="/admin/authentication">
             <Button type="button" variant="secondary">
               Manage providers
             </Button>
