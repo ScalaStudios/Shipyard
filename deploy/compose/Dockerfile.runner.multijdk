@@ -8,7 +8,11 @@ RUN CGO_ENABLED=0 go build -o /out/shipyard-runner ./cmd/shipyard-runner
 FROM eclipse-temurin:8-jdk-jammy AS jdk8
 FROM eclipse-temurin:11-jdk-jammy AS jdk11
 FROM eclipse-temurin:17-jdk-jammy AS jdk17
-FROM eclipse-temurin:25-jdk-noble AS jdk25
+FROM debian:bookworm-slim AS jdk25
+ARG JDK25_RELEASE=jdk-25.0.5%2B8
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && mkdir -p /opt/java/openjdk/jmods \
+ && curl -fsSL "https://api.adoptium.net/v3/binary/version/${JDK25_RELEASE}/linux/x64/jdk/hotspot/normal/eclipse" | tar xz --strip-components=1 -C /opt/java/openjdk \
+ && curl -fsSL "https://api.adoptium.net/v3/binary/version/${JDK25_RELEASE}/linux/x64/jmods/hotspot/normal/eclipse" | tar xz --strip-components=1 -C /opt/java/openjdk/jmods
 
 FROM eclipse-temurin:21-jdk-jammy
 RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git curl fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
