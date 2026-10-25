@@ -23,6 +23,7 @@ type BuildRequest struct {
 type Client struct {
 	Buildctl string
 	Addr     string
+	TLSDir   string
 }
 
 func New(addr string) *Client {
@@ -44,6 +45,9 @@ func (c *Client) Build(ctx context.Context, req BuildRequest, onLine func(stream
 	args := []string{}
 	if c.Addr != "" {
 		args = append(args, "--addr", c.Addr)
+	}
+	if c.TLSDir != "" {
+		args = append(args, "--tlsdir", c.TLSDir)
 	}
 	args = append(args, "build",
 		"--frontend=dockerfile.v0",

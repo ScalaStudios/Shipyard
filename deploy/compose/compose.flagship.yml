@@ -1,5 +1,17 @@
 name: shipyard
 
+x-runner-env: &runner-env
+  SHIPYARD_URL: http://shipyard-server:8080
+  SHIPYARD_RUNNER_LABELS: jdk8,jdk11,jdk17,jdk21,jdk25,gradle
+  SHIPYARD_RUNNER_TOKEN_FILE: /var/lib/shipyard/runner.token
+  SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
+  SHIPYARD_BUILDKIT_TLS_DIR: /certs/buildkit
+  SHIPYARD_WORKDIR: /var/lib/shipyard/work
+  DOCKER_HOST: tcp://dind:2376
+  DOCKER_TLS_VERIFY: "1"
+  DOCKER_CERT_PATH: /certs/client
+  TESTCONTAINERS_HOST_OVERRIDE: dind
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -54,11 +66,36 @@ services:
     depends_on:
       - shipyard-server
 
+  buildkit-certs:
+    image: docker:29.9.2-dind
+    entrypoint: ["sh", "/buildkit-certs.sh"]
+    volumes:
+      - ./buildkit-certs.sh:/buildkit-certs.sh:ro
+      - shipyard_buildkit_certs:/certs
+
   buildkitd:
     image: moby/buildkit:v0.16.0
     restart: unless-stopped
     privileged: true
-    command: ["--addr", "tcp://0.0.0.0:1234"]
+    command:
+      - --addr
+      - tcp://0.0.0.0:1234
+      - --tlscacert
+      - /certs/server/ca.pem
+      - --tlscert
+      - /certs/server/cert.pem
+      - --tlskey
+      - /certs/server/key.pem
+    volumes:
+      - type: volume
+        source: shipyard_buildkit_certs
+        target: /certs/server
+        read_only: true
+        volume:
+          subpath: server
+    depends_on:
+      buildkit-certs:
+        condition: service_completed_successfully
 
   dind:
     image: docker:29.9.2-dind
@@ -81,32 +118,32 @@ services:
       retries: 20
 
   shipyard-runner:
-    build:
+    build: &runner-build
       context: ../..
       dockerfile: deploy/compose/Dockerfile.runner.multijdk
     restart: unless-stopped
     environment:
-      SHIPYARD_URL: http://shipyard-server:8080
+      <<: *runner-env
       SHIPYARD_REGISTRATION_TOKEN: ${SHIPYARD_REGISTRATION_TOKEN:-}
       SHIPYARD_RUNNER_TOKEN: ${SHIPYARD_RUNNER_TOKEN:-}
       SHIPYARD_RUNNER_NAME: flagship-jdk21
-      SHIPYARD_RUNNER_LABELS: jdk8,jdk11,jdk17,jdk21,jdk25,gradle
-      SHIPYARD_RUNNER_TOKEN_FILE: /var/lib/shipyard/runner.token
-      SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
-      SHIPYARD_WORKDIR: /var/lib/shipyard/work
-      DOCKER_HOST: tcp://dind:2376
-      DOCKER_TLS_VERIFY: "1"
-      DOCKER_CERT_PATH: /certs/client
-      TESTCONTAINERS_HOST_OVERRIDE: dind
     volumes:
       - shipyard_runner:/var/lib/shipyard
-      - type: volume
+      - &dind-client-certs
+        type: volume
         source: shipyard_dind_certs
         target: /certs/client
         read_only: true
         volume:
           subpath: client
-    depends_on:
+      - &buildkit-client-certs
+        type: volume
+        source: shipyard_buildkit_certs
+        target: /certs/buildkit
+        read_only: true
+        volume:
+          subpath: client
+    depends_on: &runner-deps
       shipyard-server:
         condition: service_started
       buildkitd:
@@ -121,3 +158,4 @@ volumes:
   shipyard_runner:
   shipyard_dind_certs:
   shipyard_dind_data:
+  shipyard_buildkit_certs:

@@ -407,6 +407,7 @@ func execCheckout(ctx context.Context, client *http.Client, serverURL, token str
 
 func execBuildImage(ctx context.Context, client *http.Client, serverURL, token, jobID, ws string, st step, secrets []string) (int, error) {
 	bk := buildkit.New(os.Getenv("SHIPYARD_BUILDKIT_ADDR"))
+	bk.TLSDir = os.Getenv("SHIPYARD_BUILDKIT_TLS_DIR")
 	if !bk.Available(ctx) {
 		msg := "buildctl not available; install BuildKit or set SHIPYARD_BUILDKIT_ADDR"
 		_ = appendLog(client, serverURL, token, jobID, st.ID, "system", msg, secrets)
