@@ -199,6 +199,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/registry/artifacts", s.requireAuth(s.handleListOrgArtifacts))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/packages", s.requireAuth(s.handleListPackageRepos))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/packages", s.requireAuth(s.handleCreatePackageRepo))
+	s.mux.HandleFunc("PATCH /api/v1/orgs/{orgID}/projects/{projectID}/packages/{repoID}", s.requireAuth(s.handleUpdatePackageRepo))
 	s.mux.HandleFunc("GET /api/v1/orgs/{orgID}/projects/{projectID}/packages/{repoID}/versions", s.requireAuth(s.handleListPackageVersions))
 	s.mux.HandleFunc("POST /api/v1/orgs/{orgID}/projects/{projectID}/packages/{repoID}/versions", s.requireAuth(s.handlePublishPackage))
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/artifacts"
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/audit"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/registry"
@@ -278,6 +279,28 @@ func (s *Server) handleCreatePackageRepo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"repository": repo})
+}
+
+func (s *Server) handleUpdatePackageRepo(w http.ResponseWriter, r *http.Request) {
+	org, project, ok := s.projectAccess(w, r, rbac.PermOrgUpdate)
+	if !ok {
+		return
+	}
+	var req struct {
+		Public bool `json:"public"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	repo, err := s.packages.SetRepositoryPublic(r.Context(), project.ID, r.PathValue("repoID"), req.Public)
+	if err != nil {
+		mapIdentityError(w, err)
+		return
+	}
+	user := currentUser(r)
+	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "package_repository.visibility_changed", ResourceType: "package_repository", ResourceID: repo.ID, OrganizationID: &org.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"public": repo.Public}})
+	writeJSON(w, http.StatusOK, map[string]any{"repository": repo})
 }
 
 func (s *Server) handleListPackageVersions(w http.ResponseWriter, r *http.Request) {

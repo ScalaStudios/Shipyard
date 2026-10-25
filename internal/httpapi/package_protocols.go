@@ -19,6 +19,11 @@ import (
 )
 
 func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, format string, perm rbac.Permission) (repoID string, ok bool) {
+	if perm == rbac.PermProjectRead {
+		if repo, err := s.packages.GetPublicRepository(r.Context(), r.PathValue("org"), r.PathValue("project"), r.PathValue("repo"), format); err == nil {
+			return repo.ID, true
+		}
+	}
 	user, scopes, err := s.authenticate(r)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="shipyard-registry"`)

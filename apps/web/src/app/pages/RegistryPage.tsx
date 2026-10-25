@@ -39,6 +39,7 @@ function formatLabel(format: string): string {
 export function RegistryPage() {
   usePageTitle("Registry");
   const { org, projects, user, setError } = useWorkspace();
+  const canManage = org?.role === "owner" || org?.role === "admin";
   const [section, setSection] = useState<Section>("packages");
   const [packages, setPackages] = useState<OrgPackageRepo[]>([]);
   const [oci, setOci] = useState<OrgOCIRepo[]>([]);
@@ -52,6 +53,7 @@ export function RegistryPage() {
   const [pkgFormat, setPkgFormat] = useState("maven");
   const [pkgProject, setPkgProject] = useState("");
   const [busy, setBusy] = useState(false);
+  const [toggling, setToggling] = useState("");
   const [registryToken, setRegistryToken] = useState(() => sessionStorage.getItem("shipyard.registryToken") ?? "");
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [revoking, setRevoking] = useState("");
@@ -147,6 +149,24 @@ export function RegistryPage() {
       setError(err instanceof Error ? err.message : "failed to create package repository");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleVisibility(repo: OrgPackageRepo) {
+    if (!org) return;
+    if (
+      !repo.public &&
+      !window.confirm(`Anyone will be able to download every package in ${repo.name} without signing in. Continue?`)
+    )
+      return;
+    setToggling(repo.id);
+    try {
+      await api.setPackageRepoPublic(org.id, repo.project_id, repo.id, !repo.public);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "failed to change repository visibility");
+    } finally {
+      setToggling("");
     }
   }
 
@@ -337,6 +357,7 @@ shipyardToken=${registryToken}`;
                       <th>Project</th>
                       <th>Repository</th>
                       <th>Format</th>
+                      <th>Visibility</th>
                       <th className={table.actionCol} />
                     </tr>
                   </thead>
@@ -346,10 +367,27 @@ shipyardToken=${registryToken}`;
                         <td className={table.muted}>{p.project_name}</td>
                         <td>{p.name}</td>
                         <td className={table.muted}>{formatLabel(p.format)}</td>
+                        <td>
+                          <StatusBadge status={p.public ? "warning" : "neutral"}>
+                            {p.public ? "Public" : "Private"}
+                          </StatusBadge>
+                        </td>
                         <td className={table.actionCol}>
-                          <Button variant="secondary" size="compact" onClick={() => void openPackage(p)}>
-                            Browse
-                          </Button>
+                          <div className={table.formRow}>
+                            {canManage ? (
+                              <Button
+                                variant="ghost"
+                                size="compact"
+                                loading={toggling === p.id}
+                                onClick={() => void toggleVisibility(p)}
+                              >
+                                {p.public ? "Make private" : "Make public"}
+                              </Button>
+                            ) : null}
+                            <Button variant="secondary" size="compact" onClick={() => void openPackage(p)}>
+                              Browse
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

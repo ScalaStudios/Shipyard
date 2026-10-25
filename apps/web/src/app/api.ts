@@ -141,6 +141,7 @@ export type PackageRepo = {
   id: string;
   name: string;
   format: string;
+  public: boolean;
 };
 
 export type OrgPackageRepo = PackageRepo & {
@@ -348,6 +349,11 @@ export const api = {
     request<{ repository: PackageRepo }>(`/api/v1/orgs/${orgID}/projects/${projectID}/packages`, {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  setPackageRepoPublic: (orgID: string, projectID: string, repoID: string, isPublic: boolean) =>
+    request<{ repository: PackageRepo }>(`/api/v1/orgs/${orgID}/projects/${projectID}/packages/${repoID}`, {
+      method: "PATCH",
+      body: JSON.stringify({ public: isPublic }),
     }),
   listPackageVersions: (orgID: string, projectID: string, repoID: string) =>
     request<{ versions: PackageVersion[] }>(
