@@ -152,6 +152,19 @@ services:
         condition: service_healthy
     profiles: ["runner"]
 
+  runner-1:
+    build: *runner-build
+    restart: unless-stopped
+    environment:
+      <<: *runner-env
+      SHIPYARD_RUNNER_NAME: runner-1
+    volumes:
+      - shipyard-runner-data:/var/lib/shipyard
+      - *dind-client-certs
+      - *buildkit-client-certs
+    depends_on: *runner-deps
+    profiles: ["runner"]
+
 volumes:
   shipyard_pg:
   shipyard_blobs:
@@ -159,3 +172,5 @@ volumes:
   shipyard_dind_certs:
   shipyard_dind_data:
   shipyard_buildkit_certs:
+  shipyard-runner-data:
+    external: true
