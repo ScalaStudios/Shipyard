@@ -161,3 +161,24 @@ func FormatMavenError(err error) error {
 	}
 	return fmt.Errorf("maven metadata: %w", err)
 }
+
+func MavenPathAllowed(artifactPath string, coords []string) bool {
+	for _, coord := range coords {
+		group, artifact, ok := strings.Cut(coord, ":")
+		if !ok || group == "" || artifact == "" {
+			continue
+		}
+		rest, found := strings.CutPrefix(artifactPath, strings.ReplaceAll(group, ".", "/")+"/"+artifact+"/")
+		if !found {
+			continue
+		}
+		parts := strings.Split(rest, "/")
+		if len(parts) == 1 && strings.HasPrefix(parts[0], "maven-metadata.xml") {
+			return true
+		}
+		if len(parts) == 2 && parts[0] != "" && parts[0] != "." && parts[0] != ".." && parts[1] != "" {
+			return true
+		}
+	}
+	return false
+}

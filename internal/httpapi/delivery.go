@@ -287,19 +287,32 @@ func (s *Server) handleUpdatePackageRepo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var req struct {
-		Public bool `json:"public"`
+		Public          *bool     `json:"public"`
+		AllowedPackages *[]string `json:"allowed_packages"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	repo, err := s.packages.SetRepositoryPublic(r.Context(), project.ID, r.PathValue("repoID"), req.Public)
+	repo, err := s.packages.GetRepository(r.Context(), project.ID, r.PathValue("repoID"))
 	if err != nil {
 		mapIdentityError(w, err)
 		return
 	}
+	if req.AllowedPackages != nil {
+		if repo, err = s.packages.SetRepositoryAllowedPackages(r.Context(), project.ID, repo.ID, *req.AllowedPackages); err != nil {
+			mapIdentityError(w, err)
+			return
+		}
+	}
+	if req.Public != nil {
+		if repo, err = s.packages.SetRepositoryPublic(r.Context(), project.ID, repo.ID, *req.Public); err != nil {
+			mapIdentityError(w, err)
+			return
+		}
+	}
 	user := currentUser(r)
-	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "package_repository.visibility_changed", ResourceType: "package_repository", ResourceID: repo.ID, OrganizationID: &org.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"public": repo.Public}})
+	_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "package_repository.visibility_changed", ResourceType: "package_repository", ResourceID: repo.ID, OrganizationID: &org.ID, ProjectID: &project.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"public": repo.Public, "allowed_packages": repo.AllowedPackages}})
 	writeJSON(w, http.StatusOK, map[string]any{"repository": repo})
 }
 

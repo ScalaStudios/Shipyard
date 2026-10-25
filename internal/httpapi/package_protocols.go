@@ -9,22 +9,32 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"git.lunarlabs.dev/Shipyard/shipyard/internal/audit"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/packages"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/rbac"
 )
 
 func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, format string, perm rbac.Permission) (repoID string, ok bool) {
+	publicRepo := false
 	if perm == rbac.PermProjectRead {
 		if repo, err := s.packages.GetPublicRepository(r.Context(), r.PathValue("org"), r.PathValue("project"), r.PathValue("repo"), format); err == nil {
-			return repo.ID, true
+			if publicRepoAllows(repo, r) {
+				return repo.ID, true
+			}
+			publicRepo = true
 		}
 	}
 	user, scopes, err := s.authenticate(r)
+	if err != nil && publicRepo {
+		writeError(w, http.StatusNotFound, "not found")
+		return "", false
+	}
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="shipyard-registry"`)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -38,7 +48,7 @@ func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, forma
 		writeError(w, http.StatusForbidden, "token missing "+required+" scope")
 		return "", false
 	}
-	_, project, err := s.orgs.RequireBySlug(r.Context(), user.ID, r.PathValue("org"), r.PathValue("project"), perm)
+	org, project, err := s.orgs.RequireBySlug(r.Context(), user.ID, r.PathValue("org"), r.PathValue("project"), perm)
 	if err != nil {
 		mapIdentityError(w, err)
 		return "", false
@@ -48,7 +58,23 @@ func (s *Server) packageRepoAccess(w http.ResponseWriter, r *http.Request, forma
 		mapIdentityError(w, err)
 		return "", false
 	}
+	if perm != rbac.PermProjectRead && repo.Public && !publicRepoAllows(repo, r) {
+		_ = s.audit.Record(r.Context(), audit.Event{ActorUserID: &user.ID, Action: "package_repository.upload_rejected", ResourceType: "package_repository", ResourceID: repo.ID, OrganizationID: &org.ID, ProjectID: &project.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"path": r.URL.Path}})
+		writeError(w, http.StatusForbidden, "package is not allowed in public repository "+repo.Name)
+		return "", false
+	}
 	return repo.ID, true
+}
+
+func publicRepoAllows(repo packages.Repository, r *http.Request) bool {
+	if repo.Format == "maven" {
+		return packages.MavenPathAllowed(strings.Trim(r.PathValue("path"), "/"), repo.AllowedPackages)
+	}
+	name := strings.Trim(r.PathValue("name"), "/")
+	if idx := strings.Index(name, "/-/"); idx >= 0 {
+		name = name[:idx]
+	}
+	return slices.Contains(repo.AllowedPackages, name)
 }
 
 func (s *Server) handleNPMPackument(w http.ResponseWriter, r *http.Request) {

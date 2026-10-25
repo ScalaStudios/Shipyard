@@ -60,6 +60,9 @@ func TestPackageRepoAnonymousAccess(t *testing.T) {
 	if _, err := s.packages.SetRepositoryPublic(ctx, project.ID, pub.ID, true); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.packages.SetRepositoryAllowedPackages(ctx, project.ID, pub.ID, []string{"gg.scala.demo:demo-api"}); err != nil {
+		t.Fatal(err)
+	}
 	priv, err := s.packages.CreateRepository(ctx, project.ID, "private", "maven")
 	if err != nil {
 		t.Fatal(err)
@@ -71,11 +74,18 @@ func TestPackageRepoAnonymousAccess(t *testing.T) {
 	if _, err := s.packages.SetRepositoryPublic(ctx, project.ID, npmPub.ID, true); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.packages.SetRepositoryAllowedPackages(ctx, project.ID, npmPub.ID, []string{"demo"}); err != nil {
+		t.Fatal(err)
+	}
 	jar := "gg/scala/demo/demo-api/1.0.0/demo-api-1.0.0.jar"
 	for _, repo := range []string{pub.ID, priv.ID} {
 		if _, err := s.packages.PublishOrReplace(ctx, repo, "gg.scala.demo:demo-api", "1.0.0", "demo-api-1.0.0.jar", strings.NewReader("jar"), 3); err != nil {
 			t.Fatal(err)
 		}
+	}
+	secret := "gg/scala/secret/internal/1.0.0/internal-1.0.0.jar"
+	if _, err := s.packages.PublishOrReplace(ctx, pub.ID, "gg.scala.secret:internal", "1.0.0", "internal-1.0.0.jar", strings.NewReader("jar"), 3); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.packages.Publish(ctx, npmPub.ID, "demo", "1.0.0", "", strings.NewReader("tgz"), 3, nil); err != nil {
 		t.Fatal(err)
@@ -119,6 +129,16 @@ func TestPackageRepoAnonymousAccess(t *testing.T) {
 		{"authenticated get private jar", http.MethodGet, maven + "private/" + jar, full, http.StatusOK},
 		{"authenticated put private", http.MethodPut, maven + "private/" + jar, full, http.StatusCreated},
 		{"authenticated put public", http.MethodPut, maven + "public/" + jar, full, http.StatusCreated},
+		{"anonymous get unlisted package in public repo", http.MethodGet, maven + "public/" + secret, "", http.StatusNotFound},
+		{"anonymous get unlisted metadata in public repo", http.MethodGet, maven + "public/gg/scala/secret/internal/maven-metadata.xml", "", http.StatusNotFound},
+		{"anonymous get unlisted npm package in public repo", http.MethodGet, npm + "other", "", http.StatusNotFound},
+		{"authenticated get unlisted package in public repo", http.MethodGet, maven + "public/" + secret, full, http.StatusOK},
+		{"authenticated put unlisted to public", http.MethodPut, maven + "public/gg/scala/other/lib/1.0.0/lib-1.0.0.jar", full, http.StatusForbidden},
+		{"authenticated put unlisted metadata to public", http.MethodPut, maven + "public/gg/scala/other/lib/maven-metadata.xml", full, http.StatusForbidden},
+		{"authenticated put nested path under allowed package", http.MethodPut, maven + "public/gg/scala/demo/demo-api/nested/1.0.0/nested-1.0.0.jar", full, http.StatusForbidden},
+		{"authenticated put unlisted to private", http.MethodPut, maven + "private/gg/scala/other/lib/1.0.0/lib-1.0.0.jar", full, http.StatusCreated},
+		{"authenticated npm publish allowed to public", http.MethodPut, npm + "demo?version=2.0.0", full, http.StatusCreated},
+		{"authenticated npm publish unlisted to public", http.MethodPut, npm + "other?version=1.0.0", full, http.StatusForbidden},
 		{"read-only token put private", http.MethodPut, maven + "private/" + jar, readOnly, http.StatusForbidden},
 		{"read-only token put public", http.MethodPut, maven + "public/" + jar, readOnly, http.StatusForbidden},
 	}
@@ -137,5 +157,12 @@ func TestPackageRepoAnonymousAccess(t *testing.T) {
 				t.Fatalf("missing WWW-Authenticate")
 			}
 		})
+	}
+	var rejected int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action = 'package_repository.upload_rejected' AND resource_id IN ($1, $2)`, pub.ID, npmPub.ID).Scan(&rejected); err != nil {
+		t.Fatal(err)
+	}
+	if rejected != 4 {
+		t.Fatalf("expected 4 rejected uploads in audit log, got %d", rejected)
 	}
 }

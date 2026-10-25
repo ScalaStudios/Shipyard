@@ -88,3 +88,35 @@ func TestNPMIntegrity(t *testing.T) {
 		t.Fatalf("unexpected integrity %q", got)
 	}
 }
+
+func TestMavenPathAllowed(t *testing.T) {
+	t.Parallel()
+	allowed := []string{"gg.scala.saturn:saturn-api"}
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"gg/scala/saturn/saturn-api/1.0.3/saturn-api-1.0.3.jar", true},
+		{"gg/scala/saturn/saturn-api/1.0.3/saturn-api-1.0.3.pom.sha1", true},
+		{"gg/scala/saturn/saturn-api/maven-metadata.xml", true},
+		{"gg/scala/saturn/saturn-api/maven-metadata.xml.sha256", true},
+		{"gg/scala/saturn/saturn-api/1.0.3-SNAPSHOT/maven-metadata.xml", true},
+		{"gg/scala/saturn/saturn-api-extra/1.0.0/saturn-api-extra-1.0.0.jar", false},
+		{"gg/scala/saturn/saturn-api2/maven-metadata.xml", false},
+		{"gg/scala/saturn/saturn-api/nested/1.0.0/nested-1.0.0.jar", false},
+		{"gg/scala/saturn/saturn-api/../aegis-api-2.0.0.jar", false},
+		{"gg/scala/saturn/saturn-api/1.0.3/", false},
+		{"gg/scala/saturn/saturn-api/other-file.jar", false},
+		{"gg/scala/saturn/maven-metadata.xml", false},
+		{"gg/scala/aegis/aegis-api/2.0.0/aegis-api-2.0.0.jar", false},
+		{"gg/scala/kernel/shared/maven-metadata.xml", false},
+	}
+	for _, c := range cases {
+		if got := MavenPathAllowed(c.path, allowed); got != c.want {
+			t.Errorf("%s: got %v want %v", c.path, got, c.want)
+		}
+	}
+	if MavenPathAllowed("gg/scala/saturn/saturn-api/1.0.3/saturn-api-1.0.3.jar", nil) {
+		t.Errorf("empty allowlist must deny")
+	}
+}

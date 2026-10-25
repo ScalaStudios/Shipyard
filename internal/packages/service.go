@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,12 +18,13 @@ import (
 )
 
 type Repository struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	Name      string    `json:"name"`
-	Format    string    `json:"format"`
-	Public    bool      `json:"public"`
-	CreatedAt time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	ProjectID       string    `json:"project_id"`
+	Name            string    `json:"name"`
+	Format          string    `json:"format"`
+	Public          bool      `json:"public"`
+	AllowedPackages []string  `json:"allowed_packages"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type OrgRepository struct {
@@ -68,8 +70,8 @@ func (s *Service) CreateRepository(ctx context.Context, projectID, name, format 
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO package_repositories (project_id, name, format)
 		VALUES ($1,$2,$3)
-		RETURNING id, project_id, name, format, public, created_at
-	`, projectID, name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt)
+		RETURNING id, project_id, name, format, public, allowed_packages, created_at
+	`, projectID, name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
 	if err != nil && strings.Contains(err.Error(), "SQLSTATE 23505") {
 		return Repository{}, identity.ErrConflict
 	}
@@ -78,7 +80,7 @@ func (s *Service) CreateRepository(ctx context.Context, projectID, name, format 
 
 func (s *Service) ListRepositories(ctx context.Context, projectID string) ([]Repository, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_id, name, format, public, created_at
+		SELECT id, project_id, name, format, public, allowed_packages, created_at
 		FROM package_repositories WHERE project_id = $1 ORDER BY name
 	`, projectID)
 	if err != nil {
@@ -88,7 +90,7 @@ func (s *Service) ListRepositories(ctx context.Context, projectID string) ([]Rep
 	var out []Repository
 	for rows.Next() {
 		var r Repository
-		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -98,7 +100,7 @@ func (s *Service) ListRepositories(ctx context.Context, projectID string) ([]Rep
 
 func (s *Service) ListRepositoriesForOrg(ctx context.Context, orgID string) ([]OrgRepository, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT r.id, r.project_id, r.name, r.format, r.public, r.created_at, p.slug, p.name
+		SELECT r.id, r.project_id, r.name, r.format, r.public, r.allowed_packages, r.created_at, p.slug, p.name
 		FROM package_repositories r
 		JOIN projects p ON p.id = r.project_id
 		WHERE p.organization_id = $1
@@ -111,7 +113,7 @@ func (s *Service) ListRepositoriesForOrg(ctx context.Context, orgID string) ([]O
 	var out []OrgRepository
 	for rows.Next() {
 		var r OrgRepository
-		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt, &r.ProjectSlug, &r.ProjectName); err != nil {
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt, &r.ProjectSlug, &r.ProjectName); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -203,9 +205,9 @@ func (s *Service) ListVersions(ctx context.Context, repoID string) ([]Version, e
 func (s *Service) GetRepository(ctx context.Context, projectID, repoID string) (Repository, error) {
 	var r Repository
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, project_id, name, format, public, created_at
+		SELECT id, project_id, name, format, public, allowed_packages, created_at
 		FROM package_repositories WHERE id::text = $1 AND project_id = $2
-	`, repoID, projectID).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt)
+	`, repoID, projectID).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Repository{}, identity.ErrNotFound
 	}
@@ -218,10 +220,10 @@ func (s *Service) GetRepository(ctx context.Context, projectID, repoID string) (
 func (s *Service) GetRepositoryByName(ctx context.Context, projectID, name, format string) (Repository, error) {
 	var r Repository
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, project_id, name, format, public, created_at
+		SELECT id, project_id, name, format, public, allowed_packages, created_at
 		FROM package_repositories
 		WHERE project_id = $1 AND name = $2 AND format = $3
-	`, projectID, name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt)
+	`, projectID, name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Repository{}, identity.ErrNotFound
 	}
@@ -234,12 +236,12 @@ func (s *Service) GetRepositoryByName(ctx context.Context, projectID, name, form
 func (s *Service) GetPublicRepository(ctx context.Context, orgSlug, projectSlug, name, format string) (Repository, error) {
 	var r Repository
 	err := s.pool.QueryRow(ctx, `
-		SELECT r.id, r.project_id, r.name, r.format, r.public, r.created_at
+		SELECT r.id, r.project_id, r.name, r.format, r.public, r.allowed_packages, r.created_at
 		FROM package_repositories r
 		JOIN projects p ON p.id = r.project_id
 		JOIN organizations o ON o.id = p.organization_id
 		WHERE o.slug = $1 AND p.slug = $2 AND r.name = $3 AND r.format = $4 AND r.public
-	`, strings.ToLower(orgSlug), strings.ToLower(projectSlug), name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt)
+	`, strings.ToLower(orgSlug), strings.ToLower(projectSlug), name, format).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Repository{}, identity.ErrNotFound
 	}
@@ -254,8 +256,30 @@ func (s *Service) SetRepositoryPublic(ctx context.Context, projectID, repoID str
 	err := s.pool.QueryRow(ctx, `
 		UPDATE package_repositories SET public = $3
 		WHERE id::text = $1 AND project_id = $2
-		RETURNING id, project_id, name, format, public, created_at
-	`, repoID, projectID, public).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.CreatedAt)
+		RETURNING id, project_id, name, format, public, allowed_packages, created_at
+	`, repoID, projectID, public).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Repository{}, identity.ErrNotFound
+	}
+	if err != nil {
+		return Repository{}, err
+	}
+	return r, nil
+}
+
+func (s *Service) SetRepositoryAllowedPackages(ctx context.Context, projectID, repoID string, allowed []string) (Repository, error) {
+	cleaned := []string{}
+	for _, name := range allowed {
+		if name = strings.TrimSpace(name); name != "" && !slices.Contains(cleaned, name) {
+			cleaned = append(cleaned, name)
+		}
+	}
+	var r Repository
+	err := s.pool.QueryRow(ctx, `
+		UPDATE package_repositories SET allowed_packages = $3
+		WHERE id::text = $1 AND project_id = $2
+		RETURNING id, project_id, name, format, public, allowed_packages, created_at
+	`, repoID, projectID, cleaned).Scan(&r.ID, &r.ProjectID, &r.Name, &r.Format, &r.Public, &r.AllowedPackages, &r.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Repository{}, identity.ErrNotFound
 	}
