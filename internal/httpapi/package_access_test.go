@@ -158,6 +158,42 @@ func TestPackageRepoAnonymousAccess(t *testing.T) {
 			}
 		})
 	}
+	if _, err := pool.Exec(ctx, `UPDATE package_versions SET protected = true WHERE repository_id = $1 AND filename = 'demo-api-1.0.0.jar'`, priv.ID); err != nil {
+		t.Fatal(err)
+	}
+	put := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, maven+"private/"+jar, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+full)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	t.Run("protected re-upload with identical bytes succeeds", func(t *testing.T) {
+		if rec := put("jar"); rec.Code != http.StatusCreated {
+			t.Fatalf("got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+	t.Run("protected re-upload with different bytes is rejected", func(t *testing.T) {
+		rec := put("tampered")
+		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "is protected") {
+			t.Fatalf("got %d: %s", rec.Code, rec.Body.String())
+		}
+		req := httptest.NewRequest(http.MethodGet, maven+"private/"+jar, nil)
+		req.Header.Set("Authorization", "Bearer "+full)
+		got := httptest.NewRecorder()
+		h.ServeHTTP(got, req)
+		if got.Body.String() != "jar" {
+			t.Fatalf("stored bytes changed to %q", got.Body.String())
+		}
+		var events int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action = 'package_version.protected_overwrite_rejected' AND actor_user_id = $1`, user.ID).Scan(&events); err != nil {
+			t.Fatal(err)
+		}
+		if events != 1 {
+			t.Fatalf("expected 1 audit event, got %d", events)
+		}
+	})
+
 	var rejected int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE action = 'package_repository.upload_rejected' AND resource_id IN ($1, $2)`, pub.ID, npmPub.ID).Scan(&rejected); err != nil {
 		t.Fatal(err)

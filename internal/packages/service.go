@@ -2,6 +2,8 @@ package packages
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,8 @@ import (
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/identity"
 	"git.lunarlabs.dev/Shipyard/shipyard/internal/storage"
 )
+
+var ErrProtectedVersion = fmt.Errorf("%w: version is protected and the uploaded file differs from the stored one", identity.ErrConflict)
 
 type Repository struct {
 	ID              string    `json:"id"`
@@ -162,7 +166,13 @@ func (s *Service) PublishOrReplace(ctx context.Context, repoID, name, version, f
 	`, repoID, name, version, filename).
 		Scan(&existing.ID, &existing.RepositoryID, &existing.Name, &existing.Version, &existing.Filename, &existing.Digest, &existing.SizeBytes, &existing.CreatedAt, &existing.Metadata, &protected)
 	if scanErr == nil && protected {
-		_, _ = io.Copy(io.Discard, r)
+		h := sha256.New()
+		if _, err := io.Copy(h, r); err != nil {
+			return Version{}, err
+		}
+		if "sha256:"+hex.EncodeToString(h.Sum(nil)) != existing.Digest {
+			return existing, ErrProtectedVersion
+		}
 		return existing, nil
 	}
 	info, err := s.store.Put(ctx, "", r, size)

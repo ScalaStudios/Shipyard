@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"path"
@@ -236,6 +237,15 @@ func (s *Server) handleMavenPut(w http.ResponseWriter, r *http.Request) {
 	}
 	name, version := mavenCoords(artifactPath)
 	v, err := s.packages.PublishOrReplace(r.Context(), repoID, name, version, base, r.Body, size)
+	if errors.Is(err, packages.ErrProtectedVersion) {
+		event := audit.Event{Action: "package_version.protected_overwrite_rejected", ResourceType: "package_version", ResourceID: v.ID, IP: clientIP(r), UserAgent: r.UserAgent(), Metadata: map[string]any{"path": r.URL.Path, "stored_digest": v.Digest}}
+		if user, _, authErr := s.authenticate(r); authErr == nil {
+			event.ActorUserID = &user.ID
+		}
+		_ = s.audit.Record(r.Context(), event)
+		writeError(w, http.StatusConflict, artifactPath+" is protected and the uploaded bytes differ from the stored file")
+		return
+	}
 	if err != nil {
 		mapIdentityError(w, err)
 		return
