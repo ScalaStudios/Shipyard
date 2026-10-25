@@ -271,6 +271,10 @@ func (s *Server) mavenMetadataXML(w http.ResponseWriter, r *http.Request, repoID
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return nil, false
 	}
+	if len(versions) == 0 {
+		writeError(w, http.StatusNotFound, "not found")
+		return nil, false
+	}
 	var vers []string
 	updatedAt := time.Time{}
 	for _, v := range versions {
