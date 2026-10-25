@@ -60,6 +60,26 @@ services:
     privileged: true
     command: ["--addr", "tcp://0.0.0.0:1234"]
 
+  dind:
+    image: docker:29.9.2-dind
+    restart: unless-stopped
+    privileged: true
+    entrypoint:
+      - sh
+      - -c
+      - (while sleep 21600; do docker system prune -af --filter until=72h; docker volume prune -f; done) & exec dockerd-entrypoint.sh
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_TLS_SAN: DNS:dind
+    volumes:
+      - shipyard_dind_certs:/certs
+      - shipyard_dind_data:/var/lib/docker
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   shipyard-runner:
     build:
       context: ../..
@@ -74,14 +94,30 @@ services:
       SHIPYARD_RUNNER_TOKEN_FILE: /var/lib/shipyard/runner.token
       SHIPYARD_BUILDKIT_ADDR: tcp://buildkitd:1234
       SHIPYARD_WORKDIR: /var/lib/shipyard/work
+      DOCKER_HOST: tcp://dind:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
+      TESTCONTAINERS_HOST_OVERRIDE: dind
     volumes:
       - shipyard_runner:/var/lib/shipyard
+      - type: volume
+        source: shipyard_dind_certs
+        target: /certs/client
+        read_only: true
+        volume:
+          subpath: client
     depends_on:
-      - shipyard-server
-      - buildkitd
+      shipyard-server:
+        condition: service_started
+      buildkitd:
+        condition: service_started
+      dind:
+        condition: service_healthy
     profiles: ["runner"]
 
 volumes:
   shipyard_pg:
   shipyard_blobs:
   shipyard_runner:
+  shipyard_dind_certs:
+  shipyard_dind_data:
